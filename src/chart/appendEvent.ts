@@ -1,7 +1,8 @@
 import type { ChartDatabase } from './db';
 import { canonicalJson } from './eventId';
 import { type ChartEvent, type EventInput, validateEvent, validatePayload } from './eventTypes';
-import { decodeRow } from './exportEvents';
+import { validateChartCycleEvent } from './spellingCycles';
+import { decodeRow, exportEvents } from './exportEvents';
 
 export function appendEvent(db: ChartDatabase, event: EventInput): ChartEvent {
   try {
@@ -21,10 +22,15 @@ export function appendEvent(db: ChartDatabase, event: EventInput): ChartEvent {
         return { stored, duplicate: true };
       }
       for (const citation of input.cites) if (!lookup.get(citation)) throw new Error('chart_citation_missing:' + citation);
+      if (input.type === 'assignment.ingested' && exportEvents(db).some(event => event.type === 'assignment.ingested' && event.payload.assignmentId === input.payload.assignmentId)) throw new Error('chart_assignment_identity_conflict');
+      if (input.type.startsWith('spelling.cycle_')) validateChartCycleEvent(input, exportEvents(db));
       if (input.type === 'correction.recorded') {
         const targetId = String(input.payload.target_event_id);
         if (!input.cites.includes(targetId)) throw new Error('chart_correction_citation');
         const target = decodeRow(lookup.get(targetId));
+        if (target.type.startsWith('spelling.cycle_')) throw new Error('chart_cycle_correction_requires_new_command');
+        if (target.type === 'assignment.ingested' && (input.payload.replacement_payload as Record<string, unknown>).assignmentId !== target.payload.assignmentId) throw new Error('chart_assignment_identity_immutable');
+        if (target.type === 'assignment.ingested' && exportEvents(db).some(event => event.type === 'spelling.cycle_created' && event.cites.includes(targetId))) throw new Error('chart_bound_assignment_correction');
         if (target.type === 'correction.recorded') throw new Error('chart_correction_target');
         if (input.occurred_at < target.occurred_at) throw new Error('chart_correction_time');
         validatePayload(target.type, input.payload.replacement_payload);

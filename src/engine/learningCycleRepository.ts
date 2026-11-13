@@ -774,7 +774,13 @@ export function createLearningCycle(
     if (fs.existsSync(backup)) throw new Error(`learning_cycle_legacy_backup_already_exists:${input.homeworkId}`);
     fs.renameSync(file, backup);
   }
-  const at = nowIso(opts);
+  const cycle = reduceLearningCycleCreation(input, nowIso(opts));
+  atomicWrite(file, cycle);
+  return cycle;
+}
+
+/** The same contract validation serves legacy persistence and event replay. */
+export function reduceLearningCycleCreation(input: CreateLearningCycleInput, at: string): LearningCycleRecordV2 {
   const { initialLifecycle, ...recordInput } = input;
   const cycle: LearningCycleRecordV2 = {
     schemaVersion: 2,
@@ -793,7 +799,6 @@ export function createLearningCycle(
   };
   normalizeAgencyNodeStates(cycle);
   assertCycle(cycle);
-  atomicWrite(file, cycle);
   return cycle;
 }
 
@@ -1200,11 +1205,22 @@ export function transitionLearningCycle(
 ): LearningCycleRecordV2 {
   const current = getLearningCycle(childId, homeworkId, opts);
   if (!current) throw new Error(`learning_cycle_missing:${homeworkId}`);
+  const next = reduceLearningCycleTransition(current, expectedVersion, event, nowIso(opts));
+  if (next === current) return current;
+  atomicWrite(cyclePath(next.childId, next.homeworkId, opts), next);
+  appendDecisionTrace(next, next.decisionHistory.at(-1)!, opts);
+  return next;
+}
+
+/** No persistence: rejected commands leave either authority unchanged. */
+export function reduceLearningCycleTransition(
+  current: LearningCycleRecordV2, expectedVersion: number, event: LearningCycleEvent, at: string,
+): LearningCycleRecordV2 {
+  const { childId, homeworkId } = current;
   if (current.revision !== expectedVersion) {
     throw new Error(`learning_cycle_revision_conflict:expected=${expectedVersion}:actual=${current.revision}`);
   }
   const next = structuredClone(current);
-  const at = nowIso(opts);
   const fromLifecycle = current.lifecycle;
   let reason = "";
   let nextAction: string | undefined;
@@ -1599,8 +1615,6 @@ export function transitionLearningCycle(
   next.decisionHistory.push(decision);
   assertCycle(next);
   assertPublishedBoardsImmutable(current, next);
-  atomicWrite(cyclePath(next.childId, next.homeworkId, opts), next);
-  appendDecisionTrace(next, decision, opts);
   return next;
 }
 
