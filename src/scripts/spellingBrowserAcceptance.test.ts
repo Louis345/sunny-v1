@@ -512,8 +512,8 @@ it.each([
         await answer(word);
         if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
       }
-      await collectTreasureIfShown(page);
-      await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
+      // Since 2026-11-10 a finished stop returns straight to the map (no summary popup).
+      await leaveStopToMap(page);
       await page.screenshot({ path: completionScreenshotPath, timeout: 30000 });
 
       await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.lifecycle).toBe("awaiting_calibration");
@@ -631,13 +631,14 @@ it.each([
     await page.getByText("Recall check", { exact: true }).first().click();
     await page.getByRole("button", { name: "Ready!", exact: true }).click();
     await answer("night"); await page.getByTestId("word-radar-input").waitFor(); await answer("light");
-    await collectTreasureIfShown(page);
-    await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
+    await leaveStopToMap(page);
+    await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })!.predictionEvaluations.length).toBe(2);
     const after = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(after.predictionEvaluations).toHaveLength(2);
     expect(after.nodes.some(node => node.role === "quest" || node.role === "boss")).toBe(false);
     const attemptsBeforeReplay = events.filter(event => event.includes("/discovery/attempt")).length;
-    await page.getByRole("button", { name: "Play again", exact: true }).click();
+    // A child replays a finished stop by tapping it again on the map (the summary's Play again is gone since 2026-11-10).
+    await page.getByText("Recall check", { exact: true }).first().click();
     const ready = page.getByRole("button", { name: "Ready!", exact: true });
     await Promise.race([ready.waitFor(), page.getByTestId("word-radar-input").waitFor()]);
     if (await ready.isVisible()) await ready.click();
@@ -647,8 +648,8 @@ it.each([
     await page.getByTestId("word-radar-btn-skip").click();
     await page.getByTestId("word-radar-input").waitFor();
     await page.getByTestId("word-radar-input").fill("light");
-    await collectTreasureIfShown(page);
-    await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
+    await leaveStopToMap(page);
+    await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })!.observations.length).toBe(after.observations.length + 2);
     const replayed = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(replayed.observations.slice(0, after.observations.length)).toEqual(after.observations);
     expect(replayed.predictionEvaluations).toEqual(after.predictionEvaluations);

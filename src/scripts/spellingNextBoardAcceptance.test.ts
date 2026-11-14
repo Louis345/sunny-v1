@@ -213,8 +213,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     ws.clients.forEach(socket => socket.terminate());
     await elliSeesScreen(/Recall Checkpoint is open/);
     await playRadar(words, true);
-    await collectTreasureIfShown(page);
-    await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
+    await leaveStopToMap(page);
     await noModal();
     // Completing the Teaching board calls the Planner once, and the server builds the next board by itself.
     await expect.poll(() => { const cycle = getLearningCycle(childId, homeworkId, { rootDir })!; const board = currentBoardInstance(cycle); return board.boardId !== teaching.boardId && board.publishedAt !== null; }, { timeout: 60000 }).toBe(true);
@@ -245,8 +244,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     await playLetterRush(label("Letter Rush"), missedWords);
     await page.getByRole("button", { name: label("Recall Checkpoint"), exact: true }).click();
     await playRadar(words, true);
-    await collectTreasureIfShown(page);
-    await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
+    await leaveStopToMap(page);
     await noModal();
     // Every answer lands on the next board's fresh questions, and finishing it hands back to the Planner.
     await expect.poll(() => lab.planner.decisions, { timeout: 60000 }).toBe(2);
