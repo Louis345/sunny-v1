@@ -139,6 +139,43 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
       material: { tint: "#ff8a4c" },
       qa: { status: "approved" },
     },
+    // Waiting for Saori's try-on (owner, 2026-11-14): shown in testing mode only until priced in the reward catalog.
+    {
+      id: "mint-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Mint Ribbon Dress",
+      price: 130,
+      styleTags: ["calm", "green", "fresh", "ribbon"],
+      material: { tint: "#7be0b5" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "lavender-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Lavender Ribbon Dress",
+      price: 130,
+      styleTags: ["dreamy", "purple", "soft", "ribbon"],
+      material: { tint: "#b9a2ff" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "ruby-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Ruby Ribbon Dress",
+      price: 140,
+      styleTags: ["bold", "red", "royal", "ribbon"],
+      material: { tint: "#e0384f" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "snow-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Snow Ribbon Dress",
+      price: 140,
+      styleTags: ["elegant", "white", "classic", "ribbon"],
+      material: { tint: "#f4f6ff" },
+      qa: { status: "approved" },
+    },
   ],
 });
 
@@ -556,6 +593,10 @@ export function wardrobeItemEvidence(item: WardrobeStoreItem, companionModelUrl:
   const outfitId = item.asset.outfitId;
   return record.garments.some(g => g.outfitId === outfitId && g.visual === "passed") ? "automated" : "none";
 }
+
+/** New items waiting for a grown-up's try-on in testing mode (owner, 2026-11-14). They stay out of the kids' shop
+ * (no reward price) until approved; then the id leaves this list and gets its price in the reward catalog. */
+export const AWAITING_TRY_ON_ITEM_IDS: readonly string[] = ["mint-ribbon-dress", "lavender-ribbon-dress", "ruby-ribbon-dress", "snow-ribbon-dress"];
 
 export function getCompatibleWardrobeItems(
   catalog: readonly WardrobeStoreItem[],

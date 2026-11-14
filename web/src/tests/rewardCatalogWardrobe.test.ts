@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { REWARD_CATALOG } from "../../../src/shared/rewardCatalog";
-import { WARDROBE_STORE_CATALOG, getCompatibleWardrobeItems } from "../lib/wardrobeStore";
+import { AWAITING_TRY_ON_ITEM_IDS, WARDROBE_STORE_CATALOG, getCompatibleWardrobeItems } from "../lib/wardrobeStore";
 import { walletShopItems } from "../lib/wardrobeWallet";
 import prepared from "../lib/wardrobePrepared.generated.json";
 
@@ -22,7 +22,8 @@ it("an outfit costs the same in the collection as in the wardrobe store", () => 
 // approved but had no price, so the wallet shelf hid them. Every shop item now has a price in both catalogs, and the
 // ribbon dress comes in more colours.
 it("every wardrobe item is priced in the shop and the collection, so none is hidden", () => {
-  for (const item of WARDROBE_STORE_CATALOG) {
+  // Only an item still waiting for its try-on may be unpriced (2026-11-14); approval prices it.
+  for (const item of WARDROBE_STORE_CATALOG.filter(row => !AWAITING_TRY_ON_ITEM_IDS.includes(row.id))) {
     expect(item.price, item.id).toBeGreaterThan(0);
     expect(REWARD_CATALOG.find(row => row.kind === "outfit" && row.wardrobeItemId === item.id)?.price, item.id).toBe(item.price);
   }

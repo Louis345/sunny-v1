@@ -792,3 +792,15 @@ describe("WardrobeStoreLab testing mode", () => {
     for (const item of WARDROBE_STORE_CATALOG) expect(closet.textContent).toContain(item.name);
   });
 });
+
+// Owner 2026-11-14: new items for Saori to test. They appear in testing mode only; the kids' shop shows an item
+// only once it is priced in the reward catalog, which happens after she approves it.
+describe("new items waiting for approval", () => {
+  it("are in testing mode's catalog but not in the kids' shop", async () => {
+    const { walletShopItems } = await import("../lib/wardrobeWallet");
+    const fresh = ["mint-ribbon-dress", "lavender-ribbon-dress", "ruby-ribbon-dress", "snow-ribbon-dress"];
+    for (const id of fresh) expect(WARDROBE_STORE_CATALOG.some(item => item.id === id)).toBe(true);
+    const kidsShop = walletShopItems(WARDROBE_STORE_CATALOG, []).map(item => item.id);
+    for (const id of fresh) expect(kidsShop).not.toContain(id);
+  });
+});

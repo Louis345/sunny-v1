@@ -101,6 +101,10 @@ describe("wardrobe store domain", () => {
       "sky-ribbon-dress",
       "sunflower-ribbon-dress",
       "sunset-ribbon-dress",
+      "mint-ribbon-dress",
+      "lavender-ribbon-dress",
+      "ruby-ribbon-dress",
+      "snow-ribbon-dress",
       // Owner, 2026-11-10: an automated visual pass is approval, so garments with a passed review are listed too.
       "comet-hoodie",
       "constellation-blazer",
@@ -149,6 +153,10 @@ describe("wardrobe store domain", () => {
       "Sky Ribbon Dress",
       "Sunflower Ribbon Dress",
       "Sunset Ribbon Dress",
+      "Mint Ribbon Dress",
+      "Lavender Ribbon Dress",
+      "Ruby Ribbon Dress",
+      "Snow Ribbon Dress",
       "Comet Hoodie",
       "Constellation Blazer",
     ]);
