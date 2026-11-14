@@ -975,14 +975,8 @@ export class SessionManager {
 
   public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
     this.recordCompanionReplySupport(companionText);
-    recordActivityCompanionHelp({
-      childId: this.chartChildId,
-      companionId: this.companion.name,
-      userMessage,
-      companionText,
-      snapshot: this.currentBoardSnapshot,
-      presence: this.companionPresence,
-    });
+    recordActivityCompanionHelp({ childId: this.chartChildId, companionId: this.companion.name, userMessage, companionText,
+      snapshot: this.currentBoardSnapshot, presence: this.companionPresence });
   }
 
   public recordCompanionTruthContradictions(response: string): string[] {
