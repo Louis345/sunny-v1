@@ -187,6 +187,18 @@ it("asks every built game to report each step and its on-screen instruction", as
   }
 });
 
+// BUGS.md 2026-11-09 (Ila board 8, human-caught): she typed dormant and one more dashed box remained; she and her
+// parent counted eight spaces for seven letters and read it as a missing letter. The builder learns this as a fact
+// about her, not as a rule: what she and her parent do with boxes on screen.
+it("tells the spelling builder that she and her parent count boxes and dashes as letters", async () => {
+  const { buildSpellingGameAsk } = await import("./spellingGameBuilder");
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
+  const ask = buildSpellingGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir });
+  expect(ask).toMatch(/she and her parent count (each )?(dash|box)/i);
+  expect(ask).toContain("dormant");
+});
+
 // BUGS.md 2026-11-08 / owner 2026-11-13 ("garbage in, garbage out"): built games never reported hints, and the ask told
 // them Sunny keeps only her first answer, so retries and help went unreported. Every built game is now asked to report
 // every answer and every hint, and Sunny records whether the game it got can report hints.
