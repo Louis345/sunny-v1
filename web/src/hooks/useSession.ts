@@ -199,6 +199,8 @@ interface SessionState {
   reward: RewardEvent | null;
   error: string | null;
   errorFatal: boolean;
+  /** The server refused the session (fatal: true); retrying cannot help, a grown-up must fix it. */
+  errorNeedsGrownUp: boolean;
   warning: string | null;
   microphoneAvailable: boolean | null;
   loadingMessage: string | null;
@@ -506,6 +508,7 @@ export function useSession(options?: UseSessionOptions) {
     reward: null,
     error: null,
     errorFatal: false,
+    errorNeedsGrownUp: false,
     warning: null,
     microphoneAvailable: null,
     loadingMessage: null,
@@ -731,7 +734,7 @@ export function useSession(options?: UseSessionOptions) {
         }));
         return;
       }
-      setStateRef.current((s) => ({ ...s, error: "Connection lost", errorFatal: true, warning: null }));
+      setStateRef.current((s) => ({ ...s, error: "Connection lost", errorFatal: true, errorNeedsGrownUp: false, warning: null }));
     };
 
     ws.onclose = () => {
@@ -753,6 +756,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Connection lost after three reconnect attempts",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           phase: "picker",
         }));
@@ -1566,10 +1570,12 @@ export function useSession(options?: UseSessionOptions) {
           // Only an explicit dead end stops the session; any other error is a warning and the board stays.
           const fatal = msg.fatal === true;
           const message = (msg.message as string) ?? "Unknown error";
+          if (fatal) console.error(` 🎮 [session-connection] [server-error] [fatal] reason=${message}`);
           setStateRef.current((s) => ({
             ...s,
             error: fatal ? message : null,
             errorFatal: fatal,
+            errorNeedsGrownUp: fatal,
             warning: fatal ? null : message,
             diagGameSessionReady: fatal ? false : s.diagGameSessionReady,
             phase:
@@ -1749,6 +1755,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Microphone access denied",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           microphoneAvailable: false,
         }));
@@ -1996,6 +2003,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Connection timeout",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           phase: "picker",
           debugMode: false,
@@ -2085,6 +2093,7 @@ export function useSession(options?: UseSessionOptions) {
       reward: null,
       error: null,
       errorFatal: false,
+      errorNeedsGrownUp: false,
       warning: null,
       microphoneAvailable: null,
       loadingMessage: null,

@@ -291,6 +291,36 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.error).toBe("Session already active");
   });
 
+  // 2026-11-08 human catch (Reina math): the server rejected the session (assignment-validation, fatal: true),
+  // the kiosk showed "Sunny lost the connection" + "Try again", and retrying could never succeed. Logs had the
+  // rejection; no lab separated a server refusal (a grown-up must fix it) from a dropped socket (retry helps).
+  it("marks a fatal server rejection as needing a grown-up, but not a dropped connection", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("reina", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const ws = wsInstances[0]!;
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "error", fatal: true, message: "That assignment is no longer ready. Return to the child picker." }) } as MessageEvent));
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.errorNeedsGrownUp).toBe(true);
+  });
+
+  it("keeps a dropped connection retryable: reconnect exhaustion does not ask for a grown-up", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const original = wsInstances[0]!;
+    act(() => original.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    act(() => {
+      original.readyState = 3;
+      original.onclose?.();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.errorNeedsGrownUp).toBe(false);
+  });
+
   it("fails visibly after three reconnected sockets open but never acknowledge session startup", async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useSession());

@@ -2207,6 +2207,7 @@ function App() {
     main = (
       <HomeworkSessionRecovery
         error={state.error}
+        needsGrownUp={state.errorNeedsGrownUp}
         onRetry={() => window.location.reload()}
       />
     );
