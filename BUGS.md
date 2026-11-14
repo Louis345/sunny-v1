@@ -27,8 +27,8 @@ The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, t
 ### Saori's try-on of every item on every companion (human-caught, 2026-11-14)
 Testing mode (`/companions/?wardrobeLab=true`) now lends every item to every companion with no checks, so a grown-up sees how each really fits. Saori tried them all on Saori:
 - [x] Elli, Matilda and Hikari: everything looks good (the only fitted bodies).
-- [ ] W1 Royal Crown sits front-to-back on Melty, Tene and Towa, and does not show on Princess (likely their models face the other way from the crown's reference).
-- [ ] W2 Cat ears are too big and float on Melty, Princess, Tene and Towa (accessories are not sized or placed per head).
+- [x] W1 (fix 2026-11-14, waiting for Saori's re-check: accessories face where she faces) Royal Crown sits front-to-back on Melty, Tene and Towa, and does not show on Princess (likely their models face the other way from the crown's reference).
+- [x] W2 (fix 2026-11-14, waiting for Saori's re-check: sized and lifted from her own head and the model's scale) Cat ears are too big and float on Melty, Princess, Tene and Towa (accessories are not sized or placed per head).
 - [ ] W3 Kefla: the blazer and the hoodie are tops only and remove her own bottoms and boots ("she needs underwear or bottoms", "her boots disappear").
 - [ ] W4 Dresses fit badly at the shoulders: strange on Melty; Towa is missing the shoulder-to-elbow part.
 - [ ] W5 Princess: no outfit can be put on at all.

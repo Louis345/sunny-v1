@@ -2451,10 +2451,31 @@ export function removeWardrobeAccessory(accessory: THREE.Object3D | null): void 
   });
 }
 
+/** Which way she faces, level with the floor, from where her arms are (a person's left arm is on her left). */
+export function characterForward(leftArm: THREE.Object3D, rightArm: THREE.Object3D): THREE.Vector3 {
+  const left = leftArm.getWorldPosition(new THREE.Vector3());
+  const right = rightArm.getWorldPosition(new THREE.Vector3());
+  const forward = new THREE.Vector3().crossVectors(left.sub(right), new THREE.Vector3(0, 1, 0)).setY(0);
+  return forward.lengthSq() > 1e-10 ? forward.normalize() : new THREE.Vector3(0, 0, -1);
+}
+
+/** Her facing from the loaded model's arms, or undefined when the model has no arms to read. */
+function vrmFacing(vrm: { scene: THREE.Object3D; humanoid?: { getRawBoneNode(name: "leftUpperArm" | "rightUpperArm"): THREE.Object3D | null } | null } | null): THREE.Vector3 | undefined {
+  const left = vrm?.humanoid?.getRawBoneNode("leftUpperArm"), right = vrm?.humanoid?.getRawBoneNode("rightUpperArm");
+  if (!vrm || !left || !right) return undefined;
+  vrm.scene.updateMatrixWorld(true);
+  return characterForward(left, right);
+}
+
+/** Neck-to-head length of the reference head the accessories were made for (Elli, in model units). */
+const ACCESSORY_REFERENCE_NECK_TO_HEAD = 0.074;
+
 export function attachWardrobeAccessory(
   head: THREE.Object3D,
   accessoryId: Exclude<WardrobeAccessoryId, "none">,
   modelUrl = "",
+  /** Where her face points; accessories are made with their front toward -Z. */
+  facing?: THREE.Vector3,
 ): THREE.Group {
   const accessory = createWardrobeAccessory(accessoryId);
   try {
@@ -2467,17 +2488,23 @@ export function attachWardrobeAccessory(
     console.error(` 🎮 [wardrobe-accessory] attachment failed model=${modelUrl} accessory=${accessoryId}`,error);
     throw error;
   }
+  // No prepared fit (Saori's try-on, 2026-11-14): face where she faces, and size and lift it from her own head and the
+  // model's scale, so it neither sits backwards nor floats oversized on a bigger or smaller head.
   head.updateWorldMatrix(true, false);
-  const worldPosition = new THREE.Vector3();
-  head.getWorldPosition(worldPosition);
-  worldPosition.add(getWardrobeAccessoryWorldOffset(accessoryId));
+  const headScale = head.getWorldScale(new THREE.Vector3()).y;
+  const neckToHead = head.position.length();
+  const headSize = neckToHead > 1e-4 ? neckToHead / ACCESSORY_REFERENCE_NECK_TO_HEAD : 1;
+  const forward = facing ?? new THREE.Vector3(0, 0, -1);
+  const facingRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(-forward.x, -forward.z));
+  const worldPosition = head.getWorldPosition(new THREE.Vector3())
+    .add(getWardrobeAccessoryWorldOffset(accessoryId).applyQuaternion(facingRotation).multiplyScalar(headSize * headScale));
   accessory.position.copy(head.worldToLocal(worldPosition));
-  const headWorldQuaternion = new THREE.Quaternion();
-  head.getWorldQuaternion(headWorldQuaternion);
-  accessory.quaternion.copy(headWorldQuaternion.invert());
+  const headWorldQuaternion = head.getWorldQuaternion(new THREE.Quaternion());
+  accessory.quaternion.copy(headWorldQuaternion.invert().multiply(facingRotation));
+  accessory.scale.setScalar(headSize);
   head.add(accessory);
   console.log(
-    ` 🎮 [companion-wardrobe-lab] accessory_preview applied accessory=${accessoryId}`,
+    ` 🎮 [companion-wardrobe-lab] accessory_preview applied accessory=${accessoryId} headSize=${headSize.toFixed(2)} facing=${forward.x.toFixed(2)},${forward.z.toFixed(2)}`,
   );
   return accessory;
 }
@@ -2666,7 +2693,7 @@ function CompanionSlot({
     const head = wardrobeHeadRef.current;
     const nativeAccessory=wardrobeVrmSceneRef.current?retainIntrinsicAccessories(wardrobeVrmSceneRef.current,wardrobeAccessoryId):false;
     if (head && wardrobeAccessoryId !== "none" && !nativeAccessory) {
-      wardrobeAccessoryRef.current = attachWardrobeAccessory(head, wardrobeAccessoryId, showroomCompanionConfig.vrmUrl);
+      wardrobeAccessoryRef.current = attachWardrobeAccessory(head, wardrobeAccessoryId, showroomCompanionConfig.vrmUrl, vrmFacing(wardrobeVrmRef.current));
     }
   }, [wardrobeAccessoryId]);
 
@@ -2910,6 +2937,7 @@ function CompanionSlot({
               head,
               selectedAccessoryId,
               showroomCompanionConfig.vrmUrl,
+              vrmFacing(vrm),
             );
           }
           if (
