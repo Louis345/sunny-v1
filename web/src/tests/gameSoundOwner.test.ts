@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as gameSfx from "../utils/gameSfx";
 
@@ -6,6 +8,40 @@ import * as gameSfx from "../utils/gameSfx";
  * Every game sound shares one audio context (browsers cap open contexts, so a long session went silent)
  * and obeys the chart's sensory sheet (a child set to soft or silent heard full-volume chimes).
  */
+const SRC = resolve(__dirname, "..");
+
+/** Files that may make their own audio, each for a reason that is not game sound. */
+const NOT_GAME_SOUND: Record<string, string> = {
+  "utils/gameSfx.ts": "the one game-sound owner",
+  "hooks/useSession.ts": "companion speech playback and microphone capture",
+  "hooks/useDeepgramVideoCallStt.ts": "microphone capture for the video call",
+  "utils/companionTalkStream.ts": "streamed companion speech",
+  "stories/PronunciationScienceExpert.stories.tsx": "microphone recording in a story",
+  // Debt, logged in BUGS.md: the dressing room's speech lip-sync shares this file with its power-up and
+  // ringtone synths, which close their own context after playing but do not read the sensory sheet yet.
+  "components/CompanionShowroom.tsx": "speech lip-sync (power-up/ringtone synths logged in BUGS.md)",
+};
+
+const AUDIO_MAKER = /new\s+(?:window\.)?Audio\s*\(|new\s+(?:window\.)?AudioContext\b|webkitAudioContext/;
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) return name === "tests" || name === "node_modules" ? [] : sourceFiles(path);
+    return /\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name) ? [path] : [];
+  });
+}
+
+describe("one owner for game sound", () => {
+  it("no file outside gameSfx.ts makes its own audio for game sound", () => {
+    const owners = sourceFiles(SRC)
+      .filter((path) => AUDIO_MAKER.test(readFileSync(path, "utf8")))
+      .map((path) => relative(SRC, path))
+      .filter((path) => !(path in NOT_GAME_SOUND));
+    expect(owners).toEqual([]);
+  });
+});
+
 describe("gameSfx shared context and sensory sheet", () => {
   const created: { src: string; volume: number; playbackRate: number }[] = [];
   let contexts = 0;
