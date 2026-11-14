@@ -149,6 +149,8 @@ export type WardrobeStoreLabProps = {
   visitSeed?: string;
   /** The earned call: coins and ownership come from her saved wallet on the server, never demo coins. */
   wallet?: { childId: string };
+  /** Testing mode (owner 2026-11-14): every item is lent for try-on; nothing is bought or saved. */
+  testingCloset?: boolean;
 };
 
 function CompanionVoiceButton({
@@ -353,9 +355,14 @@ export function WardrobeStoreLab({
   exitLabel = "Back to the call",
   visitSeed,
   wallet,
+  testingCloset = false,
 }: WardrobeStoreLabProps) {
   const storageKey = storeStorageKey(wallet);
-  const [storeState, setStoreState] = useState<WardrobeStoreState>(() => loadStoreState(storageKey));
+  const [storeState, setStoreState] = useState<WardrobeStoreState>(() => {
+    if (!testingCloset || wallet) return loadStoreState(storageKey);
+    console.log(` 🎮 [wardrobe-store-lab] [testing-closet] [lent] items=${WARDROBE_STORE_CATALOG.length}`);
+    return { ...createInitialWardrobeStoreState(), ownedItemIds: WARDROBE_STORE_CATALOG.map((item) => item.id) };
+  });
   const [buying, setBuying] = useState(false);
   /** Her owned reward ids from the same server wallet the shop spends; null until it loads. */
   const [ownedRewardIds, setOwnedRewardIds] = useState<string[] | null>(null);
@@ -453,8 +460,8 @@ export function WardrobeStoreLab({
 
   const persist = useCallback((nextState: WardrobeStoreState) => {
     setStoreState(nextState);
-    saveStoreState(nextState, storageKey);
-  }, [storageKey]);
+    if (!testingCloset || wallet) saveStoreState(nextState, storageKey);
+  }, [storageKey, testingCloset, wallet]);
 
   const contextFor = useCallback(
     (

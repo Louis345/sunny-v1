@@ -7634,6 +7634,7 @@ export function CompanionShowroom({
             onWardrobeChange={handleWardrobeStoreChange}
             onShoppingContextChange={handleWardrobeShoppingContextChange}
             wallet={earnedCallWallet}
+            testingCloset={wardrobeLabEnabled && !earnedCallWallet}
             onDebugEvent={
               wardrobeDebugEnabled ? handleWardrobeDebugEvent : undefined
             }

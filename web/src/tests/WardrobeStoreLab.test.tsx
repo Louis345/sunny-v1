@@ -748,3 +748,31 @@ vi.mock("../lib/wardrobeBodyProfiles", async (importOriginal) => {
     reason: "TEST FIXTURE ONLY — synthetic human approval for shopping behavior",
   })};
 });
+
+// 2026-11-14 (owner-caught on Saori): in testing mode (/companions/?wardrobeLab=true, no wallet) the closet was empty,
+// so a grown-up checking the dresses could not try anything on. Testing mode lends every item that fits; nothing is
+// bought, and it never touches a child's wallet or saved look.
+describe("WardrobeStoreLab testing mode", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(cleanup);
+
+  it("puts every item that fits the companion in her closet, with no coins spent", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onExit={vi.fn()}
+        onWardrobeChange={vi.fn()}
+        visitSeed="testing-closet"
+        testingCloset
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Elli’s closet" }));
+    const fits = getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, companion.modelUrl, companion.id);
+    expect(fits.length).toBeGreaterThan(0);
+    const closet = screen.getByRole("dialog", { name: "Elli’s closet" });
+    for (const item of fits) expect(closet.textContent).toContain(item.name);
+    expect(window.localStorage.getItem(WARDROBE_STORE_STORAGE_KEY)).toBeNull();
+  });
+});
