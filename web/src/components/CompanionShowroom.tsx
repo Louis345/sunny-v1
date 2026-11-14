@@ -50,7 +50,7 @@ import {
   emitCompanionVideoCallTrace,
 } from "../utils/companionVideoCallTrace";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
-import { applyPreparedAccessoryFit, retainIntrinsicAccessories } from "../lib/wardrobeAccessoryFit";
+import { applyPreparedAccessoryFit, applyReferenceAccessoryFit, retainIntrinsicAccessories } from "../lib/wardrobeAccessoryFit";
 import {
   attachXwearOutfit,
   captureXwearAvatarBindPose,
@@ -2427,14 +2427,6 @@ function createWardrobeAccessory(
   return accessory;
 }
 
-function getWardrobeAccessoryWorldOffset(
-  accessoryId: Exclude<WardrobeAccessoryId, "none">,
-): THREE.Vector3 {
-  if (accessoryId === "halo") return new THREE.Vector3(0, 0.25, 0.005);
-  if (accessoryId === "cat-ears") return new THREE.Vector3(0, 0.16, 0);
-  return new THREE.Vector3(0, 0.16, 0);
-}
-
 export function removeWardrobeAccessory(accessory: THREE.Object3D | null): void {
   if (!accessory) return;
   accessory.removeFromParent();
@@ -2468,9 +2460,6 @@ function vrmFacing(vrm: { scene: THREE.Object3D; humanoid?: { getRawBoneNode(nam
   return characterForward(left, right);
 }
 
-/** Neck-to-head length of the reference head the accessories were made for (Elli, in model units). */
-const ACCESSORY_REFERENCE_NECK_TO_HEAD = 0.074;
-
 export function attachWardrobeAccessory(
   head: THREE.Object3D,
   accessoryId: Exclude<WardrobeAccessoryId, "none">,
@@ -2489,23 +2478,13 @@ export function attachWardrobeAccessory(
     console.error(` 🎮 [wardrobe-accessory] attachment failed model=${modelUrl} accessory=${accessoryId}`,error);
     throw error;
   }
-  // No prepared fit (Saori's try-on, 2026-11-14): face where she faces, and size and lift it from her own head and the
-  // model's scale, so it neither sits backwards nor floats oversized on a bigger or smaller head.
-  head.updateWorldMatrix(true, false);
-  const headScale = head.getWorldScale(new THREE.Vector3()).y;
-  const neckToHead = head.position.length();
-  const headSize = neckToHead > 1e-4 ? neckToHead / ACCESSORY_REFERENCE_NECK_TO_HEAD : 1;
+  // No prepared fit (Saori's try-on, 2026-11-14): wear Elli's fitted size and height, facing where her face points.
   const forward = facing ?? new THREE.Vector3(0, 0, -1);
   const facingRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(-forward.x, -forward.z));
-  const worldPosition = head.getWorldPosition(new THREE.Vector3())
-    .add(getWardrobeAccessoryWorldOffset(accessoryId).applyQuaternion(facingRotation).multiplyScalar(headSize * headScale));
-  accessory.position.copy(head.worldToLocal(worldPosition));
-  const headWorldQuaternion = head.getWorldQuaternion(new THREE.Quaternion());
-  accessory.quaternion.copy(headWorldQuaternion.invert().multiply(facingRotation));
-  accessory.scale.setScalar(headSize);
+  applyReferenceAccessoryFit(accessory, head, accessoryId, facingRotation);
   head.add(accessory);
   console.log(
-    ` 🎮 [companion-wardrobe-lab] accessory_preview applied accessory=${accessoryId} headSize=${headSize.toFixed(2)} facing=${forward.x.toFixed(2)},${forward.z.toFixed(2)}`,
+    ` 🎮 [companion-wardrobe-lab] accessory_preview applied accessory=${accessoryId} fit=elli-reference facing=${forward.x.toFixed(2)},${forward.z.toFixed(2)}`,
   );
   return accessory;
 }

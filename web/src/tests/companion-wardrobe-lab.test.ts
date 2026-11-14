@@ -330,9 +330,9 @@ describe("companion wardrobe feasibility lab", () => {
   });
 
   it("converts world-up placement into each VRM head bone's local coordinates", () => {
-    const source = readShowroomSource();
+    const source = readShowroomSource() + readFileSync(resolve(__dirname, "../lib/wardrobeAccessoryFit.ts"), "utf8");
 
-    expect(source).toContain("getWardrobeAccessoryWorldOffset");
+    expect(source).toContain("applyReferenceAccessoryFit");
     expect(source).toContain("head.getWorldPosition");
     expect(source).toContain("head.worldToLocal");
     expect(source).toContain("head.getWorldQuaternion");

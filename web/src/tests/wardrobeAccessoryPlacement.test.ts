@@ -39,15 +39,22 @@ describe("accessories on a companion with no prepared fit", () => {
     }
   });
 
-  it("sizes and lifts the accessory with her head size and the model's scale", () => {
-    const small = rig({ turnY: Math.PI, scale: 1, neckToHead: 0.074 });
-    const big = rig({ turnY: Math.PI, scale: 2, neckToHead: 0.095 });
-    const a = attachWardrobeAccessory(small.head, "cat-ears", "/companions/princess.vrm", characterForward(small.left, small.right));
-    const b = attachWardrobeAccessory(big.head, "cat-ears", "/companions/princess.vrm", characterForward(big.left, big.right));
+  it("wears the cat ears and crown at Elli's fitted size and height, whatever her neck-to-head bone length", () => {
+    // 2026-11-14 second try-on: the ears were still too big and floating. The fallback used a 1.0 scale and a 0.26 lift
+    // where Elli's fitted ears use 0.7 and 0.178; neck-to-head length is not a head size (Princess's is 0.022, Elli's 0.074).
     const size = (o: THREE.Object3D) => new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3()).y;
     const lift = (o: THREE.Object3D, h: THREE.Object3D) => new THREE.Box3().setFromObject(o).min.y - h.getWorldPosition(new THREE.Vector3()).y;
-    const expected = 2 * (0.095 / 0.074);
-    expect(size(b) / size(a)).toBeCloseTo(expected, 1);
-    expect(lift(b, big.head) / lift(a, small.head)).toBeCloseTo(expected, 1);
+    for (const accessoryId of ["cat-ears", "crown"] as const) {
+      const elli = rig({ turnY: 0, scale: 1, neckToHead: 0.074 });
+      const fitted = attachWardrobeAccessory(elli.head, accessoryId, "/companions/elli-wardrobe-identity-preserved-v1.vrm");
+      for (const neckToHead of [0.022, 0.074, 0.08]) {
+        for (const scale of [1, 2]) {
+          const other = rig({ turnY: Math.PI, scale, neckToHead });
+          const worn = attachWardrobeAccessory(other.head, accessoryId, "/companions/princess.vrm", characterForward(other.left, other.right));
+          expect(size(worn) / scale).toBeCloseTo(size(fitted), 3);
+          expect(lift(worn, other.head) / scale).toBeCloseTo(lift(fitted, elli.head), 3);
+        }
+      }
+    }
   });
 });
