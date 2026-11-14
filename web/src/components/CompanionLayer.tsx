@@ -32,6 +32,7 @@ import {
   deriveCompanionBehavior,
   type CompanionBehavior,
 } from "../context/companionCareBehavior";
+import { releaseCompanionRenderer } from "../lib/releaseCompanionRenderer";
 
 /** Interim animate→expression pulse keys (Opus will replace with procedural bones). */
 export const ANIMATE_TO_EXPRESSION_KEY = COMPANION_ANIMATE_TO_EXPRESSION_KEY;
@@ -596,7 +597,7 @@ export function CompanionLayer({
       console.log("CompanionLayer: [finishSetup] enter", { materialPipeline: "WebGL classic MToon", cancelled });
       if (cancelled) {
         console.log("CompanionLayer: [finishSetup] cancelled, disposing renderer");
-        renderer.dispose();
+        releaseCompanionRenderer(renderer, "companion-layer");
         return;
       }
       rendererRef.current = renderer;
@@ -696,13 +697,13 @@ export function CompanionLayer({
 
       if (cancelled || !renderer) {
         console.log("CompanionLayer: [init] stop after create", { cancelled, hasRenderer: Boolean(renderer) });
-        renderer?.dispose();
+        if (renderer) releaseCompanionRenderer(renderer, "companion-layer");
         return;
       }
 
       if (!mount) {
         console.error("CompanionLayer: [init] mount ref missing, cannot append canvas");
-        renderer.dispose();
+        releaseCompanionRenderer(renderer, "companion-layer");
         return;
       }
 
@@ -745,11 +746,7 @@ export function CompanionLayer({
       timerRef.current?.dispose();
       timerRef.current = null;
       if (rendererRef.current) {
-        const c = rendererRef.current.domElement;
-        if (c.parentNode) {
-          c.parentNode.removeChild(c);
-        }
-        rendererRef.current.dispose();
+        releaseCompanionRenderer(rendererRef.current, "companion-layer");
         rendererRef.current = null;
       }
     };

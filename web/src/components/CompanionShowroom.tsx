@@ -130,6 +130,7 @@ import {
   type CompanionVideoCompanionView,
   type CompanionVideoCallLayout,
 } from "./CompanionVideoCallOverlay";
+import { releaseCompanionRenderer } from "../lib/releaseCompanionRenderer";
 
 export const DEFAULT_SHOWROOM_THEME = "aurora";
 
@@ -2894,7 +2895,7 @@ function CompanionSlot({
 
     const finishSetup = (renderer: CompanionRenderer, webgpuMaterials: boolean) => {
       if (cancelled) {
-        renderer.dispose();
+        releaseCompanionRenderer(renderer, "wardrobe-selection");
         return;
       }
 
@@ -3071,7 +3072,7 @@ function CompanionSlot({
       }
 
       if (cancelled || !renderer) {
-        renderer?.dispose();
+        if (renderer) releaseCompanionRenderer(renderer, "wardrobe-selection");
         return;
       }
 
@@ -3118,10 +3119,7 @@ function CompanionSlot({
       rendererRef.current = null;
       vfxLayerRef.current?.dispose();
       vfxLayerRef.current = null;
-      if (renderer) {
-        renderer.domElement.remove();
-        renderer.dispose();
-      }
+      if (renderer) releaseCompanionRenderer(renderer, "wardrobe-selection");
       scene.clear();
       sceneRef.current = null;
       cameraRef.current = null;
