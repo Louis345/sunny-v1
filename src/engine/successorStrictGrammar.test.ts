@@ -58,6 +58,32 @@ describe("the next-board strict grammar does not grow with her history", () => {
   }
 });
 
+// P5 (2026-11-14): with the grammar small again, the next-board stage starts strict (memory expires). Invariant: the
+// strict tools stay within the documented limits (24 optional fields, 16 either-or fields, nothing unsupported), and no
+// strict enum is ever built from her history again: no allowed value is a game, word, evaluation or problem id of hers.
+describe("the next-board strict tools fit and list nothing from her history", () => {
+  for (const [subject, extra] of [["spelling", {}], ["math", { problems: 30 }]] as const) {
+    it(`${subject}: within the documented strict limits, with no history value as an enum`, () => {
+      const facts = history({ ...large, ...extra });
+      const strict = plannerToolDefinitions(spellingSuccessorToolkit(facts).tools).filter(tool => (tool as { strict?: boolean }).strict);
+      const budget = strictBudget(strict);
+      console.log(` 🎮 [strict-budget] [${subject}] tools=${strict.length} optional=${budget.optional} unions=${budget.unions}`);
+      expect(budget.unsupported).toEqual([]);
+      expect(budget.optional).toBeLessThanOrEqual(24);
+      expect(budget.unions).toBeLessThanOrEqual(16);
+      const enums: string[] = [];
+      const collect = (node: unknown): void => { if (Array.isArray(node)) node.forEach(collect); else if (node && typeof node === "object") for (const [key, value] of Object.entries(node)) key === "enum" ? enums.push(...(value as unknown[]).map(String)) : collect(value); };
+      strict.forEach(tool => collect(tool.input_schema));
+      const hers = new Set<string>([
+        ...(facts.builtIns ?? []).flatMap(row => [row.nodeId, ...row.wordIds]), ...(facts.playedGames ?? []).map(row => row.nodeId),
+        ...facts.evaluationIds, ...(facts.explainer?.words ?? []).flatMap(row => [row.wordId, row.word]), ...(facts.problems ?? []).map(row => row.id),
+      ]);
+      expect(hers.size).toBeGreaterThan(100);
+      expect(enums.filter(value => hers.has(value))).toEqual([]);
+    });
+  }
+});
+
 describe("code checks every history id the grammar no longer lists", () => {
   const session = (facts: SuccessorFacts) => {
     const kit = spellingSuccessorToolkit(facts), state = kit.initialState();

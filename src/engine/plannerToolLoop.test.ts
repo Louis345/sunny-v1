@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { strictBudget } from "./plannerTransport";
-import { DEFAULT_TOOL_LOOP_CAPS, plannerToolDefinitions, runPlannerToolLoop, type PlannerTool } from "./plannerToolLoop";
+import { DEFAULT_TOOL_LOOP_CAPS, STRICT_RETRY_AFTER_RUNS, plannerToolDefinitions, runPlannerToolLoop, type PlannerTool } from "./plannerToolLoop";
 
 type State = { added: string[]; finished: boolean };
 const tools: PlannerTool<State>[] = [
@@ -147,6 +147,36 @@ describe("planner tool loop", () => {
     const loose = scripted(reply({ name: "add", input: { word: "zebra" } }), reply({ name: "add", input: { word: "sign" } }, { name: "finish", input: { title: "Board" } }));
     const again = await run(async (request: any) => request.tools.some((tool: any) => tool.strict) ? send(request) : loose.send(request));
     expect(again.stats.errors).toBe(1);
+  });
+
+  // 2026-11-14 (P5): 80186e9e remembered a too-large stage for the whole server life, so once 4bc19c54 made the
+  // next-board grammar small again a long-running kiosk still sent every board unlocked. Invariant: the memory expires;
+  // after STRICT_RETRY_AFTER_RUNS unlocked starts the stage tries its strict tools again (and still retries once on refusal).
+  it("a stage remembered as too large starts unlocked only for a few runs, then tries strict again", async () => {
+    const tooLarge = () => Object.assign(new Error("400 The compiled grammar is too large"), { status: 400 });
+    let refuse = true;
+    const firstStrict: boolean[] = [];
+    const runOnce = async () => {
+      let first = true;
+      const script = scripted(reply({ name: "add", input: { word: "sign" } }, { name: "finish", input: { title: "Board" } }));
+      return runPlannerToolLoop<State>({ label: "expiring-memory", prompt: "FACTS", model: "claude-sonnet-5", maxTokens: 1000, tools, state: { added: [], finished: false }, finished: state => state.finished,
+        send: async (request: any) => {
+          const strict = request.tools.some((tool: any) => tool.strict);
+          if (first) { firstStrict.push(strict); first = false; }
+          if (strict && refuse) throw tooLarge();
+          return script.send(request);
+        } });
+    };
+    await runOnce();
+    for (let i = 0; i < STRICT_RETRY_AFTER_RUNS; i += 1) await runOnce();
+    expect(firstStrict).toEqual([true, ...Array(STRICT_RETRY_AFTER_RUNS).fill(false)]);
+    refuse = false;
+    const locked = await runOnce();
+    expect(firstStrict.at(-1)).toBe(true);
+    expect(locked.stats.stop).toBe("finished");
+    // Still strict next time once the provider accepts it.
+    await runOnce();
+    expect(firstStrict.at(-1)).toBe(true);
   });
 
   it("does not retry any other provider refusal", async () => {
