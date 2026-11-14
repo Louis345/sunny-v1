@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./BossDropReveal.css";
+import { playLootSfx } from "../utils/gameSfx";
 
 export type BossDropTier = "common" | "rare" | "epic" | "legendary";
 const TIERS: Record<BossDropTier, { color: string; label: string }> = {
@@ -10,17 +11,6 @@ const TIERS: Record<BossDropTier, { color: string; label: string }> = {
 };
 const ORDER: BossDropTier[] = ["common", "rare", "epic", "legendary"];
 
-function play(name: string, rate = 1, volume = 1): void {
-  try {
-    const sound = new Audio(`/sfx/loot/${name}.mp3`);
-    sound.playbackRate = rate;
-    sound.volume = volume;
-    void sound.play().catch(() => console.warn(` 🎮 [boss-drop] [sound] [blocked] ${name}`));
-  } catch {
-    console.warn(` 🎮 [boss-drop] [sound] [unavailable] ${name}`);
-  }
-}
-
 /** The approved unlock-ceremony loot card (owner, 2026-11-03): face-down, its glow climbs through the
  * tiers with ticks speeding up, then it flips to the tier the server rolled and saved. */
 export function BossDropReveal({ drop, onDone }: { drop: { tier: BossDropTier; coins: number }; onDone: () => void }) {
@@ -30,12 +20,12 @@ export function BossDropReveal({ drop, onDone }: { drop: { tier: BossDropTier; c
   useEffect(() => {
     const later = (ms: number, run: () => void) => timers.current.push(setTimeout(run, ms));
     const steps = 8 + ORDER.indexOf(drop.tier) * 3;
-    play("fanfare", 1, 0.7);
-    for (let i = 0; i < steps; i += 1) later(200 + i * (80 + i * 4), () => { setGlow(TIERS[ORDER[i % 4]].color); play("tick", 1 + i * 0.04, 0.5); });
+    playLootSfx("fanfare", 1, 0.7);
+    for (let i = 0; i < steps; i += 1) later(200 + i * (80 + i * 4), () => { setGlow(TIERS[ORDER[i % 4]].color); playLootSfx("tick", 1 + i * 0.04, 0.5); });
     later(200 + steps * (80 + steps * 4), () => {
       setGlow(TIERS[drop.tier].color);
       setPhase("revealed");
-      play(drop.tier);
+      playLootSfx(drop.tier, 1, 1);
       console.log(` 🎮 [boss-drop] [revealed] tier=${drop.tier} coins=${drop.coins}`);
     });
     return () => { timers.current.forEach(clearTimeout); timers.current = []; };

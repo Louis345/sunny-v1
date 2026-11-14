@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./NodeTreasureChest.css";
 import { REWARD_CATALOG } from "../../../src/shared/rewardCatalog";
+import { playLootSfx as play } from "../utils/gameSfx";
 
 /** The chest's colour says what she earned before she opens it; a mystery chest hides it until the lid lifts. */
 export type ChestRarity = "common" | "rare" | "epic" | "legendary";
@@ -34,17 +35,6 @@ export function callTimeLabel(seconds: number): string {
 const RARITY_NAME: Record<ChestRarity, string> = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" };
 const CHEST_NAME: Record<ChestKind, string> = { common: "Wooden chest", rare: "Rare chest", epic: "Epic chest", legendary: "Legendary chest", mystery: "Mystery chest" };
 const COIN_SPRAY = 10;
-
-function play(name: string, rate = 1, volume = 0.6): void {
-  try {
-    const sound = new Audio(`/sfx/loot/${name}.mp3`);
-    sound.playbackRate = rate;
-    sound.volume = volume;
-    void sound.play().catch(() => console.warn(` 🎮 [node-chest] [sound] [blocked] ${name}`));
-  } catch {
-    console.warn(` 🎮 [node-chest] [sound] [unavailable] ${name}`);
-  }
-}
 
 /** Storybook prototype of the reward after each finished node (owner, 2026-11-06). It only shows a roll it is
  * given: rolling, saving and paying belong to the server, and nothing here touches learning evidence. */

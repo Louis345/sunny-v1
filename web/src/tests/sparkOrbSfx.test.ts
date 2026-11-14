@@ -208,8 +208,8 @@ describe("playSparkOrbSfx", () => {
     await Promise.resolve();
 
     expect(warn).toHaveBeenCalledWith(
-      " 🎮 [spark-orb-sfx] [file] [failed]",
-      expect.objectContaining({ id: "launch", error }),
+      " 🎮 [sfx] [file] [blocked]",
+      expect.objectContaining({ label: "spark-orb:launch", error }),
     );
   });
 });

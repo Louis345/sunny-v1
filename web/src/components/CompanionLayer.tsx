@@ -33,6 +33,7 @@ import {
   type CompanionBehavior,
 } from "../context/companionCareBehavior";
 import { releaseCompanionRenderer } from "../lib/releaseCompanionRenderer";
+import { playSynth, tone } from "../utils/gameSfx";
 
 /** Interim animate→expression pulse keys (Opus will replace with procedural bones). */
 export const ANIMATE_TO_EXPRESSION_KEY = COMPANION_ANIMATE_TO_EXPRESSION_KEY;
@@ -102,71 +103,20 @@ interface FeedComboState {
   eventId: string;
 }
 
-let companionFeedAudioContext: AudioContext | null = null;
-
-function getCompanionFeedAudioContext(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  const AudioContextCtor =
-    window.AudioContext ??
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext;
-  if (!AudioContextCtor) return null;
-  companionFeedAudioContext ??= new AudioContextCtor();
-  return companionFeedAudioContext;
-}
-
-function playTone(
-  ctx: AudioContext,
-  at: number,
-  fromHz: number,
-  toHz: number,
-  duration: number,
-  volume: number,
-  type: OscillatorType = "sine",
-) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(fromHz, at);
-  osc.frequency.exponentialRampToValueAtTime(toHz, at + duration);
-  gain.gain.setValueAtTime(volume, at);
-  gain.gain.exponentialRampToValueAtTime(0.001, at + duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(at);
-  osc.stop(at + duration + 0.025);
-}
-
 function playCompanionFeedSfx(reference: string, comboCount: number) {
-  const ctx = getCompanionFeedAudioContext();
-  if (!ctx) return;
-  void ctx.resume?.().catch(() => undefined);
-  const now = ctx.currentTime;
-
-  if (reference === "animation-b") {
-    [523, 659, 784, 1046].forEach((hz, index) => {
-      playTone(ctx, now + index * 0.055, hz, hz * 1.32, 0.18, 0.055, "triangle");
-    });
-    playTone(ctx, now + 0.18, 196, 330, 0.32, 0.035, "sine");
-    return;
-  }
-
-  playTone(ctx, now, 180, 95, 0.075, 0.055, "triangle");
-  playTone(ctx, now + 0.075, 420, 760, 0.13, 0.035, "sine");
-  if (comboCount >= 2) {
+  playSynth("companion-feed", (ctx, out) => {
+    if (reference === "animation-b") {
+      [523, 659, 784, 1046].forEach((hz, index) => tone(ctx, out, hz, index * 0.055, 0.18, 0.055, "triangle", hz * 1.32));
+      tone(ctx, out, 196, 0.18, 0.32, 0.035, "sine", 330);
+      return;
+    }
+    tone(ctx, out, 180, 0, 0.075, 0.055, "triangle", 95);
+    tone(ctx, out, 420, 0.075, 0.13, 0.035, "sine", 760);
+    if (comboCount < 2) return;
     const start = comboCount >= 5 ? 620 : 520;
-    [0, 1, 2].forEach((step) => {
-      playTone(
-        ctx,
-        now + 0.16 + step * 0.055,
-        start * (1 + step * 0.22),
-        start * (1.25 + step * 0.22),
-        0.13,
-        comboCount >= 4 ? 0.045 : 0.03,
-        "sine",
-      );
-    });
-  }
+    [0, 1, 2].forEach((step) =>
+      tone(ctx, out, start * (1 + step * 0.22), 0.16 + step * 0.055, 0.13, comboCount >= 4 ? 0.045 : 0.03, "sine", start * (1.25 + step * 0.22)));
+  });
 }
 
 /**

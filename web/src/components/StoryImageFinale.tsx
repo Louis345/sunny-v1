@@ -1,38 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { playSynthCue } from "../utils/gameSfx";
 
 type PurchaseResult = { balance: number; cost: number };
-
-function playSpendSound(): void {
-  try {
-    const AC =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AC) return;
-    const ac = new AC();
-    if (ac.state === "suspended") void ac.resume();
-    const start = ac.currentTime;
-    const freqs = [780, 620, 480];
-    freqs.forEach((freq, idx) => {
-      const osc = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.connect(gain);
-      gain.connect(ac.destination);
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, start + idx * 0.07);
-      gain.gain.setValueAtTime(0.0001, start + idx * 0.07);
-      gain.gain.linearRampToValueAtTime(0.11, start + idx * 0.07 + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + idx * 0.07 + 0.16);
-      osc.start(start + idx * 0.07);
-      osc.stop(start + idx * 0.07 + 0.18);
-    });
-    window.setTimeout(() => {
-      void ac.close().catch(() => {});
-    }, 800);
-  } catch {
-    /* ignore */
-  }
-}
 
 export type StoryImageFinaleProps = {
   childId: string;
@@ -133,7 +102,7 @@ export function StoryImageFinale(props: StoryImageFinaleProps) {
         throw new Error("Movie generation failed. Coins were not spent.");
       }
       const out = await props.onPurchaseMovie(props.purchaseCost);
-      playSpendSound();
+      playSynthCue("spend");
       await animateBalance(currentBalance, out.balance);
       setMovieUrl(generatedMovieUrl);
       setMovieUnlocked(true);

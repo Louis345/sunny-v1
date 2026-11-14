@@ -4,7 +4,7 @@ import {
   COMPANION_ACTIVITY_MIN_REVEAL_MS,
   runCompanionActivityTurn,
 } from "./companionActivities/activityTurnGate";
-import { playCompanionActivitySfx } from "./companionActivities/companionActivitySfx";
+import { playCompanionActivitySfx } from "../utils/gameSfx";
 import type {
   CompanionActivityComponentProps,
   CompanionActivityGameEvent,

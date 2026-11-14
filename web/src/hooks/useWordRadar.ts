@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { classifyKaraokeWordMatch } from "../../../src/shared/karaokeMatchWord";
 import { LETTER_ALIASES } from "../../../src/shared/letterAliases";
+import { playSynthCue } from "../utils/gameSfx";
 import type {
   ItemResult,
   RadarItem,
@@ -18,51 +19,6 @@ type CapturedWordRadarResponse = Pick<
   | "matchRatio"
   | "skipped"
 >;
-
-function playChime() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const t = ctx.currentTime;
-    [523, 659, 784].forEach((freq, i) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = "sine";
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(0.28, t + i * 0.08);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.08 + 0.35);
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.start(t + i * 0.08);
-      o.stop(t + i * 0.08 + 0.4);
-    });
-  } catch {
-    /* Web Audio optional */
-  }
-}
-
-function playBuzz() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const t = ctx.currentTime;
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "sawtooth";
-    o.frequency.setValueAtTime(180, t);
-    o.frequency.exponentialRampToValueAtTime(60, t + 0.3);
-    g.gain.setValueAtTime(0.3, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-    o.connect(g);
-    g.connect(ctx.destination);
-    o.start(t);
-    o.stop(t + 0.4);
-  } catch {
-    /* Web Audio optional */
-  }
-}
 
 export const WORD_RADAR_FLASH_MS = 1500;
 export const WORD_RADAR_FEEDBACK_MS = 900;
@@ -426,7 +382,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
   );
 
   const spendRetryPenalty = useCallback(() => {
-    playBuzz();
+    playSynthCue("wordRadarBuzz");
     if (!canTryAgainRef.current) return;
     attemptCountRef.current = 2;
     setAttemptCount(2);
@@ -514,9 +470,9 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       const item = itemsRef.current[itemIndexRef.current];
       if (!item) return;
       if (correct && !assessmentRef.current) {
-        playChime();
+        playSynthCue("wordRadarChime");
       } else if (!assessmentRef.current && incorrectReason !== "skip") {
-        playBuzz();
+        playSynthCue("wordRadarBuzz");
       }
       const row: ItemResult = {
         item,

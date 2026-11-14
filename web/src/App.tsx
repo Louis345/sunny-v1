@@ -127,6 +127,7 @@ import {
   playAdventureBoardSfx,
   playUnlockCeremonySfx,
   playGeneratedMathSfx,
+  setGameSfxSensory,
   type GeneratedMathSfxCue,
 } from "./utils/gameSfx";
 
@@ -765,6 +766,9 @@ function App() {
     plannerBoardRuntimeRequested,
   );
   const refreshPlannerBoardPacket = plannerBoardPacketState.refreshPacket;
+  // Every game sound follows her chart's sensory sheet (BUGS.md 2026-11-08, I4).
+  const plannerBoardSensory = plannerBoardPacketState.packet?.childChart.sensory;
+  useEffect(() => setGameSfxSensory(plannerBoardSensory), [plannerBoardSensory]);
   const plannerBoardPacket =
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet

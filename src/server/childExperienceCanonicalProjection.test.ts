@@ -21,4 +21,14 @@ describe("child experience packet canonical projection", () => {
 
     expect(buildChildExperiencePacket(chart).activeSessionPlan?.planId).toBe("canonical-r8");
   });
+
+  it("carries the chart's sensory sheet so the kiosk can set game sound volume", () => {
+    const sensory = { soundEnabled: false, soundVolume: 0.3, soundBrightness: "soft", motion: "calm" };
+    const chart = {
+      childId: "ila", identity: {}, companion: { presetId: "elli", displayName: "Elli", config: {} },
+      companionCare: {}, economy: {}, adventureMapProfile: {}, sensory, activeSessionPlan: null, homework: {},
+    } as unknown as ChildChart;
+
+    expect(buildChildExperiencePacket(chart).childChart.sensory).toEqual(sensory);
+  });
 });

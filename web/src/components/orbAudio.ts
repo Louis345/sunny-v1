@@ -5,6 +5,8 @@
  * theme pack's own files. Speech is the browser's voice in this prototype; production uses the companion's.
  */
 
+import { getGameSfxSensory, getSharedAudioContext } from "../utils/gameSfx";
+
 export type OrbSoundMap = Record<string, string>;
 
 /** Where the beat is in a music bed: measured from the file (tempo and the first downbeat). */
@@ -47,7 +49,7 @@ export class OrbAudio {
   private musicOn = true;
 
   private readonly sounds: OrbSoundMap;
-  private readonly volume: number;
+  private volume: number;
 
   constructor(sounds: OrbSoundMap, volume = 1) {
     this.sounds = sounds;
@@ -56,9 +58,12 @@ export class OrbAudio {
 
   async load(): Promise<void> {
     try {
-      const Context = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Context) return;
-      this.context = new Context();
+      // The shared game-sound context, at the child's sensory volume (silent sheet: no audio at all).
+      const sensory = getGameSfxSensory();
+      if (!sensory.soundEnabled || sensory.soundVolume <= 0) return;
+      this.context = getSharedAudioContext();
+      if (!this.context) return;
+      this.volume *= sensory.soundVolume;
       this.music = this.context.createGain();
       this.music.gain.value = (this.musicOn ? 0.28 : 0) * this.volume;
       // The music runs through a filter: closed it is a muffled heartbeat (the build), open it is the drop.
@@ -234,6 +239,9 @@ export class OrbAudio {
       }
     });
     if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
-    void this.context?.close().catch(() => undefined);
+    // The context is shared with every game sound: unplug this game's buses instead of closing it.
+    this.music?.disconnect();
+    this.filter?.disconnect();
+    this.effects?.disconnect();
   }
 }

@@ -1,9 +1,5 @@
-import {
-  DEFAULT_SENSORY_PROFILE,
-  type SensoryProfile,
-  type SensorySoundBrightness,
-} from "../../../src/shared/sensoryProfile";
-import { GAME_SFX, getSharedAudioContext } from "./gameSfx";
+import type { SensoryProfile } from "../../../src/shared/sensoryProfile";
+import { GAME_SFX, getGameSfxSensory, getSharedAudioContext, playSfxFile, playSynth, sfxOutput } from "./gameSfx";
 
 export type SparkOrbSfxId =
   | "charge"
@@ -26,7 +22,7 @@ export interface SparkOrbSfxOptions {
   audioMode?: SparkOrbSfxAudioMode;
   audioAssets?: Partial<Record<SparkOrbSfxId, string>>;
   volume?: number;
-  /** The child's sensory sheet from the chart; neutral defaults when absent. */
+  /** The child's sensory sheet from the chart; the kiosk's current sheet when absent. */
   sensory?: SensoryProfile;
 }
 
@@ -38,11 +34,6 @@ export interface SparkOrbPullTone {
 
 const DEFAULT_FILE_VOLUME = 0.82;
 const PITCH_VARIATION = 0.06;
-const BRIGHTNESS_CUTOFF_HZ: Record<SensorySoundBrightness, number> = {
-  soft: 2_400,
-  standard: 6_500,
-  bright: 16_000,
-};
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -59,39 +50,6 @@ function fileSourceFor(id: SparkOrbSfxId, options: SparkOrbSfxOptions): string |
   if (asset) return asset;
   if (options.audioMode === "file") return undefined;
   return (GAME_SFX.sparkOrb as Partial<Record<SparkOrbSfxId, string>>)[id];
-}
-
-function playFileSfx(id: SparkOrbSfxId, src: string, options: SparkOrbSfxOptions, sensory: SensoryProfile): boolean {
-  if (typeof Audio === "undefined") return false;
-  try {
-    const audio = new Audio(src);
-    const softness = sensory.soundBrightness === "soft" ? 0.8 : 1;
-    audio.volume = clamp01((options.volume ?? DEFAULT_FILE_VOLUME) * sensory.soundVolume * softness);
-    audio.playbackRate = pitchJitter();
-    audio.currentTime = 0;
-    const playResult = audio.play();
-    if (playResult && typeof playResult.catch === "function") {
-      void playResult.catch((error: unknown) => {
-        console.warn(" 🎮 [spark-orb-sfx] [file] [failed]", { id, src, error });
-      });
-    }
-    return true;
-  } catch (error) {
-    console.warn(" 🎮 [spark-orb-sfx] [file] [failed]", { id, src, error });
-    return false;
-  }
-}
-
-/** Per-sound output: volume from the sensory sheet, then a low-pass that rounds off harsh highs. */
-function createOutput(context: AudioContext, sensory: SensoryProfile, volume = 1): AudioNode {
-  const gain = context.createGain();
-  gain.gain.value = sensory.soundVolume * volume;
-  const filter = context.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = BRIGHTNESS_CUTOFF_HZ[sensory.soundBrightness];
-  gain.connect(filter);
-  filter.connect(context.destination);
-  return gain;
 }
 
 function tone(
@@ -170,8 +128,7 @@ function noise(
   source.stop(start + duration + 0.02);
 }
 
-function playSynth(id: SparkOrbSfxId, context: AudioContext, sensory: SensoryProfile): void {
-  const out = createOutput(context, sensory);
+function playOrbSynth(id: SparkOrbSfxId, context: AudioContext, out: AudioNode): void {
   const p = pitchJitter();
   switch (id) {
     case "charge":
@@ -238,35 +195,21 @@ function playSynth(id: SparkOrbSfxId, context: AudioContext, sensory: SensoryPro
 }
 
 export function playSparkOrbSfx(id: SparkOrbSfxId, options: SparkOrbSfxOptions = {}): void {
-  const sensory = options.sensory ?? DEFAULT_SENSORY_PROFILE;
-  // Sound turned off on the child's sensory sheet: an intentional silent no-op.
-  if (!sensory.soundEnabled || sensory.soundVolume <= 0) return;
-
+  const sensory = options.sensory ?? getGameSfxSensory();
   const src = fileSourceFor(id, options);
-  if (src && playFileSfx(id, src, options, sensory)) return;
-
-  const context = getSharedAudioContext();
-  if (!context) return;
-  try {
-    if (context.state === "suspended") {
-      void context.resume().catch((error: unknown) => {
-        console.warn(" 🎮 [spark-orb-sfx] [resume] [failed]", { id, error });
-      });
-    }
-    playSynth(id, context, sensory);
-  } catch (error) {
-    console.warn(" 🎮 [spark-orb-sfx] [play] [failed]", { id, error });
-  }
+  const label = `spark-orb:${id}`;
+  if (src && playSfxFile(src, { label, volume: options.volume ?? DEFAULT_FILE_VOLUME, rate: pitchJitter(), sensory })) return;
+  playSynth(label, (context, out) => playOrbSynth(id, context, out), sensory);
 }
 
 /** A held tone that rises as the child pulls the orb back, like a stretching band. */
 export function startSparkOrbPullTone(options: SparkOrbSfxOptions = {}): SparkOrbPullTone | null {
-  const sensory = options.sensory ?? DEFAULT_SENSORY_PROFILE;
+  const sensory = options.sensory ?? getGameSfxSensory();
   if (!sensory.soundEnabled || sensory.soundVolume <= 0) return null;
   const context = getSharedAudioContext();
   if (!context) return null;
   try {
-    const out = createOutput(context, sensory, 0.6);
+    const out = sfxOutput(context, sensory, 0.6);
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.type = "triangle";

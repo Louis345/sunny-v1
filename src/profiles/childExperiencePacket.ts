@@ -27,6 +27,8 @@ export type ChildExperiencePacket = {
     };
     companionCare: ChildChart["companionCare"];
     economy: ChildChart["economy"];
+    /** How loud and bright game sound is for her; the kiosk hands it to gameSfx. */
+    sensory?: ChildChart["sensory"];
     adventureMapProfile: AdventureMapProfile;
     learningCycle?: {
       homeworkId: string;
@@ -285,6 +287,7 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       },
       companionCare: chart.companionCare,
       economy: chart.economy,
+      sensory: chart.sensory,
       adventureMapProfile: chart.adventureMapProfile,
       learningCycle: chart.learningCycle
         ? {
