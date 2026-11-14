@@ -14,7 +14,7 @@ The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, t
 ### Records wrong evidence (fix first: bad records poison every prediction)
 - [ ] E1 A parent's or the room's voice is saved as hers; a parent coaching during a check is saved as "on her own" (11/09 "a parent coaching", 11/10 "A parent's voice", 11/04 "Room audio", 11/05 "Companion answers room conversation")
 - [x] E2 Retries on a game's last problem are lost (11/10 "Retries on the last problem") (fixed a4fe334d, 2026-11-14)
-- [ ] E3 Measurement audit (a)–(f): math answers dropped on early exit or replay; library games and late tries miss Elli's help; Elli's help during a spelling check not recorded; a whole-game answer when a game has no per-item results; nothing re-checks old words; "help asked" counts the word "help" (11/12 "Measurement audit") (a fixed cd8fbabb) (d fixed 8d01a408) (b fixed 3d91bbc0) (c fixed 0464b4fb) (f fixed c9129534; e, retention, is portfolio step 4)
+- [x] E3 (a, b, c, d, f fixed 2026-11-14; e, re-checking old words, parked as portfolio step 4) Measurement audit (a)–(f): math answers dropped on early exit or replay; library games and late tries miss Elli's help; Elli's help during a spelling check not recorded; a whole-game answer when a game has no per-item results; nothing re-checks old words; "help asked" counts the word "help" (11/12 "Measurement audit") (a fixed cd8fbabb) (d fixed 8d01a408) (b fixed 3d91bbc0) (c fixed 0464b4fb) (f fixed c9129534; e, retention, is portfolio step 4)
 - [x] E4 The picture explainer and Wheel of Words save no answers (11/04) (partial: Wheel fixed 14a3c426, 2026-11-14, records its word as hidden practice; neither game has spelled answers by design, so per_word_results_unavailable stays. Explainer unchanged: it already records each shown word as exposure and its chunk tap as non_spelling_response; whether board 7 saved that exposure is unverified)
 - [x] E5 Spelling intake writes the test date as empty (11/08 "Practice should move toward test conditions", still-open part) (fixed f3082ebd, 2026-11-14)
 - [x] E6 Word Builder: "Finish (struggle)" sends her target as her answer; `Invalid attempt domain: undefined` *(Oct)* (11/08 "A lost game does not count as done", still-open part) (fixed "Word Builder's struggle finish ends the run honestly", 2026-11-14)
@@ -47,7 +47,7 @@ Why the human caught it: until today no screen let anyone put an unapproved item
 - [ ] S9 Kappa Pond numbers read oddly (unconfirmed, needs a screenshot)
 
 ### Internal
-- [ ] I1 CI is red on every push since 11/13 (~15 tests: the cook-off contract tests, the spelling browser and next-board runs, the math probe contract, the clock picture)
+- [x] I1 (fixed 2026-11-14; CI green again from 2b1e376c) CI is red on every push since 11/13 (~15 tests: the cook-off contract tests, the spelling browser and next-board runs, the math probe contract, the clock picture)
 - [ ] I2 Tests write into real folders and leave temp folders behind (11/10 night, *(Oct)*) — real-folder writes fixed and guarded on `fix/i2` (11/14); temp leftovers per full run 288 → 139, rest still open
 - [ ] I3 Two flaky tests under load (11/07, *(Oct)*)
 - [ ] I4 Game sound has five owners (11/08)
