@@ -130,6 +130,49 @@ describe("XWear avatar-space binding", () => {
     });
   });
 
+  // W3 (Saori try-on, 2026-11-14): on Kefla the blazer and hoodie (tops only) removed her bottoms and boots.
+  // Kefla.vrm has one clothing material, "N00_007_01_Tops_01_CLOTH_01", a merged VRoid atlas that draws her top,
+  // bottoms and boots together. Why the human caught it: she saw bare legs. Why logs missed it: the log counts hidden
+  // materials, not which body parts they draw. Why the lab missed it: fixtures always had separate Tops_/Bottoms_.
+  // Rule: a base material is hidden only when the outfit replaces everything it draws; a merged "Tops_" material that
+  // is the body's only clothing also draws legs and feet, so a top never hides it.
+  it("a top never hides a merged clothing material that also draws the legs and feet", () => {
+    const scene = new THREE.Group();
+    const skin = new THREE.Mesh(
+      new THREE.BoxGeometry(),
+      new THREE.MeshBasicMaterial({ name: "N00_000_00_Body_00_SKIN (Instance)" }),
+    );
+    const mergedClothing = new THREE.Mesh(
+      new THREE.BoxGeometry(),
+      new THREE.MeshBasicMaterial({ name: "N00_007_01_Tops_01_CLOTH_01 (Instance)" }),
+    );
+    scene.add(skin, mergedClothing);
+
+    setVrmBaseClothingVisible(scene, false, CONSTELLATION_BLAZER_OUTFIT.slots.replaces);
+    expect((mergedClothing.material as THREE.Material).visible).toBe(true);
+    setVrmBaseClothingVisible(scene, false, COMET_HOODIE_OUTFIT.slots.replaces);
+    expect((mergedClothing.material as THREE.Material).visible).toBe(true);
+    setVrmBaseClothingVisible(scene, false, SLEEVELESS_DRESS_OUTFIT.slots.replaces);
+    expect((mergedClothing.material as THREE.Material).visible).toBe(false);
+    expect((skin.material as THREE.Material).visible).toBe(true);
+  });
+
+  it("a top still hides an upper-body material when the body has its own bottoms and shoes", () => {
+    const scene = new THREE.Group();
+    const named = (name: string) =>
+      new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({ name }));
+    const upper = named("N00_007_01_Tops_01_CLOTH_01 (Instance)");
+    const lower = named("N00_001_03_Bottoms_01_CLOTH_01 (Instance)");
+    const feet = named("N00_008_01_Shoes_01_CLOTH_01 (Instance)");
+    scene.add(upper, lower, feet);
+
+    setVrmBaseClothingVisible(scene, false, CONSTELLATION_BLAZER_OUTFIT.slots.replaces);
+
+    expect((upper.material as THREE.Material).visible).toBe(false);
+    expect((lower.material as THREE.Material).visible).toBe(true);
+    expect((feet.material as THREE.Material).visible).toBe(true);
+  });
+
   it("only applies an outfit to avatar designs that passed visual fit QA", () => {
     expect(SLEEVELESS_DRESS_OUTFIT.qa).toMatchObject({
       status: "approved",

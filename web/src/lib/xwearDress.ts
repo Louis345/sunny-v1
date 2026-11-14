@@ -376,6 +376,20 @@ export function setVrmBaseClothingVisible(
   outfitId?: string,
 ) {
   const selectedCategories = new Set(categories);
+  // A base material hides only when the outfit replaces everything it draws. VRoid bodies exported with one merged
+  // clothing atlas (Kefla) name it "Tops_" although it also draws the bottoms and boots, so a top alone keeps it (W3).
+  const sceneMaterialNames: string[] = [];
+  scene.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    for (const material of Array.isArray(object.material) ? object.material : [object.material]) sceneMaterialNames.push(material.name);
+  });
+  const topsDrawWholeOutfit = !sceneMaterialNames.some((name) => /Bottoms_|Onepiece_|Shoes_/.test(name));
+  const replacesTopMaterial =
+    selectedCategories.has("top") &&
+    (!topsDrawWholeOutfit || (selectedCategories.has("bottom") && selectedCategories.has("onepiece")));
+  if (topsDrawWholeOutfit && selectedCategories.has("top") && !replacesTopMaterial && !visible) {
+    console.log(` 🎮 [companion-wardrobe-lab] base_clothing merged_tops kept reason=draws_legs_and_feet`);
+  }
   let changed = 0;
   scene.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
@@ -384,7 +398,7 @@ export function setVrmBaseClothingVisible(
       const explicitRole = material.userData.sunnyClothingCategory;
       const isReplaceableClothing = scene.userData.sunnyWardrobe
         ? selectedCategories.has(explicitRole) || (outfitId!==undefined && material.userData.sunnyCoveredByOutfit===outfitId)
-        : (selectedCategories.has("top") && material.name.includes("Tops_")) ||
+        : (replacesTopMaterial && material.name.includes("Tops_")) ||
         (selectedCategories.has("bottom") && material.name.includes("Bottoms_")) ||
         (selectedCategories.has("onepiece") && material.name.includes("Onepiece_"));
       if (isReplaceableClothing) {
