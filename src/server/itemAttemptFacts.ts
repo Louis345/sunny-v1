@@ -63,11 +63,12 @@ export function finishItemAttempts(childId: string, nodeId: string): void {
 
 /** Every try code saw on this game, per problem in order, taken once at completion (BUGS.md 2026-11-13). */
 export type ServerTry = { attemptedValue: string; hinted?: true };
-export function takeServerTries(childId: string, nodeId: string): Map<string, ServerTry[]> {
+/** unfinishedOnly: a game closed without ending; a finished game's tries stay for its completion. */
+export function takeServerTries(childId: string, nodeId: string, opts: { unfinishedOnly?: boolean } = {}): Map<string, ServerTry[]> {
   const key = gameKey(childId, nodeId);
-  const game = items.get(key) ?? finished.get(key);
+  const game = opts.unfinishedOnly ? items.get(key) : items.get(key) ?? finished.get(key);
   items.delete(key);
-  finished.delete(key);
+  if (!opts.unfinishedOnly) finished.delete(key);
   return new Map([...(game ?? new Map<string, ItemState>()).entries()].filter(([, state]) => state.answers.length).map(([itemId, state]) =>
     [itemId, state.answers.map((answer, index) => ({ attemptedValue: answer.value, ...(state.hintBeforeTry !== undefined && index >= state.hintBeforeTry ? { hinted: true as const } : {}) }))]));
 }

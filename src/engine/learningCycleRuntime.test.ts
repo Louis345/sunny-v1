@@ -583,6 +583,26 @@ describe("canonical learning cycle runtime", () => {
     expect(cycle.nodes.find(node => node.nodeId === "facts")?.state).toBe("completed");
   });
 
+  // BUGS.md "Measurement audit 2026-11-13" (a), AI-caught: Reina typed answers in a math game and left before the
+  // end; an early exit returned before saving, so her answers were gone. Why the logs missed it: the item-attempt
+  // log showed her answers, but nothing compared it with the saved record. Why the lab missed it: lab children always
+  // finish. Her tries are saved as tries with help as recorded, the stop stays open, and a same-session replay
+  // keeps the first run's answers.
+  it("saves a math game's answers when she leaves early, keeps the stop open, and a replay keeps the first run", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const left = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "launch-1", nodeId: "facts", result: { completed: false, earlyExit: true, accuracy: 0, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10", tries: [{ attemptedValue: "34" }, { attemptedValue: "10", hinted: true }] }] } }, { rootDir })!;
+    const first = left.observations.filter(row => row.itemId === "2x5");
+    expect(first.map(row => [row.childResponse, row.assistance.status])).toEqual([["34", "unassisted"], ["10", "assisted"]]);
+    expect(left.nodes.find(row => row.nodeId === "facts")!.state).not.toBe("completed");
+    const replay = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "launch-2", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir })!;
+    expect(replay.observations.slice(0, first.length)).toEqual(first);
+    expect(replay.observations.filter(row => row.itemId === "2x5")).toHaveLength(3);
+    expect(replay.nodes.find(row => row.nodeId === "facts")!.state).toBe("completed");
+  });
+
   it("refuses later tries for a stop whose completion is not saved yet", () => {
     const rootDir = root();
     createLearningCycle(input(), { rootDir });

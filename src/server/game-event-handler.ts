@@ -4,11 +4,12 @@
  */
 
 import { noteGamePace } from "./gamePace";
-import { finishItemAttempts, noteItemAnswer, noteItemHint, noteItemOpened } from "./itemAttemptFacts";
+import { finishItemAttempts, noteItemAnswer, noteItemHint, noteItemOpened, takeServerTries } from "./itemAttemptFacts";
+import { takeCompanionHelpItemIds } from "./companionItemHelp";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
-import { recordExitChoice } from "../engine/learningCycleRuntime";
+import { recordCanonicalLeftEarly, recordExitChoice } from "../engine/learningCycleRuntime";
 import { getChildChart } from "../profiles/childChart";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { generateStoryImage } from "../utils/generateStoryImage";
@@ -275,6 +276,23 @@ export function flushPendingRoundCompleteForSession(s: SM): void {
   s.handleGameEvent(ev, true);
 }
 
+function saveMathTriesLeftOpen(childId: string, nodeId: string, launchToken: unknown): void {
+  try {
+    const cycle = getChildChart(childId).learningCycle;
+    if (!cycle || cycle.domain !== "math") return;
+    const tries = takeServerTries(childId, nodeId, { unfinishedOnly: true });
+    if (!tries.size) return;
+    const launch = typeof launchToken === "string" && launchToken.trim() ? launchToken.trim() : `closed-${Date.now()}`;
+    recordCanonicalLeftEarly({ childId, homeworkId: cycle.homeworkId, nodeId, sessionId: `${launch}:left`, result: {
+      completed: false, earlyExit: true, accuracy: 0, timeSpent_ms: 0, companionHelpItemIds: takeCompanionHelpItemIds(childId, nodeId),
+      // Code scores each try from the item's frozen contract; no game claim is used.
+      targetResults: [...tries].map(([target, list]) => ({ target, correct: false, attemptedValue: list.at(-1)!.attemptedValue, tries: list })),
+    } });
+  } catch (error) {
+    console.error(` 🎮 [learning-cycle] [left-early] [failed] child=${childId} node=${nodeId}`, error);
+  }
+}
+
 export function handleGameEventForSession(
   s: SM,
   event: Record<string, unknown>,
@@ -307,6 +325,8 @@ export function handleGameEventForSession(
       if (type === "attempt_event" && typeof event.target === "string" && typeof event.attemptedValue === "string" && shouldPersistSessionData()) noteItemAnswer(childId, event.nodeId, event.target, event.attemptedValue, () => getChildChart(childId).learningCycle);
       // The ended game's tries are held for the completion that saves them (BUGS.md 2026-11-13: clearing raced it).
       if (type === "node_complete" || type === "game_complete") finishItemAttempts(childId, event.nodeId);
+      // She closed a math game before it ended: its tries are saved, never left in memory (measurement audit 2026-11-13 (a)).
+      if (type === "game_state_update" && event.phase === "closed" && shouldPersistSessionData()) saveMathTriesLeftOpen(childId, event.nodeId, event.launchToken);
     }
     s.recordDebugEvent?.("flow_game", type, buildFlowGameEventFields(event));
     s.recordGameTrace?.({

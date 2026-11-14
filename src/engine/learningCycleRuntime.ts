@@ -475,6 +475,30 @@ export function recordCanonicalLateTries(
   }, opts);
 }
 
+/**
+ * She left a math game before its end (BUGS.md measurement audit 2026-11-13 (a)): her tries are saved as they happened,
+ * help as recorded, and the stop stays open. Spelling saves each answer as she types it, so it is not handled here.
+ */
+export function recordCanonicalLeftEarly(
+  input: { childId: string; homeworkId: string; sessionId: string; nodeId: string; result: CanonicalCompletionResult },
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 | null {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle || cycle.domain !== "math" || !input.result.targetResults?.length) return cycle;
+  const node = cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId);
+  if (!node) throw new Error(`learning_cycle_node_missing:${input.nodeId}`);
+  if (node.role === "evaluation") throw new Error("learning_cycle_evaluation_requires_discovery_endpoint");
+  const known = new Set(cycle.observations.map((observation) => observation.observationId));
+  const observations = observationsForCompletion({ cycle, sessionId: input.sessionId, nodeId: node.nodeId, result: input.result,
+    observedAt: (opts.now ?? new Date()).toISOString() }).filter((observation) => !known.has(observation.observationId));
+  console.log(` 🎮 [learning-cycle] [left-early] [${observations.length ? "saved" : "none-new"}] node=${node.nodeId} answers=${observations.length} stop=open`);
+  if (!observations.length) return cycle;
+  return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
+    type: "instrument_observed", completed: false, nodeId: node.nodeId, observations,
+    academicEvidence: [], engagementEvidence: [], companionObservations: [],
+  }, opts);
+}
+
 export function recordCanonicalNodeCompletion(
   input: {
     childId: string;
@@ -486,7 +510,8 @@ export function recordCanonicalNodeCompletion(
   opts: LearningCycleRepositoryOptions = {},
 ): LearningCycleRecordV2 | null {
   const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
-  if (!cycle || input.result.earlyExit || (!input.result.completed && !input.result.ended)) return cycle;
+  if (!cycle) return cycle;
+  if (input.result.earlyExit || (!input.result.completed && !input.result.ended)) return recordCanonicalLeftEarly(input, opts);
   const node = cycle.nodes.find((candidate) => candidate.nodeId === input.nodeId);
   if (!node) throw new Error(`learning_cycle_node_missing:${input.nodeId}`);
   if (node.evidenceContract.spellingItems && !input.sessionId.trim()) throw new Error("canonical_completion_session_required");
