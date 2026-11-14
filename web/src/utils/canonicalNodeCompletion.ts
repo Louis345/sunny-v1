@@ -201,6 +201,16 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
   return { ...result, outcome: { ...input.result, ...(timeSpent_ms === undefined ? {} : { timeSpent_ms }), completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };
 }
 
+/**
+ * One completion per launch, except after a run that did not finish the stop (BUGS.md E9): the game's own Play Again
+ * keeps the same launch, so her next run (a win after a loss) must still be sent. A finished stop keeps the guard.
+ */
+export function completionKeyAfterSave(currentKey: string | null, savedKey: string, nodeCompleted: boolean): string | null {
+  if (nodeCompleted || currentKey !== savedKey) return currentKey;
+  console.log(" 🎮 [AdventureBoard] [completion-guard] [open-for-next-run]", { key: savedKey });
+  return null;
+}
+
 /** Her tries on a finished stop after its completion was saved (BUGS.md 2026-11-10 evening); the server adds only new ones. */
 export async function postCanonicalLateTries(input: { childId: string; homeworkId: string; nodeId: string; completionId: string; targetResults: unknown[] }): Promise<void> {
   const { completionId, ...request } = input;

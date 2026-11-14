@@ -11,7 +11,7 @@ import {
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker, StartScreenFrame } from "./components/ChildPicker";
-import { DiscoveryAcademicCompletionCoordinator, discoveryCompletionRewards, hasCanonicalLearningCycle, postCanonicalLateTries, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
+import { DiscoveryAcademicCompletionCoordinator, completionKeyAfterSave, discoveryCompletionRewards, hasCanonicalLearningCycle, postCanonicalLateTries, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
@@ -1743,6 +1743,7 @@ function App() {
       const completed = completion ? completion.nodeState === "completed"
         : !hasCanonicalLearningCycle(plannerBoardPacket) && payload.completed === true && payload.earlyExit !== true;
       if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
+      plannerBoardIframeCompletionKeyRef.current = completionKeyAfterSave(plannerBoardIframeCompletionKeyRef.current, key, completed);
       if (completion?.coinAward) setProfileCompanionCurrency(completion.coinAward.balance);
       if (completion?.bossDrop) setBossDrop(completion.bossDrop);
       if (completion?.nodeChest) setNodeChest(completion.nodeChest);

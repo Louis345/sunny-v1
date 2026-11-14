@@ -10,6 +10,7 @@ import {
   postDiscoveryAttempt,
   postDiscoveryComplete,
   runDiscoveryAcademicCompletion,
+  completionKeyAfterSave,
 } from "../utils/canonicalNodeCompletion";
 
 describe("canonical node completion handoff", () => {
@@ -184,6 +185,7 @@ describe("canonical node completion handoff", () => {
       launch: { node: { id: "native" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle,
       refreshPlannerBoardPacket: async () => {}, setLocallyCompletedPlannerNodeIds: (update: (current: string[]) => string[]) => { local = update(local); },
       setProfileCompanionCurrency: vi.fn(), showPlannerBoardEngagementOverlay: vi.fn(), console,
+      plannerBoardIframeCompletionKeyRef: { current: "native:0" }, key: "native:0", completionKeyAfterSave,
     });
     expect(local).toEqual(nodeState === "completed" ? ["native"] : []);
   });
@@ -213,7 +215,7 @@ describe("canonical node completion handoff", () => {
     await vm.runInNewContext(`(${handler})(completion)`, {
       homeworkSessionFinishedRef: { current: false },
       completion: { nodeState: "completed", outcome: { completed: true } },
-      launch: { node: { id: "visual" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle,
+      launch: { node: { id: "visual" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle, plannerBoardIframeCompletionKeyRef: { current: "visual:0" }, key: "visual:0", completionKeyAfterSave,
       refreshPlannerBoardPacket: async () => { throw new Error("temporary_refresh_failure"); },
       setLocallyCompletedPlannerNodeIds: vi.fn(), setProfileCompanionCurrency: vi.fn(),
       showPlannerBoardEngagementOverlay: showOverlay, console,
@@ -295,4 +297,27 @@ it("keeps an explicit Skip unscored while satisfying the attempt transport contr
   const coordinator=new DiscoveryAcademicCompletionCoordinator();
   expect(coordinator.prepareAttempt({itemId:"one",attemptedValue:null,instrumentSignals:["response_not_captured"]})).toMatchObject({attemptedValue:"",instrumentSignals:["response_not_captured"]});
   expect(coordinator.prepareAttempt({itemId:"one",attemptedValue:null,instrumentSignals:[]})).toMatchObject({attemptedValue:null});
+});
+
+// BUGS.md E9 (Oct, Monster Chase): she lost (the stop stayed active), pressed the game's own Play Again and won, but the
+// win was never sent, so the board did not move until the stop was reopened from the map. The kiosk kept one completion
+// per launch, so the winning run on the same launch was dropped silently. Human caught it: the board did not progress.
+// Logs showed the lost run's save and nothing for the win (the drop had no log). The lab only replayed through Sunny's
+// own Play again, which starts a new launch. A run that did not finish the stop leaves the launch open for her next run.
+it.each([["active", null], ["completed", "monster-chase:0"]] as const)("lets the game's own Play Again send a win after a run that left the stop %s", async (nodeState, keyAfter) => {
+  const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+  const block = source.slice(source.indexOf("const completePlannerBoardActivity ="), source.indexOf("const handlePlannerBoardPostActivityAction ="));
+  const handler = block.slice(block.indexOf("void write().then(") + "void write().then(".length, block.indexOf(").catch("));
+  const guard = { current: "monster-chase:0" as string | null };
+  await vm.runInNewContext(`(${handler})(completion)`, {
+    homeworkSessionFinishedRef: { current: false },
+    completion: { nodeState, outcome: { completed: nodeState === "completed", ended: false, won: false } },
+    launch: { node: { id: "monster-chase" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle,
+    refreshPlannerBoardPacket: async () => {}, setLocallyCompletedPlannerNodeIds: vi.fn(),
+    setProfileCompanionCurrency: vi.fn(), showPlannerBoardEngagementOverlay: vi.fn(), console,
+    plannerBoardIframeCompletionKeyRef: guard, key: "monster-chase:0", completionKeyAfterSave,
+  });
+  // Open: her winning run on the same launch is sent. Closed: a finished stop still takes one completion per launch.
+  expect(guard.current).toBe(keyAfter);
+  expect(completionKeyAfterSave("other-stop:0", "monster-chase:0", false)).toBe("other-stop:0");
 });

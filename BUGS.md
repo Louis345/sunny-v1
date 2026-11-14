@@ -20,7 +20,7 @@ The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, t
 - [ ] E6 Word Builder: "Finish (struggle)" sends her target as her answer; `Invalid attempt domain: undefined` *(Oct)* (11/08 "A lost game does not count as done", still-open part)
 - [ ] E7 Elli misreads her results ("brand new" for a missed word) (11/04)
 - [ ] E8 Floating-words history is kept per activity, not per mode (11/07)
-- [ ] E9 A win after the game's own "Play Again" earns no credit *(Oct)*
+- [x] E9 A win after the game's own "Play Again" earns no credit *(Oct)* (fixed "A win after a game's own Play Again is saved", 2026-11-14)
 - [ ] E10 Post-session finalization errors (`soul.md` path, `.some` of undefined) *(Oct; check today's logs)*
 - [ ] E11 The 11/6 graded tests were never entered (11/08 "Graded test photo"; needs the photos)
 
