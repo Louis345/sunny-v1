@@ -113,8 +113,11 @@ export function legacyAttemptsNote(attempts: number, hasLearningCycle: boolean):
   return hasLearningCycle ? `${attempts} attempts (older counter; her answers are in the learning cycle)` : `${attempts} attempts`;
 }
 
-/** One look a minute, so a stuck preparation still ends the session after half an hour. */
-export const MAX_BOARD_WAITS = 30;
+/** One look a minute. Minutes spent waiting for a board are not session time (2026-11-12: the wall clock ended
+ * Ila's session while her board was built). Law 2 guard: after this many waiting minutes, waiting counts again,
+ * so a stuck preparation still ends the session.
+ */
+export const MAX_BOARD_WAITS = 45;
 const BOARD_WAIT_MS = 60_000;
 const PREPARING_PHASES = new Set(["evidence_ready", "targeted_planning", "board_designing", "board_generating"]);
 
@@ -128,20 +131,29 @@ export function startMaxDurationTimer(
   boardBeingPrepared: () => boolean = () => false,
 ): () => void {
   const ms = getMaxDurationMs(childName);
+  let activeMs = 0;
   let waits = 0;
+  let waiting = false;
   let timeout: ReturnType<typeof setTimeout>;
-  const fire = (): void => {
-    if (waits < MAX_BOARD_WAITS && boardBeingPrepared()) {
-      waits += 1;
-      console.log(` 🎮 [session-limit] [waiting-for-board] look=${waits}`);
-      timeout = setTimeout(fire, BOARD_WAIT_MS);
-    } else if (waits > 0 && waits < MAX_BOARD_WAITS) {
-      // Waiting was not playing: the board she waited for gets a full session.
-      waits = 0;
-      console.log(" 🎮 [session-limit] [board-opened] full-session");
-      timeout = setTimeout(fire, ms);
-    } else onExpired();
+  // Each look decides how the next minute counts: waiting for a board, or session time.
+  const look = (): void => {
+    const nowWaiting = waits < MAX_BOARD_WAITS && boardBeingPrepared();
+    if (nowWaiting !== waiting) {
+      const state = nowWaiting ? "[waiting-for-board] [paused]" : waits >= MAX_BOARD_WAITS ? "[waiting-for-board] [cap-reached] counting" : "[board-opened] [counting]";
+      console.log(` 🎮 [session-limit] ${state} activeMin=${Math.round(activeMs / 60_000)} waitedMin=${waits}`);
+      waiting = nowWaiting;
+    }
+    const step = nowWaiting ? BOARD_WAIT_MS : Math.min(BOARD_WAIT_MS, ms - activeMs);
+    timeout = setTimeout(() => {
+      if (nowWaiting) waits += 1;
+      else activeMs += step;
+      if (activeMs >= ms) {
+        console.log(` 🎮 [session-limit] [reached] activeMin=${Math.round(activeMs / 60_000)} waitedMin=${waits}`);
+        return onExpired();
+      }
+      look();
+    }, step);
   };
-  timeout = setTimeout(fire, ms);
+  look();
   return () => clearTimeout(timeout);
 }

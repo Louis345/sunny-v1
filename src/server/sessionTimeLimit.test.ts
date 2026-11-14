@@ -32,12 +32,34 @@ it("never ends a session while her board is being prepared, and gives her a full
   expect(expired).toHaveBeenCalledOnce();
 });
 
+// 2026-11-12 Ila (S2): board 3 was built mid-session (20:59-21:13) and the 35-minute wall clock kept running
+// while she waited, so the limit ended her session with no answers saved. The human saw the waiting child; the log
+// only said "Session timeout reached (N min wall)"; the lab only tested a board still building at the 35-minute mark.
+it("does not count minutes she spends waiting for a board mid-session", () => {
+  const expired = vi.fn();
+  let preparing = false;
+  startMaxDurationTimer("Ila", expired, () => preparing);
+  vi.advanceTimersByTime(10 * MINUTE - 1); // ten minutes of play
+  preparing = true;
+  vi.advanceTimersByTime(13 * MINUTE); // thirteen minutes waiting for her next board
+  preparing = false;
+  vi.advanceTimersByTime(25 * MINUTE - 1); // 35 wall minutes long gone; only 35 active minutes end it
+  expect(expired).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(2);
+  expect(expired).toHaveBeenCalledOnce();
+});
+
 it("stops waiting after its bound if preparation never finishes", () => {
   const expired = vi.fn(), preparing = vi.fn(() => true);
   startMaxDurationTimer("Ila", expired, preparing);
-  vi.advanceTimersByTime((35 + MAX_BOARD_WAITS) * MINUTE);
+  vi.advanceTimersByTime((35 + MAX_BOARD_WAITS) * MINUTE - 1);
+  expect(expired).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(1);
+  // Law 2 guard: one look a minute while waiting, and no more looks once the cap is reached.
   expect(preparing).toHaveBeenCalledTimes(MAX_BOARD_WAITS);
   expect(expired).toHaveBeenCalledOnce();
+  vi.advanceTimersByTime(120 * MINUTE);
+  expect(preparing).toHaveBeenCalledTimes(MAX_BOARD_WAITS);
 });
 
 it("cancels cleanly while waiting", () => {
