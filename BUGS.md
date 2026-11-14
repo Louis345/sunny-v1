@@ -25,8 +25,8 @@ The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, t
 - [ ] E11 The 11/6 graded tests were never entered (11/08 "Graded test photo"; needs the photos)
 
 ### Hurts a session
-- [ ] S1 Sunny shut down instead of reopening when the kiosk window closed; the window can open behind others (11/12, 11/05)
-- [ ] S2 The 35-minute session limit counts waiting time *(Oct)*; it ended Ila's 11/12 session while she waited for a board
+- [x] S1 Sunny shut down instead of reopening when the kiosk window closed; the window can open behind others (11/12, 11/05) *(fixed 2026-11-14 on fix/s1-s2: reopens unless closed twice within a minute; brought to front by pid; not yet seen on Saori)*
+- [x] S2 The 35-minute session limit counts waiting time *(Oct)*; it ended Ila's 11/12 session while she waited for a board *(fixed 2026-11-14 on fix/s1-s2: board-building minutes paused, 45-minute cap; launch time before she starts still counts; not yet seen on Saori)*
 - [ ] S3 One dropped request blocks the whole next board; a Quest or Boss that fails to build is skipped, not retried (11/04, 11/05)
 - [ ] S4 Elli's conversation: repeats one check in a loop; ignores her without the name; misread "hear the whole thing first"; drops her turns as echo; slows down over a long session; praise doesn't match the record; Matilda answers "it's so hard" with more questions; withholds help on hidden practice words; cue lags Monster Stampede by ~1.5 s
 - [ ] S5 Screens: "Back to games" covers the score; several stops shown at once; "Final Trophy Check" twice; the stop counter doesn't match what she sees; an empty box after a full word; game steps and clues unread; Letter Keeper's wrong thumbnail; no picture card for a won item; a reward break can be reopened
