@@ -81,7 +81,8 @@ it.each(["spelling", "reading", "math"])("%s homework can select a child and rec
     const message = JSON.parse(String(data));
     if (message.type !== "start_session") return;
     if (++starts > 10) { socket.close(); throw new Error("entry_lab_session_loop"); }
-    socket.send(JSON.stringify({ type: "error", message: "Recorded voice outage", fatal: true }));
+    // The real shape of a start failure (ws-handler formatSessionStartError): fatal, but retryable, so Try again stays.
+    socket.send(JSON.stringify({ type: "error", message: "Recorded voice outage", fatal: true, retryable: true, code: "session_start_failed" }));
   }));
   let vite: any;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;

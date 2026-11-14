@@ -1575,7 +1575,8 @@ export function useSession(options?: UseSessionOptions) {
             ...s,
             error: fatal ? message : null,
             errorFatal: fatal,
-            errorNeedsGrownUp: fatal,
+            // A refusal needs a grown-up; a start failure the server marks retryable keeps Try again.
+            errorNeedsGrownUp: fatal && msg.retryable !== true,
             warning: fatal ? null : message,
             diagGameSessionReady: fatal ? false : s.diagGameSessionReady,
             phase:

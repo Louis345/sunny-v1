@@ -305,6 +305,19 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.errorNeedsGrownUp).toBe(true);
   });
 
+  // 2026-11-14 (AI-caught reviewing S7a): every session-start failure, including a voice-provider outage, is sent
+  // fatal; a retry can fix those, so the server marks them retryable and the kiosk keeps Try again.
+  it("keeps Try again for a fatal start failure the server marks retryable", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const ws = wsInstances[0]!;
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "error", fatal: true, retryable: true, code: "session_start_failed", message: "Voice session could not start. Please try again." }) } as MessageEvent));
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.errorNeedsGrownUp).toBe(false);
+  });
+
   it("keeps a dropped connection retryable: reconnect exhaustion does not ask for a grown-up", async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useSession());

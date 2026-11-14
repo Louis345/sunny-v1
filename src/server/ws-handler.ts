@@ -14,11 +14,13 @@ import type { ChildName } from "./session-triggers";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { getChildChart } from "../profiles/childChart";
 
-function formatSessionStartError(message: string): { code: string; message: string } {
+/** retryable: a retry can fix it (a provider or network failure while starting); the others need a grown-up (S7a). */
+function formatSessionStartError(message: string): { code: string; message: string; retryable: boolean } {
   if (message.includes("DEEPGRAM_API_KEY")) {
     return {
       code: "voice_connection_unavailable",
       message: "Voice connection is having trouble. You can still type.",
+      retryable: false,
     };
   }
   if (/homework cycle found/i.test(message)) {
@@ -28,11 +30,13 @@ function formatSessionStartError(message: string): { code: string; message: stri
     return {
       code: "homework_precondition_missing",
       message: `${message}.${hint}`,
+      retryable: false,
     };
   }
   return {
     code: "session_start_failed",
     message: message || "Voice session could not start. Please try again.",
+    retryable: true,
   };
 }
 
@@ -210,6 +214,7 @@ export function handleWsConnection(
             JSON.stringify({
               type: "error",
               fatal: true,
+              retryable: formatted.retryable,
               code: formatted.code,
               message: formatted.message,
             }),
