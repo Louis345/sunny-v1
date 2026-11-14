@@ -32,7 +32,7 @@ document.getElementById("box").onchange = event => { window.fireAttemptEvent({ d
 // Reports answers but never opens a word through the contract, so no answer could bind to her items.
 const UNBOUND = GOOD.replace(/window\.openSpellingItem\(/g, "console.log(");
 
-function fixture(played?: { title: string; path: string }) {
+function fixture(played?: { title: string; path: string }, artwork = "/generated/practice.png") {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-game-builder-")); roots.push(rootDir);
   const childId = "builder-child", homeworkId = "school-words";
   seedSpellingLab(rootDir, ["night", "light"], "", childId);
@@ -42,8 +42,8 @@ function fixture(played?: { title: string; path: string }) {
     academicTarget: { domain: "spelling", skill: "school words", targets: items.map(item => item.word) },
     algorithmOwner: "retrieval-practice", theoryId: "theory", experimentId: "practice", mechanic: "guided spelling", theme: "harbor",
     openingScreen: { title: "Word workshop", purpose: "Practice school words" }, generationPrompt: null,
-    artifactBinding: { contentId: "practice", artifactId: "practice", localArtifactPath: played?.path ?? "/games/practice.html", localArtworkPath: "/generated/practice.png", contractFingerprint: "recorded", validationStatus: "passed" },
-    artwork: { status: "ready", localPath: "/generated/practice.png", prompt: null }, sfxContract: [], companionContract: { events: ["completion"] },
+    artifactBinding: { contentId: "practice", artifactId: "practice", localArtifactPath: played?.path ?? "/games/practice.html", localArtworkPath: artwork, contractFingerprint: "recorded", validationStatus: "passed" },
+    artwork: { status: "ready", localPath: artwork, prompt: null }, sfxContract: [], companionContract: { events: ["completion"] },
     evidenceContract: { academic: true, engagement: true, companionObservations: true, spellingItems: Object.fromEntries(items.map(item => [item.id, item])),
       nativeConfig: { activityId: "word-radar", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } } }, evidenceIds: [],
   };
@@ -105,6 +105,19 @@ it("builds her game from her chart and the Planner's story, binds every word, an
     spellingItemBindings: [{ itemId: "item-night", word: "night" }] } as never, { childId: f.childId, companion: "elli", previewParam: "" } as never);
   expect(url).toMatch(new RegExp(`^/api/homework/game/${f.childId}/school-words/[^?]+\\.html\\?`));
   expect(new URL(url, "http://kiosk").searchParams.get("spellingItemBindings")).toContain("item-night");
+});
+
+// BUGS.md S5, 2026-11-08: Ila's board 5 choice card "Letter Keeper" (her generated game) showed the visual-explainer
+// picture. A next-board stop borrows the last stop's look, and the builder kept that borrowed look even when it was
+// another game type's icon. Why the human caught it: the card showed the wrong game. Why logs missed it: artwork is
+// not logged at bind. Why the lab missed it: fixtures always used a painted picture, never a type icon.
+it("gives her built game its own game icon, not the icon of the stop it borrowed a look from", async () => {
+  const f = fixture(undefined, "/thumbnails/activities/visual-explainer.svg");
+  await plannedBoard(f);
+  const ready = await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: recordedBuilder([GOOD]).client }, { rootDir: f.rootDir });
+  const built = ready.nodes.find(row => row.implementationType === "generated-game")!;
+  expect(built.artifactBinding!.localArtworkPath).toBe("/thumbnails/activities/generated-game.svg");
+  expect(built.artwork.localPath).toBe("/thumbnails/activities/generated-game.svg");
 });
 
 it("sends a game whose answers could not bind back once, with the problem, and keeps the repaired game", async () => {

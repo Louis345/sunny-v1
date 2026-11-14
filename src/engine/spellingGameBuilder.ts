@@ -227,12 +227,22 @@ export async function prepareGeneratedSpellingGame(input: {
   return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
     contentId: `${cycle.homeworkId}:${node.nodeId}`, artifactId: `${cycle.homeworkId}:${node.nodeId}:generated`,
     localArtifactPath: `/homework/games/${cycle.homeworkId}/${filename}`,
-    localArtworkPath: node.artwork.localPath ?? thumbnailUrlForActivity("generated-game"),
+    localArtworkPath: gameArtwork(node),
     contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
     creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: hash(prompt), artworkPromptHash: hash(node.artwork.prompt ?? ""),
       builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: Date.now() - started,
       inputTokens: first.inputTokens + (game === first ? 0 : game.inputTokens), outputTokens: first.outputTokens + (game === first ? 0 : game.outputTokens) },
   } }, opts);
+}
+
+/** Her game's picture: its own painted look, never another game type's icon borrowed from an earlier stop (BUGS.md S5). */
+function gameArtwork(node: LearningCycleNodeContract): string {
+  const own = node.artwork.localPath, icon = thumbnailUrlForActivity("generated-game");
+  if (own?.startsWith("/thumbnails/activities/") && own !== icon) {
+    console.log(` 🎮 [spelling-game] [artwork] [type-icon-replaced] node=${node.nodeId} borrowed=${own} using=${icon}`);
+    return icon;
+  }
+  return own ?? icon;
 }
 
 /**
@@ -258,7 +268,7 @@ export function bindSavedSpellingGame(input: { cycle: LearningCycleRecordV2; nod
   return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
     contentId: `${cycle.homeworkId}:${node.nodeId}`, artifactId: `${cycle.homeworkId}:${node.nodeId}:generated`,
     localArtifactPath: `/homework/games/${cycle.homeworkId}/${filename}`,
-    localArtworkPath: node.artwork.localPath ?? thumbnailUrlForActivity("generated-game"),
+    localArtworkPath: gameArtwork(node),
     contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
     creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: requestHash, artworkPromptHash: hash(node.artwork.prompt ?? ""),
       builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: 0, inputTokens: 0, outputTokens: 0 },
