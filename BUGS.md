@@ -29,7 +29,7 @@ Testing mode (`/companions/?wardrobeLab=true`) now lends every item to every com
 - [x] Elli, Matilda and Hikari: everything looks good (the only fitted bodies).
 - [x] W1 (fix 2026-11-14, waiting for Saori's re-check: accessories face where she faces) Royal Crown sits front-to-back on Melty, Tene and Towa, and does not show on Princess (likely their models face the other way from the crown's reference).
 - [x] W2 (fix 2026-11-14, waiting for Saori's re-check: sized and lifted from her own head and the model's scale) Cat ears are too big and float on Melty, Princess, Tene and Towa (accessories are not sized or placed per head).
-- [ ] W3 Kefla: the blazer and the hoodie are tops only and remove her own bottoms and boots ("she needs underwear or bottoms", "her boots disappear").
+- [x] W3 (fix 6a4aa43b, waiting for Saori's re-check: Kefla's only clothing material is a merged "Tops_" atlas that also draws her bottoms and boots, so a top no longer hides it; a dress still does) Kefla: the blazer and the hoodie are tops only and remove her own bottoms and boots ("she needs underwear or bottoms", "her boots disappear").
 - [ ] W4 Dresses fit badly at the shoulders: strange on Melty; Towa is missing the shoulder-to-elbow part.
 - [ ] W5 Princess: no outfit can be put on at all.
 - [ ] W6 Yukari not tried yet.
@@ -43,7 +43,7 @@ Why the human caught it: until today no screen let anyone put an unapproved item
 - [ ] S5 Screens: "Back to games" covers the score; several stops shown at once; "Final Trophy Check" twice; the stop counter doesn't match what she sees; an empty box after a full word; game steps and clues unread; Letter Keeper's wrong thumbnail; no picture card for a won item; a reward break can be reopened ("Back to games" fixed 3b961034) ("Final Trophy Check" twice fixed 95e6863e: a finish that repeats a stop name reads "Finish") (stop counter fixed ab0e3efa: says games to your call) (Letter Keeper thumbnail fixed 979689e6) (reward break reopen already fixed 60b230f2: leaving finishes the stop, a replay costs coins) (several stops at once fixed 56cf2c3a: the one next stop glows, every ready stop stays playable) (empty box after a full word fixed d262fb57: a fact in the game builder's brief) (still open: steps/clues unread needs owner input; picture card for a won item is a feature)
 - [ ] S6 Lessons: she rushes the explainer and skims pages unnoticed; a half-finished lesson sends her back with no explanation; floating words needs rework; Keep Them Apart gives no feedback
 - [ ] S7 her name card didn't respond (cause unknown; no picker state found that swallows the tap, needs the kiosk console). Fixed part: "Try again" after a fatal error (a server refusal now shows "Get a grown-up." with no retry, fixed b36c9925, 2026-11-14)
-- [ ] S8 FaceTime: Melty's tile draws nothing after a long session; some emotes and Elli's animate call are rejected; six companions have no prepared bodies
+- [ ] S8 FaceTime: Melty's tile draws nothing after a long session; some emotes and Elli's animate call are rejected; six companions have no prepared bodies (blank tile fixed 8a93f3dd, not yet seen on Saori: dispose() kept each WebGL context alive, so remounts piled up until the browser dropped the oldest, a call tile; the showroom and board portrait now release it, logs `[renderer] [released]`; OrbCatcher3D and EggHatch3D still only dispose) (emotes and animate fixed c48f8de3: both companionAct tools now show the registry's exact payload shapes, so "expression" and "curious" are no longer offered) (six bodies still open)
 - [ ] S9 Kappa Pond numbers read oddly (unconfirmed, needs a screenshot)
 
 ### Internal
@@ -53,7 +53,7 @@ Why the human caught it: until today no screen let anyone put an unapproved item
 - [ ] I4 Game sound has five owners (11/08)
 - [ ] I5 Speed Catcher is not a node type; three games have no kiosk handler; lists still copied by hand (11/08)
 - [ ] I6 Planner: a retry re-pays finished turns; a prebuild repeats the current board; first turn can hit its token limit; the harness swaps the model after shaping the request
-- [ ] I7 Leftovers: the angel body's asset id and other "Matilda" names; the "l" off the line in Reina's game; lesson audio heard by the mic; Boss coins are placeholders; no check that a Quest game hides her words; board previews differ from the kiosk
+- [ ] I7 Leftovers: the angel body's asset id and other "Matilda" names (2026-11-14 check: `matilda-victory.ts`, `agents/matilda/ROLE.md` and `matilda-demo` are Reina's Matilda, not stale; stale are the four wardrobe scripts and `WardrobeCompatibilityLab.test.tsx` that click "Review Matilda prepared identity", now "Review Pink body (Hikari) prepared identity", left for a 5-file change); the "l" off the line in Reina's game; lesson audio heard by the mic; Boss coins are placeholders; no check that a Quest game hides her words; board previews differ from the kiosk
 
 ### Fixed, waiting to be seen on Saori
 Matilda's portrait outfit; map pictures; the board offered after "Stop for now"; a fork board that never finished; lost retries in built games; partial-list school tests; per-word school forecasts; a repeated try counted as a first try; earned call ring and answer; hints in built games marked as help.
