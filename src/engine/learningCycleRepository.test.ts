@@ -2,7 +2,7 @@ import {linearJourneyFixture, choiceJourneyFixture} from "../scripts/fixtures/au
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import { getChildChart } from "../profiles/childChart";
 import { publishBoardInstance } from "./learningBoardInstances";
@@ -21,8 +21,13 @@ import {
   type CreateLearningCycleInput,
 } from "./learningCycleRepository";
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 function root(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-learning-cycle-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-learning-cycle-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 function input(): CreateLearningCycleInput {

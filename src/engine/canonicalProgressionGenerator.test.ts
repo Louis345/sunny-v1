@@ -3,7 +3,7 @@ import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
 import { buildSpellingRecallItems } from "./learningCycleIngest";
 import { runDirectBrowserSmokeCheck, buildAdaptiveProgressionCreatorPrompt } from "./directMathExperience";
@@ -22,7 +22,14 @@ import { generateCanonicalProgressionArtifact, repairNotReadyActivities, repairN
 import { canonicalJourneyLaunchable } from "./learningCycleRepository";
 import { currentBoardInstance } from "./learningBoardInstances";
 
-function root(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-")); }
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+function root(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-"));
+  tempRoots.push(dir);
+  return dir;
+}
 
 beforeEach(() => {
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });

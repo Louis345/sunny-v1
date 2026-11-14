@@ -5,7 +5,7 @@ import { authoredJourney, choiceJourneyFixture, linearJourneyFixture } from '../
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
   assertPublishedBoardsImmutable,
   boardTopologyHash,
@@ -23,8 +23,13 @@ import {
   type LearningCycleRecordV2,
 } from "./learningCycleRepository";
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 function root(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-board-instances-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-board-instances-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 function node(nodeId: string, overrides: Partial<LearningCycleNodeContract> = {}): LearningCycleNodeContract {
