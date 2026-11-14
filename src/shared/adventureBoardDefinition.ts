@@ -48,7 +48,7 @@ export const journeySequenceSchema=z.object({
   title:id, opening:z.array(id).max(32).describe("Activity ids every child plays first, in order."),
   choice:z.object({purpose:id.describe("The question she reads on the choice screen, written to her in a few friendly words, for example: Which way do you want to practice? It is never about her and never explains your reasoning; put that in each option's hypothesis."),label:id.describe("Short name of the choice portal on the map."),options:z.array(z.object({id,label:id,hypothesis:id,nodeIds:z.array(id).min(1).max(32)}).strict()).min(2).max(8)}).strict().optional(),
   closing:z.array(id).max(32).describe("Activity ids every child plays after the choice, in order."),
-  singlePathReason:id.optional(), endpointLabel:id,
+  singlePathReason:id.optional(), endpointLabel:id.describe("Name of the finish portal; never a stop's name."),
 }).strict();
 export type JourneySequence=z.infer<typeof journeySequenceSchema>;
 export const JOURNEY_SEQUENCE_TOOL_SCHEMA=z.toJSONSchema(journeySequenceSchema,{io:'input'});
@@ -78,7 +78,10 @@ export function expandJourneySequence(input:unknown,nodes:ReadonlyArray<{id:stri
   if(inline.length)portals.filter(portal=>inline.includes(portal.id)).forEach(portal=>shared.add(portal.activityNodeId!));
   if(options.length)portals.push({id:'choice',label:sequence.choice!.label,kind:'choice'});
   const closing=place(sequence.closing,'p:',new Set([...shared,...branchNodeIds]));
-  portals.push({id:'end',label:sequence.endpointLabel,kind:'endpoint'});
+  // The finish reads as the finish: a label that repeats a stop's name ("Final Trophy Check Complete") becomes "Finish".
+  const endLabel=sequence.endpointLabel,repeats=portals.find(portal=>portal.kind==='activity'&&endLabel.toLowerCase().startsWith(portal.label.toLowerCase()));
+  if(repeats)console.log(` 🎮 [planner] [journey] [endpoint-label-repeats-stop] label=${JSON.stringify(endLabel)} stop=${repeats.activityNodeId} using=Finish`);
+  portals.push({id:'end',label:repeats?'Finish':endLabel,kind:'endpoint'});
   for(const nodeId of titles.keys())if(!placed.has(nodeId))console.log(` 🎮 [planner] [journey] [node-unused] node=${nodeId}`);
   return adventureJourneySchema.parse({version:2,title:sequence.title,rationale:sequence.singlePathReason??sequence.choice?.purpose??sequence.title,rootPathId:'root',portals,
     paths:[{id:'root',portalIds:['start',...opening,...inline,...(options.length?['choice']:[]),...closing,'end']},...options.map(row=>({id:`option:${row.option.id}`,portalIds:row.portalIds}))],
