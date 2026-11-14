@@ -72,7 +72,7 @@ export function buildSpellingGameAsk(input: { cycle: LearningCycleRecordV2; node
 
 About her, from her chart (what she does counts more than what she says, and what she says clearly more than what she is unsure about):
 ${JSON.stringify(childFacts(input.cycle, input.rootDir), null, 2)}
-Seen at her table (2026-11-09): she and her parent count each dash or box on screen as one letter. After she typed "dormant" correctly, the game still showed one more empty box, and they read it as a missing letter.
+Seen at this family's table (2026-11-09, with Ila): the children and their parent count each dash or box on screen as one letter. After Ila typed "dormant" correctly, the game still showed one more empty box, and they read it as a missing letter.
 
 Her ${words.length} words for this game: ${words.join(", ")}
 This stop on her map, as her tutor wrote it:

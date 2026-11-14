@@ -195,7 +195,7 @@ it("tells the spelling builder that she and her parent count boxes and dashes as
   const f = fixture();
   const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
   const ask = buildSpellingGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir });
-  expect(ask).toMatch(/she and her parent count (each )?(dash|box)/i);
+  expect(ask).toMatch(/children and their parent count (each )?(dash|box)/i);
   expect(ask).toContain("dormant");
 });
 
