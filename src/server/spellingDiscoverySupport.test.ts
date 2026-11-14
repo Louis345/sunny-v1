@@ -1,8 +1,25 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { SessionManager } from "./session-manager";
 import { getChildChart } from "../profiles/childChart";
 vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
+// I2: companion help turns for lab-child appended ledgers and a relationship
+// file under the real src/context/lab-child. Set directly (not vi.stubEnv) so
+// the per-test vi.unstubAllEnvs() calls below keep this root in place.
+const previousContextRoot = process.env.SUNNY_CONTEXT_ROOT;
+let contextRoot = "";
+beforeAll(() => {
+  contextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-discovery-support-"));
+  process.env.SUNNY_CONTEXT_ROOT = contextRoot;
+});
+afterAll(() => {
+  if (previousContextRoot === undefined) delete process.env.SUNNY_CONTEXT_ROOT;
+  else process.env.SUNNY_CONTEXT_ROOT = previousContextRoot;
+  fs.rmSync(contextRoot, { recursive: true, force: true });
+});
 
 it("keeps bound practice context usable when saved chart facts cannot be read", () => {
  const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
