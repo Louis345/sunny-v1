@@ -49,7 +49,10 @@ describe("generated math control diagnostics", () => {
       }],
     });
 
-    expect(report.passed).toBe(true);
+    // Since fc85a429 (11/10) the check measures touching number labels, and this recorded clock really has "35" and
+    // "5" overlapping. That is the only finding allowed: the fixture stays immutable and the journey must still run.
+    expect(report.failures.length).toBeGreaterThan(0);
+    expect(report.failures.every(failure => failure.includes(":math_labels_touching:") && failure.includes('"a":"35","b":"5"'))).toBe(true);
     // The activity announces item 1 during its "Tap the silver ring" opening, before
     // the question is visible. That opening is a transition, never item 1; the real
     // question is captured once the browser sees its prompt.
