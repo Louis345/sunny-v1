@@ -6,7 +6,8 @@ export default defineConfig({
     // Engine/integration tests mutate real paths under src/context/<childId>/; parallel files race.
     fileParallelism: false,
     // Fails the run if any test leaves a change in a real child's src/context folder.
-    globalSetup: ["src/tests/realChildContextGuard.ts"],
+    // Gives the run its own temp dir and fails if suites leave more sunny-* folders in it than the ceiling (I2).
+    globalSetup: ["src/tests/realChildContextGuard.ts", "src/tests/tempLeakGuard.ts"],
     environment: "node",
     ...testSelection(tierFromEnv(), [
       "src/tests/test-six-tools.ts",
@@ -118,6 +119,7 @@ export default defineConfig({
       "src/tests/test-launch-game-word-radar.ts",
       "src/tests/test-quest-node-routing.ts",
       "src/tests/test-speed-catcher-colors.ts",
+      "src/tests/test-temp-leak-guard.ts",
       ".github/pr-gate/*.test.ts",
     ]),
   },

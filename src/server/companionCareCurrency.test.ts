@@ -1,11 +1,15 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { REWARD_CATALOG } from "../shared/rewardCatalog";
 import { getChildChart } from "../profiles/childChart";
 import { loadCompanionCarePlanForChart } from "../profiles/companionCarePlan";
 import { arcadeClockForChild, callClockForChild, purchaseForChild, spendArcadeMinuteForChild, reconcileCompanionCareCurrencyAward, showroomCallClockFacts, spendCallMinuteForChild, walletForChild } from "./currencyAward";
+
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 
 function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -14,6 +18,7 @@ function writeJson(file: string, value: unknown): void {
 
 function setupRoot(): string {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-care-currency-"));
+  tempRoots.push(rootDir);
   writeJson(path.join(rootDir, "children.config.json"), {
     defaultCompanionId: "matilda",
     childCompanionIds: { reina: "matilda" },

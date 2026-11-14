@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle } from "./learningCycleRepository";
 import {
   buildLongitudinalLearningHistory,
@@ -11,8 +11,14 @@ import {
   type ConfirmedReturnedWork,
 } from "./longitudinalLearning";
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+
 function root(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-longitudinal-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-longitudinal-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 it("cannot call a prediction supported when returned work produces no eligible evaluation", async () => {

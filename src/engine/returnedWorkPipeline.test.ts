@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { createLearningCycle, getLearningCycle } from "./learningCycleRepository";
 import {
   confirmReturnedWorkDraft,
@@ -10,8 +10,14 @@ import {
   listReturnedWorkAssignments,
 } from "./returnedWorkPipeline";
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+
 function root(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-returned-work-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-returned-work-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 function seed(rootDir: string): void {
