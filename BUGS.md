@@ -37,7 +37,7 @@ The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, t
 
 ### Internal
 - [ ] I1 CI is red on every push since 11/13 (~15 tests: the cook-off contract tests, the spelling browser and next-board runs, the math probe contract, the clock picture)
-- [ ] I2 Tests write into real folders and leave temp folders behind (11/10 night, *(Oct)*)
+- [ ] I2 Tests write into real folders and leave temp folders behind (11/10 night, *(Oct)*) — real-folder writes fixed and guarded on `fix/i2` (11/14); temp leftovers per full run 288 → 139, rest still open
 - [ ] I3 Two flaky tests under load (11/07, *(Oct)*)
 - [ ] I4 Game sound has five owners (11/08)
 - [ ] I5 Speed Catcher is not a node type; three games have no kiosk handler; lists still copied by hand (11/08)
@@ -212,7 +212,7 @@ Rename or nickname a companion; more loot and reward variety; sound-it-out recor
 - **Sunny broke on the 5.5 models (fixed on `fix/one-front-door-for-ai-calls`).** A paid harness run with `claude-sonnet-5-5` (pretend children) stopped at intake: "tool_choice: type tool and any are not supported for this model". Only `requestPlannerMessage` knew that; 16 direct calls forced a tool. Caught by the harness, not a child; no log or test sent a 5.5 request through those calls. Invariant: `modelRequestShape.test.ts`.
 - **The harness swaps the model after Sunny shapes the request (open, on #49).** `plannerHarness.harness.ts` sends `{...request, model: HARNESS_MODEL}`, so a request shaped for Sunny's default reaches another model. Set Sunny's `SUNNY_*_MODEL` from `HARNESS_MODEL` instead.
 - **`spellingBrowserAcceptance` is flaky on this Mac (open).** "plays spelling through the real host" times out waiting for `word-radar-input` (12s) at 1365×768 and 1280×720 on unchanged `main` (bf056e98); it passed in one full run and failed in others. CI passes.
-- **The full test suite writes tracked files (open).** After `npx vitest run`, `src/context/creator/{care_plan/current.json,content_catalog.json,homework/current.json,plans/active_session_plan.json}` are modified. Tests should write to a temp root.
+- **The full test suite writes tracked files (fixed on `fix/i2`, 11/14: `test-map-diag-due-words.ts` now uses a temp context root; the vitest globalSetup guard fails a run that changes tracked context files).** After `npx vitest run`, `src/context/creator/{care_plan/current.json,content_catalog.json,homework/current.json,plans/active_session_plan.json}` are modified. Tests should write to a temp root.
 - **Board previews differ from the kiosk (guess, open).** (fixed earlier: 3e4d4d24 for the stray character; preview locks unchecked; marked 2026-11-14) The artist's preview (`renderBoardPreview`) shows "Keep going" locks on spelling stops and a stray "â" in the XP bar; it renders with `domain:'generic'` and no charset. Check what the artist is shown against the kiosk.
 
 ## 2026-11-05 evening — found in Reina's and Ila's sessions (not yet fixed)
@@ -258,10 +258,10 @@ Rename or nickname a companion; more loot and reward variety; sound-it-out recor
 
 ## 2026-11-10 night — found while fixing companion relationships (fix/1110b-companion)
 
-- **A test writes into the real context dir (AI-caught).** A full `npx vitest run` leaves `src/context/lab-child/companion_interactions/<day>.ndjson` (an `activity_help` ledger append for `child=lab-child`, run without a temp `rootDir`), and since bc352412 also `companion_relationships/elli.json`. Find the test and give it a temp root.
+- **A test writes into the real context dir (AI-caught; fixed on `fix/i2`, 11/14: `spellingDiscoverySupport.test.ts` now uses a temp context root; the guard also watches `src/context/lab-child`).** A full `npx vitest run` leaves `src/context/lab-child/companion_interactions/<day>.ndjson` (an `activity_help` ledger append for `child=lab-child`, run without a temp `rootDir`), and since bc352412 also `companion_relationships/elli.json`. Find the test and give it a temp root.
 - **The angel body's wardrobe asset id is still "matilda" (AI-caught, follow-up to b4e1947e).** Matilda is Hikari in the registry, config, manifest, chart and memory, but the prepared VRM (`matilda-wardrobe-native-identity-v1.vrm`), fitted garments, human approvals, engineering review and `scripts/wardrobe-recipes.json` keep the asset id `matilda`, because those files are gitignored and live on the kiosk. Renaming means running `scripts/prepareWardrobe.ts` and `prepareWardrobeGarments.ts` there, then moving the approval keys (hashes stay the same).
 - **Leftover Matilda names in non-runtime places.** `src/matilda-victory.ts` (+ `npm run matilda-victory`), `src/agents/matilda/ROLE.md`, Visual Explainer demo `matilda-demo`, wardrobe verify/diagnose scripts that click "Review Matilda prepared identity" (now labelled Hikari), docs. `pick-voice.ts`/`voice-showdown.ts` "Matilda" is an ElevenLabs voice name, not the companion.
 
 ## 2026-11-10 night — found by the fix agents
 
-- **Tests leave temp folders behind (disk filled up).** About 57,000 leftover `sunny-*` folders accumulated in the system temp directory, and a full `npm test` run hit "no space left on device". A fix agent deleted folders older than 24 h without asking. The suites that create them should clean up after themselves (afterEach rmSync), with a test that counts leftovers.
+- **Tests leave temp folders behind (disk filled up; partly fixed on `fix/i2`, 11/14: six engine suites now clean up, 288 → 139 per run; still leaking: companionVideoCallTrace, longitudinalLearning, returned-work, care-currency, upload-logs, saved-form and ~40 smaller suites; no leftover-count test yet).** About 57,000 leftover `sunny-*` folders accumulated in the system temp directory, and a full `npm test` run hit "no space left on device". A fix agent deleted folders older than 24 h without asking. The suites that create them should clean up after themselves (afterEach rmSync), with a test that counts leftovers.
