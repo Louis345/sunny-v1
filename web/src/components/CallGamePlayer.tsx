@@ -9,14 +9,16 @@ export function CallGamePlayer({ game, childId, childName, companionName, onBack
     console.log(` 🎮 [call-game] [start] [sent] game=${game.gameId} child=${childId}`);
   };
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", alignSelf: "stretch", justifySelf: "stretch" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", height: "100%", alignSelf: "stretch", justifySelf: "stretch" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="button" aria-label="Back to games" onClick={onBack}
+          style={{ borderRadius: 8, padding: "6px 12px", fontWeight: 900, background: "rgba(255,255,255,0.92)", color: "#27214a" }}>
+          Back to games
+        </button>
+      </div>
       <iframe title={game.name} src={`/games/${game.file}?child=${encodeURIComponent(childId)}`}
         onLoad={(event) => start(event.currentTarget)}
-        style={{ width: "100%", height: "100%", border: 0, borderRadius: 12 }} />
-      <button type="button" aria-label="Back to games" onClick={onBack}
-        style={{ position: "absolute", top: 8, right: 8, borderRadius: 8, padding: "6px 12px", fontWeight: 900, background: "rgba(255,255,255,0.92)", color: "#27214a" }}>
-        Back to games
-      </button>
+        style={{ flex: 1, minHeight: 0, width: "100%", border: 0, borderRadius: 12 }} />
     </div>
   );
 }
