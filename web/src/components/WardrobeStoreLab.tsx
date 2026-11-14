@@ -390,14 +390,12 @@ export function WardrobeStoreLab({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const debugMountVisitIdRef = useRef<string | null>(null);
 
+  // Testing mode offers every item on every companion, approved or not, so a grown-up can see what fits (owner 2026-11-14).
+  const testingAll = testingCloset && !wallet;
   const compatibleItems = useMemo(
-    () =>
-      getCompatibleWardrobeItems(
-        WARDROBE_STORE_CATALOG,
-        companion.modelUrl,
-        companion.id,
-      ),
-    [companion.id, companion.modelUrl],
+    () => testingAll ? [...WARDROBE_STORE_CATALOG]
+      : getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, companion.modelUrl, companion.id),
+    [companion.id, companion.modelUrl, testingAll],
   );
   const [shoppingVisit] = useState(() =>
     createCompanionShoppingVisit({

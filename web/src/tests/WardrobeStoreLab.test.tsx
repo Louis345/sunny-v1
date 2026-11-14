@@ -775,4 +775,20 @@ describe("WardrobeStoreLab testing mode", () => {
     for (const item of fits) expect(closet.textContent).toContain(item.name);
     expect(window.localStorage.getItem(WARDROBE_STORE_STORAGE_KEY)).toBeNull();
   });
+
+  // Owner 2026-11-14: testing mode is for approving items, so every item is offered on every companion, including
+  // ones not yet approved or fitted for her; Saori tries each and reports what looks wrong.
+  it("offers every item on every companion in testing mode, even one with no approved fits", () => {
+    const kefla = { id: "kefla", name: "Kefla", modelUrl: "/companions/Kefla.vrm" };
+    expect(getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, kefla.modelUrl, kefla.id).length).toBeLessThan(WARDROBE_STORE_CATALOG.length);
+    render(
+      <WardrobeStoreLab companion={kefla} companionPreview={<div />} call={createCallProps()} onWardrobeChange={vi.fn()}
+        onExit={vi.fn()} visitSeed="testing-all" testingCloset />,
+    );
+    // The shelf she sees first (not only the closet) offers every item.
+    for (const item of WARDROBE_STORE_CATALOG) expect(document.body.textContent).toContain(item.name);
+    fireEvent.click(screen.getByRole("button", { name: "Kefla’s closet" }));
+    const closet = screen.getByRole("dialog", { name: "Kefla’s closet" });
+    for (const item of WARDROBE_STORE_CATALOG) expect(closet.textContent).toContain(item.name);
+  });
 });
