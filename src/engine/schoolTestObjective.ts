@@ -1,4 +1,5 @@
 import type { LearningCycleRecordV2 } from "./learningCycleRepository";
+import type { LongitudinalLearningHistory } from "./longitudinalLearning";
 
 /**
  * The school test as a goal plus facts (owner, 2026-11-08): Elli and the Planner read the date, the
@@ -33,25 +34,36 @@ export function schoolTestLine(facts: SchoolTestFacts | null): string {
   return `School test: ${facts.weekday} ${facts.testDate}, ${when}.`;
 }
 
-/** How each word on the list has gone for her, on her own and with help, from the cycle's recorded answers. */
-export function spellingWordHistoryLines(cycle: LearningCycleRecordV2, today: string): string[] {
-  const wordByItem = new Map<string, string>();
-  for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) wordByItem.set(item.id, item.word);
+/**
+ * How each word on the list has gone for her, on her own and with help: this list's answers plus the chart's
+ * history for that word across earlier lists (BUGS.md 2026-11-04: a word missed on an earlier check read as new).
+ */
+export function spellingWordHistoryLines(cycle: LearningCycleRecordV2, today: string, history?: LongitudinalLearningHistory): string[] {
+  const wordByItem = new Map<string, string>(), constructByWord = new Map<string, string>();
+  for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) {
+    wordByItem.set(item.id, item.word);
+    constructByWord.set(item.word, item.constructId);
+  }
   const words = [...new Set(wordByItem.values())];
   return words.map(word => {
-    const rows = (cycle.observations ?? []).filter(row => wordByItem.get(row.itemId) === word && typeof row.result?.correct === "boolean");
+    const construct = constructByWord.get(word);
+    const all = [...(cycle.observations ?? []), ...(construct ? history?.constructs[construct]?.observations ?? [] : [])];
+    const unique = [...new Map(all.map((row, index) => [row.observationId ?? `row-${index}`, row])).values()];
+    const rows = unique.filter(row => (wordByItem.get(row.itemId) === word || row.constructLinks?.some(link => link.constructId === construct))
+      && typeof row.result?.correct === "boolean").sort((a, b) => a.observedAt.localeCompare(b.observedAt));
     if (!rows.length) return `- ${word}: not tried yet`;
     const own = rows.filter(row => row.assistance.status === "unassisted"), helped = rows.filter(row => row.assistance.status !== "unassisted");
     const right = (list: typeof rows) => list.filter(row => row.result.correct).length;
+    const how = (row: (typeof rows)[number]) => `${row.result.correct ? "right" : "missed"} ${row.assistance.status === "unassisted" ? "on her own" : "with help"}`;
     const parts = [...(own.length ? [`on her own ${right(own)} of ${own.length} right`] : []), ...(helped.length ? [`with help ${right(helped)} of ${helped.length} right`] : [])];
-    const todays = rows.filter(row => localDate(new Date(row.observedAt)) === today)
-      .map(row => `${row.result.correct ? "right" : "missed"} ${row.assistance.status === "unassisted" ? "on her own" : "with help"}`);
-    return `- ${word}: ${parts.join("; ")}${todays.length ? `; today: ${todays.join(", ")}` : ""}`;
+    const last = rows.at(-1)!, lastDay = localDate(new Date(last.observedAt));
+    const todays = rows.filter(row => localDate(new Date(row.observedAt)) === today).map(how);
+    return `- ${word}: ${parts.join("; ")}${todays.length ? `; today: ${todays.join(", ")}` : `; last try: ${how(last)} on ${lastDay}`}`;
   });
 }
 
 /** Elli's goal and facts for this list: the test, this word's role and how each word has gone. */
-export function companionSpellingTestObjective(input: { cycle: LearningCycleRecordV2; homework?: HomeworkSources; instrument?: string; now?: Date }): string {
+export function companionSpellingTestObjective(input: { cycle: LearningCycleRecordV2; homework?: HomeworkSources; history?: LongitudinalLearningHistory; instrument?: string; now?: Date }): string {
   const now = input.now ?? new Date();
   const facts = schoolTestFacts(input.homework, input.cycle.homeworkId, now);
   const when = !facts ? "School test date: not recorded."
@@ -60,7 +72,7 @@ export function companionSpellingTestObjective(input: { cycle: LearningCycleReco
     ? "This word is practice: help counts as part of learning it."
     : "This word is a check: it measures what she spells on her own."];
   return ["[Her spelling goal]", SPELLING_TEST_GOAL, when, SPELLING_TEST_CONDITIONS, ...role,
-    "How each word has gone for her:", ...spellingWordHistoryLines(input.cycle, localDate(now))].join("\n");
+    "How each word has gone for her:", ...spellingWordHistoryLines(input.cycle, localDate(now), input.history)].join("\n");
 }
 
 export const MATH_TEST_GOAL = "Her goal is to solve problems like these on her own by the school test.";

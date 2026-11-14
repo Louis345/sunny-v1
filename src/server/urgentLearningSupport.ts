@@ -300,7 +300,7 @@ export function buildActivityCompanionContext(input: {
     ].join("\n");
   }
   // The school test as her goal plus facts (owner, 2026-11-08): Elli judges how much help fits.
-  const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework,
+  const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework, history: chart?.learningHistory,
     instrument: spelling ? assessment?.instrument : undefined })
     : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
   // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
