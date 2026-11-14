@@ -189,7 +189,10 @@
     completionSent = true;
     var rows = items.filter(function (it) { return firstTries[it.itemId]; }).map(function (it) {
       var f = firstTries[it.itemId];
-      return { target: it.itemId, correct: f.correct, attemptedValue: f.attemptedValue, responseTime_ms: f.ms, scaffoldLevel: f.hintLevel, attempts: attempts[it.itemId] || 1 };
+      var row = { target: it.itemId, correct: f.correct, attemptedValue: f.attemptedValue, responseTime_ms: f.ms, scaffoldLevel: f.hintLevel, attempts: attempts[it.itemId] || 1 };
+      // The game's own record that her companion helped before this answer (audit 2026-11-13 b): helped, never on her own.
+      if (f.companionHelp) row.companionHelp = true;
+      return row;
     });
     var scored = rows.filter(function (r) { return typeof r.correct === "boolean"; });
     var accuracy = scored.length ? scored.filter(function (r) { return r.correct; }).length / scored.length : 0;
@@ -221,7 +224,7 @@
       var value = attemptedValueOf(p), r = (p && p.result) || {};
       var correct = typeof r.correct === "boolean" ? r.correct : undefined;
       attempts[item.itemId] = (attempts[item.itemId] || 0) + 1;
-      if (!firstTries[item.itemId]) firstTries[item.itemId] = { attemptedValue: value, correct: correct, ms: Number(r.ms) || undefined, hintLevel: Number(r.hintLevel) || 0 };
+      if (!firstTries[item.itemId]) firstTries[item.itemId] = { attemptedValue: value, correct: correct, ms: Number(r.ms) || undefined, hintLevel: Number(r.hintLevel) || 0, companionHelp: r.companionHelp === true };
       pass("attemptRecorded", p, item);
       window.fireAttemptEvent({ target: item.itemId, attemptedValue: value, domain: subject, correct: correct, hintLevel: Number(r.hintLevel) || 0,
         responseTime_ms: Number(r.ms) || undefined, attemptNumber: p && p.attemptNumber, companionHelp: r.companionHelp === true, source: activityId });

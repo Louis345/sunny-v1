@@ -1034,7 +1034,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
     if (!learningRouteShouldPersist()) return res.json({ ok: true, skippedPersistence: true });
     try {
-      const updated = recordCanonicalLateTries({ childId, homeworkId, nodeId, sessionId,
+      // Help her companion gave on a problem after the stop finished is noted the same way (audit 2026-11-13 b).
+      const updated = recordCanonicalLateTries({ childId, homeworkId, nodeId, sessionId, companionHelpItemIds: takeCompanionHelpItemIds(childId, nodeId),
         targetResults: body.targetResults as Parameters<typeof recordCanonicalLateTries>[0]["targetResults"] });
       if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
       return res.json({ ok: true, revision: updated.revision });

@@ -660,6 +660,27 @@ describe("canonical learning cycle runtime", () => {
     expect(cycle!.observations.find(row => row.itemId === "2x5")!.assistance).toEqual({ status: "assisted", scaffolds: ["companion_help_on_item"] });
   });
 
+  // Measurement audit 2026-11-13 (b), AI-caught: a library game's row says Elli helped, and a late try after her
+  // companion helped never got the per-item help list, so both saved as on her own.
+  it("saves an answer as helped when the game's row says her companion helped on it", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10", companionHelp: true } as never] } }, { rootDir });
+    expect(cycle!.observations.find(row => row.itemId === "2x5")!.assistance).toEqual({ status: "assisted", scaffolds: ["companion_help_on_item"] });
+  });
+
+  it("saves a late try as helped when her companion helped while that problem was open", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, ended: true, accuracy: 0, timeSpent_ms: 1000,
+      targetResults: [{ target: "groups", correct: false, attemptedValue: "9", tries: [{ attemptedValue: "9" }] }] } }, { rootDir });
+    const cycle = recordCanonicalLateTries({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", companionHelpItemIds: ["groups"],
+      targetResults: [{ target: "groups", attemptedValue: "9", tries: [{ attemptedValue: "9" }, { attemptedValue: "10" }] }] } as never, { rootDir })!;
+    const late = cycle.observations.find(row => row.observationId === "s1:facts:observation:1:try:2")!;
+    expect(late.assistance).toEqual({ status: "assisted", scaffolds: ["companion_help_on_item"] });
+  });
+
   it("records factual baseline scorecards before one Planner decision generates Quest", async () => {
     const rootDir = root();
     createLearningCycle(input(), { rootDir });

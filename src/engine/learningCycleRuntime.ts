@@ -73,6 +73,8 @@ export type CanonicalCompletionResult = {
     responseTime_ms?: number;
     attempts?: number;
     scaffoldLevel?: number;
+    /** The game says her companion helped before this answer (library games, audit 2026-11-13 b). */
+    companionHelp?: boolean;
     evidenceRole?: "assisted_instruction";
     /** The screen text when the game opened this item (the game contract keeps it, not the game). */
     screenAtOpen?: string;
@@ -392,7 +394,7 @@ function observationsForCompletion(input: {
     // An answer already on screen when the item opened is help, whatever the game says (owner, 2026-11-08).
     const answerShowing = item?.response.mode === "numeric" && typeof row.screenAtOpen === "string"
       && new RegExp(`=\\s*${String(item.response.expected).replace(".", "\\.")}(?![\\d.])`).test(row.screenAtOpen);
-    const helpedOnItem = (input.result.companionHelpItemIds ?? []).includes(row.target);
+    const helpedOnItem = (input.result.companionHelpItemIds ?? []).includes(row.target) || row.companionHelp === true;
     const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || helpedOnItem || hinted;
     const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target) || tryIndex > 0;
     const spellingItem = spellingItems?.[row.target];
@@ -455,7 +457,7 @@ function observationsForCompletion(input: {
  * tries not yet saved are added, as retries, and the stop's state and evidence summary stay as they are.
  */
 export function recordCanonicalLateTries(
-  input: { childId: string; homeworkId: string; sessionId: string; nodeId: string;
+  input: { childId: string; homeworkId: string; sessionId: string; nodeId: string; companionHelpItemIds?: string[];
     targetResults: Array<Omit<NonNullable<CanonicalCompletionResult["targetResults"]>[number], "correct"> & { correct?: boolean }> },
   opts: LearningCycleRepositoryOptions = {},
 ): LearningCycleRecordV2 | null {
@@ -467,7 +469,8 @@ export function recordCanonicalLateTries(
   const known = new Set(cycle.observations.map((observation) => observation.observationId));
   const observations = observationsForCompletion({ cycle, sessionId: input.sessionId, nodeId: input.nodeId,
     // Bound problems carry no game-claimed result: code scores each try, as at completion.
-    result: { completed: true, ended: true, accuracy: 0, timeSpent_ms: 0, targetResults: input.targetResults as NonNullable<CanonicalCompletionResult["targetResults"]> },
+    result: { completed: true, ended: true, accuracy: 0, timeSpent_ms: 0, targetResults: input.targetResults as NonNullable<CanonicalCompletionResult["targetResults"]>,
+      ...(cycle.domain !== "spelling" ? { companionHelpItemIds: input.companionHelpItemIds } : {}) },
     observedAt: (opts.now ?? new Date()).toISOString() })
     .filter((observation) => /:try:\d+$/.test(observation.observationId) && !known.has(observation.observationId));
   console.log(` 🎮 [learning-cycle] [late-tries] [${observations.length ? "saved" : "none-new"}] node=${input.nodeId} added=${observations.length}`);
