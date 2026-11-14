@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macKioskBrowserPid, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
+import { KIOSK_BROWSER_REOPEN_GUARD, KIOSK_DOUBLE_CLOSE_MS, kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macKioskBrowserPid, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
 
 const browser = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const args = ["--kiosk", "--user-data-dir=/tmp/sunny-profile", "--app=http://localhost:3001/?sunnyKioskToken=owned"];
@@ -72,14 +72,33 @@ describe("kiosk window closed during a session", () => {
   // Human-caught: on Nov 2 Ila's kiosk window quit twice (browser-exit:0) and Sunny
   // shut down with nobody told; Ila sat waiting for Elli. The lab only ever started
   // kiosks and never quit the browser mid-session, so this exit path was untested.
-  it("reopens the window once, then shuts down if it is closed again", () => {
-    const actions = [0, 1, 2].map(reopens => kioskBrowserExitAction(reopens));
-    expect(actions).toEqual(["reopen", "shutdown", "shutdown"]);
+  it("reopens the window every time a child closes it, however many earlier closes there were", () => {
+    // 2026-11-12 19:41: one close shut Sunny down because an earlier close (lost with the overwritten log) used the only reopen.
+    const minute = 60_000;
+    expect(kioskBrowserExitAction([0])).toBe("reopen");
+    expect(kioskBrowserExitAction([0, 10 * minute])).toBe("reopen");
+    expect(kioskBrowserExitAction([0, 10 * minute, 25 * minute])).toBe("reopen");
+  });
+  it("stops Sunny only when the window is closed twice within a minute (a grown-up stopping it)", () => {
+    expect(kioskBrowserExitAction([0, 40_000])).toBe("shutdown");
+    expect(kioskBrowserExitAction([0, KIOSK_DOUBLE_CLOSE_MS])).toBe("shutdown");
+    expect(kioskBrowserExitAction([0, KIOSK_DOUBLE_CLOSE_MS + 1])).toBe("reopen");
+  });
+  it("has a counter guard: the reopen loop ends after the guard's number of reopens", () => {
+    const spaced = (count: number) => Array.from({ length: count }, (_, index) => index * 10 * 60_000);
+    expect(kioskBrowserExitAction(spaced(KIOSK_BROWSER_REOPEN_GUARD))).toBe("reopen");
+    expect(kioskBrowserExitAction(spaced(KIOSK_BROWSER_REOPEN_GUARD + 1))).toBe("shutdown");
+    expect(KIOSK_BROWSER_REOPEN_GUARD).toBeLessThanOrEqual(10);
   });
   it("routes the visible browser's exit through the reopen rule", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
-    expect(source).toContain("kioskBrowserExitAction(browserReopens)");
+    expect(source).toContain("kioskBrowserExitAction(browserExitTimes)");
     expect(source).toContain("[kiosk] [browser-exit] [reopening]");
+    expect(source).toContain("[kiosk] [browser-exit] [shutting-down]");
+  });
+  it("copies the kiosk's own lifecycle lines into the dated server log that survives restarts", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+    expect(source).toMatch(/installServerLogFile\(\{ dir: path\.join\(root, "logs", "server"\) \}\)/);
   });
 });
 

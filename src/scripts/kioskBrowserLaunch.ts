@@ -42,12 +42,17 @@ export function acceptVisibleMacKiosk(visible: boolean, table: string, browser: 
   return { accepted: visible, browserPid };
 }
 
-/** A kiosk window that quits mid-session reopens once, so a stray close never ends study
- * time unnoticed; closing it again is a grown-up stopping Sunny, and Sunny shuts down.
+/** A child closing the kiosk window must never end Sunny, so it always reopens. Two closes within a minute are a
+ * grown-up deliberately stopping Sunny (2026-11-12: a lifetime limit of one reopen shut Sunny down on a close made
+ * long after the first). Law 2 guard: the reopen loop ends after KIOSK_BROWSER_REOPEN_GUARD reopens.
+ * `exitTimes` holds every browser exit this run, oldest first, including the one being decided.
  */
-export const KIOSK_BROWSER_REOPEN_LIMIT = 1;
-export function kioskBrowserExitAction(reopensUsed: number): "reopen" | "shutdown" {
-  return reopensUsed < KIOSK_BROWSER_REOPEN_LIMIT ? "reopen" : "shutdown";
+export const KIOSK_DOUBLE_CLOSE_MS = 60_000;
+export const KIOSK_BROWSER_REOPEN_GUARD = 10;
+export function kioskBrowserExitAction(exitTimes: number[]): "reopen" | "shutdown" {
+  if (exitTimes.length > KIOSK_BROWSER_REOPEN_GUARD) return "shutdown";
+  const [previous, latest] = exitTimes.slice(-2);
+  return exitTimes.length >= 2 && latest - previous <= KIOSK_DOUBLE_CLOSE_MS ? "shutdown" : "reopen";
 }
 
 /** Owner 2026-11-12: on macOS, closing the kiosk window leaves Chrome running with no window, so the quit

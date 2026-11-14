@@ -20,9 +20,12 @@ import {
 } from "../server/certificationRuntime";
 import { assertHumanAcceptanceAudioEnvironment } from "../server/humanAcceptanceAudio";
 import { localNpmScriptCommand, localTsxCommand } from "./localRuntimeCommand";
+import { installServerLogFile } from "../server/serverLogFile";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const root = path.resolve(process.cwd());
+// kiosk-run.log is overwritten at each restart; the kiosk's own lifecycle lines also go to the dated server log.
+installServerLogFile({ dir: path.join(root, "logs", "server") });
 const WEB_DIR = path.join(root, "web");
 const DIST_DIR = path.join(WEB_DIR, "dist");
 const KIOSK_TOKEN = randomUUID();
@@ -238,7 +241,7 @@ async function main() {
     }
 
     fs.mkdirSync(BROWSER_PROFILE_DIR, { recursive: true });
-    let browserReopens = 0;
+    const browserExitTimes: number[] = [];
     // The server keeps the first launch's visible-identity proof, so a reopened window
     // is accepted by its matched profile and kiosk URL rather than a fresh page handshake.
     const openVisibleBrowser = async (): Promise<void> => {
@@ -327,9 +330,12 @@ async function main() {
       visibleBrowser.once("exit", (code, signal) => {
         if (shuttingDown) return;
         const exit = `browser-exit:${signal ?? code ?? "unknown"}`;
-        if (kioskBrowserExitAction(browserReopens) === "shutdown") return void shutdown(exit, code ?? 1);
-        browserReopens += 1;
-        console.warn(` 🎮 [kiosk] [browser-exit] [reopening] ${exit} reopen=${browserReopens}`);
+        browserExitTimes.push(Date.now());
+        if (kioskBrowserExitAction(browserExitTimes) === "shutdown") {
+          console.warn(` 🎮 [kiosk] [browser-exit] [shutting-down] ${exit} closes=${browserExitTimes.length} reason=closed-twice-within-a-minute-or-reopen-guard`);
+          return void shutdown(exit, code ?? 1);
+        }
+        console.warn(` 🎮 [kiosk] [browser-exit] [reopening] ${exit} reopen=${browserExitTimes.length}`);
         openVisibleBrowser().catch(async (error) => {
           console.error(" 🎮 [kiosk] [browser-reopen] [failed]", error);
           await shutdown("browser-reopen-failed", 1);
@@ -338,7 +344,7 @@ async function main() {
       if (process.platform === "darwin" && macBrowserPid) watchMacKioskWindow(macBrowserPid, visibleBrowser);
     };
     // A closed window on macOS leaves Chrome running windowless; close that Chrome so the exit rule above
-    // reopens the kiosk once (or shuts Sunny down on a second close, as a grown-up stopping it).
+    // reopens the kiosk (or shuts Sunny down on a second close within a minute, as a grown-up stopping it).
     const watchMacKioskWindow = (browserPid: number, browser: ChildProcess) => {
       let emptyChecks = 0;
       let counting = false;
