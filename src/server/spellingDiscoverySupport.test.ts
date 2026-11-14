@@ -174,6 +174,18 @@ describe("live spelling assistance and audio provenance", () => {
       scaffolds: [],
     });
   });
+  it("records spelling help Elli gives in a game-invited turn on a check word", () => {
+    // Measurement audit 2026-11-13 (c), AI-caught: a game's help button asks Elli for help as a system turn
+    // (requestInstructionReadAloud), and only child-spoken turns were checked for spelling help, so her
+    // letters on a check word were never recorded and the next answer saved as on her own.
+    const s = session() as any;
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    s.recordCompanionReplySupport("Let's try it together: n, i, g...");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support).toEqual({ status: "assisted", scaffolds: ["support:s1:i1"] });
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
+    s.recordCompanionReplySupport("You can do this one, take your time.");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i2")?.support.status).toBe("unassisted");
+  });
   it("counts a check word as assisted only when Elli's reply gives its spelling", () => {
     // Owner rule, Nov 2: talking to Elli during a check is never help by
     // itself. The children said Elli did not respond; making her reachable

@@ -967,10 +967,14 @@ export class SessionManager {
     });
   }
 
-  public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
-    // A measured word is assisted only when Elli's reply gives its spelling, not when she chats.
+  /** Any reply of hers, child-asked or game-invited: a measured word is assisted only when it gives its spelling. */
+  public recordCompanionReplySupport(companionText: string): void {
     const assessment = this.spellingAssessment;
     if (assessment && (assessment.instrument === "practice" || replyGivesSpelling(companionText, assessment.word))) markCurrentSpellingSupport(assessment, this.currentBoardSnapshot);
+  }
+
+  public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
+    this.recordCompanionReplySupport(companionText);
     recordActivityCompanionHelp({
       childId: this.chartChildId,
       companionId: this.companion.name,

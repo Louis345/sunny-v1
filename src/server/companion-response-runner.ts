@@ -672,7 +672,9 @@ export async function runCompanionResponseForSession(
       if (fullResponse.trim()) {
         session.conversationHistory.push({ role: "assistant", content: fullResponse });
         session.recordDebugTranscript?.("assistant", fullResponse);
+        // A game-invited reply can give letters too (audit 2026-11-13 c); only her own turn is her help request.
         if (source === "user") session.recordCompanionHelpTurn?.(userMessage, fullResponse);
+        else session.recordCompanionReplySupport?.(fullResponse);
         if (session.chartChildId) noteCompanionReplyForTutorPlan(String(session.chartChildId), fullResponse);
       }
 
