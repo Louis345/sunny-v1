@@ -161,6 +161,11 @@ describe("game contract compliance (helper-based)", () => {
           completionSource += fs.readFileSync(path.join(PROJECT_ROOT,
             "web/public/generated/openai-visual-probe/artifact-shell.js"), "utf-8");
         }
+        // The 3D library games (Quest/Boss, 2026-11-11) complete through their shared bridge, loaded from the page;
+        // check that bridge's real call and payload the same way (BUGS.md I1, 2026-11-14).
+        if (html.includes('<script src="/games/cookoff/_library.js"></script>')) {
+          completionSource += fs.readFileSync(path.join(GAMES_DIR, "cookoff/_library.js"), "utf-8");
+        }
       });
 
       it("loads the shared contract helper", () => {

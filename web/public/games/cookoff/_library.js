@@ -195,8 +195,12 @@
     var accuracy = scored.length ? scored.filter(function (r) { return r.correct; }).length / scored.length : 0;
     log("complete", "[sent] game=" + activityId + " answered=" + rows.length + "/" + items.length + " accuracy=" + accuracy.toFixed(2));
     window.fireCompanionEvent("session_complete", { activityId: activityId });
-    window.sendNodeComplete({ completed: true, ended: true, won: true, accuracy: accuracy, timeSpent_ms: Date.now() - startedAt,
-      targetResults: rows, gameResult: result || {} });
+    var flaggedWords = rows.filter(function (r) { return r.correct === false; }).map(function (r) {
+      var item = items.filter(function (it) { return it.itemId === r.target; })[0];
+      return item && item.answer != null ? String(item.answer) : r.target;
+    });
+    window.sendNodeComplete({ completed: true, ended: true, won: true, accuracy: accuracy, flaggedWords: flaggedWords,
+      xpEarned: Math.round(accuracy * 40), timeSpent_ms: Date.now() - startedAt, targetResults: rows, gameResult: result || {} });
   }
 
   window.SunnyEvidence = Object.assign({}, base, {
