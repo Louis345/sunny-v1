@@ -109,6 +109,27 @@ function nativeEnding(game: NativeGame, won: boolean): Record<string, unknown> {
   return completions[0];
 }
 
+/** Word Builder has no typing: its buttons are the only input. Run the real page script and press them. */
+function wordBuilderRun(buttons: string[]): Array<Record<string, unknown>> {
+  const messages: Array<Record<string, unknown>> = [];
+  const listeners: Record<string, () => void> = {};
+  const params = new URLSearchParams({ nodeId: "native-practice", childId: "lab-child", sessionId: "host-launch", preview: "go-live", words: "night", spellingItemBindings: JSON.stringify([{ itemId: "frozen-night", word: "night" }]) });
+  const sandbox: Record<string, unknown> = {
+    location: { search: `?${params}` }, URLSearchParams, console, Date, Math, JSON,
+    document: { title: "word-builder", addEventListener() {}, body: { appendChild() {} }, createElement: () => ({ style: {} }),
+      getElementById: (id: string) => ({ style: {}, textContent: "", addEventListener: (_: string, fn: () => void) => { listeners[id] = fn; } }) },
+    parent: { postMessage: (message: Record<string, unknown>) => messages.push(message) },
+    setTimeout: (fn: () => void) => fn(),
+  };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(process.cwd(), "web/public/games/_contract.js"), "utf8"), sandbox);
+  const source = fs.readFileSync(path.join(process.cwd(), "web/public/games/word-builder.html"), "utf8");
+  vm.runInContext(source.slice(source.lastIndexOf("<script>") + "<script>".length, source.lastIndexOf("</script>")), sandbox);
+  buttons.forEach(id => listeners[id]());
+  return messages;
+}
+
 describe("finished native spelling participation", () => {
   // Owner, 2026-11-08: Ila lost Monster Stampede and the stop stayed open, so she replayed until she won.
   // The arcade games reported a loss as completed:false with no ended flag, which reads as quitting.
@@ -195,5 +216,30 @@ describe("finished native spelling participation", () => {
     expect(response).toMatchObject({ status: 409, body: { held: true } });
     const held = JSON.parse(fs.readFileSync(path.join(process.env.SUNNY_CONTEXT_ROOT!, "lab-child", "sunny_health", "held-completions.json"), "utf8"));
     expect(held).toEqual([expect.objectContaining({ nodeId: "native-practice", result: expect.objectContaining({ targetResults: [expect.objectContaining({ attemptedValue: "night" })] }) })]);
+  });
+  // E6 (Oct, still open 11/08): "Finish (struggle)" sent completed:false with no ended flag (read as quitting), reported
+  // the target word as her answer, and its attempts had no domain (`Invalid attempt domain: undefined`).
+  it("saves a Word Builder struggle finish as an ended run, with no invented answer and a spelling domain", async () => {
+    const { post, current } = fixture();
+    const messages = wordBuilderRun(["done-bad"]);
+    const attempts = messages.filter(message => message.type === "attempt_event").map(message => message.payload as Record<string, unknown>);
+    expect(attempts.length).toBeGreaterThan(0);
+    for (const attempt of attempts) {
+      expect(attempt.domain).toBe("spelling");
+      expect(attempt.attemptedValue).toBeUndefined();
+    }
+    const completions = messages.filter(message => message.type === "node_complete");
+    expect(completions).toHaveLength(1);
+    const result = completions[0];
+    expect(result).toMatchObject({ completed: false, ended: true, won: false });
+    for (const row of result.targetResults as Array<Record<string, unknown>>) expect(row.attemptedValue).toBeUndefined();
+    const response = await post(result);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ nodeState: "completed" });
+    expect(response.body.coinAward).toBeUndefined();
+    const saved = current();
+    expect(saved.observations).toHaveLength(1);
+    expect(saved.observations[0].childResponse).toBeUndefined();
+    expect(saved.observations[0].result).not.toMatchObject({ correct: true });
   });
 });
