@@ -1,5 +1,4 @@
-import { COMPANION_EMOTES } from "../shared/companionEmotes";
-import { ANIMATION_IDS } from "../shared/companions/animations.generated";
+import { z } from "zod";
 import {
   type CompanionCommand,
   type AnimationName,
@@ -70,6 +69,11 @@ const SHOWROOM_TALK_FALLBACK_TEXT = "I'm here with you. Let's keep going.";
 const SHOWROOM_COMPANION_ACT_CAPABILITIES = [
   ...COMPANION_CAPABILITIES.keys(),
 ] as string[];
+/** The registry's strict payload shapes, so the call companion reads exactly what the validator accepts. */
+const SHOWROOM_COMPANION_ACT_PAYLOADS = [...COMPANION_CAPABILITIES.values()].map((def) => {
+  const { $schema: _schema, ...shape } = z.toJSONSchema(def.payloadSchema, { io: "input" });
+  return shape;
+});
 const SHOWROOM_COMPANION_ACTIVITY_SURFACES = new Set(["video_call_overlay"]);
 
 export type ShowroomTalkPhase = "thinking" | "speaking" | "idle";
@@ -260,10 +264,9 @@ export function getShowroomCompanionActTools() {
               "Capability id. Use animate for gestures, emote for facial feeling, camera for framing, and move for small symbolic shifts.",
           },
           payload: {
-            type: "object",
             description:
-              `Payload for the capability. Examples: {"animation":"wave","loop":false}, {"animation":"think","loop":true}, {"emote":"happy","intensity":0.8}, {"angle":"close-up","transition_ms":400}. The only emotes: ${COMPANION_EMOTES.join(", ")}. The only animations: ${ANIMATION_IDS.join(", ")}. Any other name is ignored (2026-11-11: "curious" and "celebrate" were guessed and dropped).`,
-            additionalProperties: true,
+              'Payload for the capability: exactly one of these shapes. Examples: {"animation":"wave","loop":false}, {"emote":"happy","intensity":0.8}, {"angle":"close-up","transition_ms":400}.',
+            anyOf: SHOWROOM_COMPANION_ACT_PAYLOADS,
           },
         },
         required: ["type", "payload"],
