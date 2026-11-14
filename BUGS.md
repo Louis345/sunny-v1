@@ -18,7 +18,7 @@ The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, t
 - [x] E4 The picture explainer and Wheel of Words save no answers (11/04) (partial: Wheel fixed 14a3c426, 2026-11-14, records its word as hidden practice; neither game has spelled answers by design, so per_word_results_unavailable stays. Explainer unchanged: it already records each shown word as exposure and its chunk tap as non_spelling_response; whether board 7 saved that exposure is unverified)
 - [x] E5 Spelling intake writes the test date as empty (11/08 "Practice should move toward test conditions", still-open part) (fixed f3082ebd, 2026-11-14)
 - [x] E6 Word Builder: "Finish (struggle)" sends her target as her answer; `Invalid attempt domain: undefined` *(Oct)* (11/08 "A lost game does not count as done", still-open part) (fixed "Word Builder's struggle finish ends the run honestly", 2026-11-14)
-- [ ] E7 Elli misreads her results ("brand new" for a missed word) (11/04)
+- [x] E7 Elli misreads her results ("brand new" for a missed word) (11/04) (fixed 1d8d0c8f, 2026-11-14)
 - [ ] E8 Floating-words history is kept per activity, not per mode (11/07)
 - [x] E9 A win after the game's own "Play Again" earns no credit *(Oct)* (fixed "A win after a game's own Play Again is saved", 2026-11-14)
 - [x] E10 Post-session finalization errors (`soul.md` path, `.some` of undefined) *(Oct; check today's logs)* (fixed 5e90a5a3, 2026-11-14; the `.some` crash not reproduced: no October logs remain, no stack)
