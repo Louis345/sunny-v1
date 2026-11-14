@@ -321,3 +321,27 @@ it('reports which word page of how many she is on',async()=>{
  const shown=await page.evaluate(()=>(globalThis as any).captured.filter((row:any)=>row.type==='game_state_update'&&row.payload?.spellingItemOpened).map((row:any)=>row.payload));
  expect(shown.at(-1)).toMatchObject({currentWord:'right',itemIndex:2,totalItems:3});
 });
+
+// BUGS.md 2026-11-08 (Ila, Keep Them Apart): she clicked through the check and got no feedback; the page only said
+// "Choice saved". The owner saw it; the log recorded each pick but not what she saw; the lab only checked that
+// a pick was recorded. Her pick now shows right or wrong at once (colour and motion), the right one glows, and
+// the first pick stands.
+it('shows right or wrong on her pick at once, and her first pick stands',async()=>{
+ const {frame}=await launch({width:1280,height:720});
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(85,false));
+ const wrong=frame.getByRole('button',{name:'ite',exact:true}), right=frame.getByRole('button',{name:'ight',exact:true});
+ await wrong.click();
+ expect(await wrong.evaluate((b:any)=>b.classList.contains('wrong'))).toBe(true);
+ expect(await right.evaluate((b:any)=>b.classList.contains('right'))).toBe(true);
+ expect(await right.isDisabled()).toBe(true);
+ expect(await frame.locator('#predFeedback').textContent()).not.toContain('Choice saved');
+ expect(await wrong.evaluate((b:any)=>getComputedStyle(b).animationName)).not.toBe('none');
+});
+it('marks a right pick right at once',async()=>{
+ const {frame}=await launch({width:1280,height:720});
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(85,false));
+ const right=frame.getByRole('button',{name:'ight',exact:true});
+ await right.click();
+ expect(await right.evaluate((b:any)=>b.classList.contains('right'))).toBe(true);
+ expect(await frame.locator('.choice.wrong').count()).toBe(0);
+});
