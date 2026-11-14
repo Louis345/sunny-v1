@@ -312,6 +312,34 @@ describe("AdventureBoard", () => {
     );
   });
 
+  // 2026-11-08 (owner observed): back on the map after a stop she saw several ready stops that looked
+  // identical and could not tell which came next. Every ready stop stays playable; one stands out.
+  it("makes exactly one next stop stand out while every ready stop stays playable", () => {
+    const board: AdventureBoardJson = {
+      ...explicitRouteBoard,
+      boardId: "next-stop-test",
+      choiceSets: [],
+      progress: { currentNodeId: "first", completedNodeIds: [] },
+      nodes: [
+        {id:"first",kind:"activity",activityId:"word-radar",label:"First",state:"available",position:{x:.2,y:.5}},
+        {id:"second",kind:"activity",activityId:"word-radar",label:"Second",state:"available",position:{x:.5,y:.5}},
+        {id:"third",kind:"activity",activityId:"word-radar",label:"Third",state:"available",position:{x:.8,y:.5}},
+      ],
+      edges: [],
+    };
+    const onNodeClick = vi.fn();
+    const { container, rerender } = render(<AdventureBoard board={board} onNodeClick={onNodeClick} />);
+    expect(container.querySelectorAll(".adventure-board__node--next")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "First" })).toHaveClass("adventure-board__node--next");
+
+    // She just finished First; the saved board has not refreshed yet, so the glow moves on, never vanishes.
+    rerender(<AdventureBoard board={board} completedNodeIds={["first"]} onNodeClick={onNodeClick} />);
+    expect(container.querySelectorAll(".adventure-board__node--next")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Second" })).toHaveClass("adventure-board__node--next");
+    for (const name of ["First", "Second", "Third"]) fireEvent.click(screen.getByRole("button", { name }));
+    expect(onNodeClick).toHaveBeenCalledTimes(3);
+  });
+
   // Oct 19 demo: a missing Grok world left the child a blank board. The image
   // now sits on the theme's panel colour, so a failed load is still a themed map.
   it("paints the theme panel colour under the illustrated world", () => {

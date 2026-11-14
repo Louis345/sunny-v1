@@ -316,6 +316,12 @@ export function AdventureBoard({
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
   const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
   const nodes = new Map(resolvedNodes.map((node) => [node.id, node]));
+  // Several ready stops look alike, so one stands out as next (owner 2026-11-08). Every ready stop stays
+  // playable; the glow only moves on when the saved next stop is already done here.
+  const playableNow = (node: AdventureBoardNode | undefined) =>
+    Boolean(node && (node.state === "available" || node.state === "current") && node.kind !== "start" && node.kind !== "choice-gate");
+  const savedNext = board.progress?.currentNodeId ? nodes.get(board.progress.currentNodeId) : undefined;
+  const nextStopId = playableNow(savedNext) ? savedNext!.id : resolvedNodes.find(playableNow)?.id;
 
   return (
     <section
@@ -461,6 +467,7 @@ export function AdventureBoard({
                 "adventure-board__node",
                 `adventure-board__node--${node.kind}`,
                 `adventure-board__node--${node.state}`,
+                node.id === nextStopId ? "adventure-board__node--next" : "",
                 unlockCeremony?.nodeId === node.id ? "adventure-board__node--unlocking" : "",
                 unlockCeremony?.nodeId === node.id && !stageReached(ceremonyStage, "rise")
                   ? "adventure-board__node--underground"
