@@ -17,7 +17,7 @@ The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, t
 - [ ] E3 Measurement audit (a)–(f): math answers dropped on early exit or replay; library games and late tries miss Elli's help; Elli's help during a spelling check not recorded; a whole-game answer when a game has no per-item results; nothing re-checks old words; "help asked" counts the word "help" (11/12 "Measurement audit")
 - [x] E4 The picture explainer and Wheel of Words save no answers (11/04) (partial: Wheel fixed 14a3c426, 2026-11-14, records its word as hidden practice; neither game has spelled answers by design, so per_word_results_unavailable stays. Explainer unchanged: it already records each shown word as exposure and its chunk tap as non_spelling_response; whether board 7 saved that exposure is unverified)
 - [x] E5 Spelling intake writes the test date as empty (11/08 "Practice should move toward test conditions", still-open part) (fixed f3082ebd, 2026-11-14)
-- [ ] E6 Word Builder: "Finish (struggle)" sends her target as her answer; `Invalid attempt domain: undefined` *(Oct)* (11/08 "A lost game does not count as done", still-open part)
+- [x] E6 Word Builder: "Finish (struggle)" sends her target as her answer; `Invalid attempt domain: undefined` *(Oct)* (11/08 "A lost game does not count as done", still-open part) (fixed "Word Builder's struggle finish ends the run honestly", 2026-11-14)
 - [ ] E7 Elli misreads her results ("brand new" for a missed word) (11/04)
 - [ ] E8 Floating-words history is kept per activity, not per mode (11/07)
 - [x] E9 A win after the game's own "Play Again" earns no credit *(Oct)* (fixed "A win after a game's own Play Again is saved", 2026-11-14)
