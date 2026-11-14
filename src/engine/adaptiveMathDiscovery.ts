@@ -1703,10 +1703,13 @@ export async function publishDiscoveryExperience(input: {
     [domain]: next,
   });
   const now = new Date().toISOString();
+  const previousHomework = readObject(homeworkPath);
+  // A test date a parent already gave this week survives a re-ingest (E5); only setHomeworkTestDate sets one.
+  const kept = [previousHomework.current, ...Object.values((previousHomework.activeByDomain ?? {}) as object)].find(row => row?.homeworkId === input.homeworkId && row.testDate) as { testDate: string; testDateSource?: string; testDateConfirmed?: boolean } | undefined;
   const pending = {
     homeworkId: input.homeworkId,
     weekOf: now.slice(0, 10),
-    testDate: null,
+    testDate: kept?.testDate ?? null, ...(kept ? { testDateSource: kept.testDateSource, testDateConfirmed: kept.testDateConfirmed } : {}),
     returnTag: `#sunny_${input.childId}_${input.homeworkId}`,
     wordList: native?.map(item => item.word) ?? [],
     contentProfile: { practiceDomain: domain, topic: input.assignment.title },
@@ -1729,7 +1732,6 @@ export async function publishDiscoveryExperience(input: {
     const publishedCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir })!;
     const publishedPlan = { ...input.activeSessionPlan, adventureBoard: projectLearningCycle(publishedCycle).activeSessionPlan.adventureBoard };
     const previousPlan = readObject(planPath);
-    const previousHomework = readObject(homeworkPath);
     const profile = readObject(profilePath);
     atomicJson(homeworkPath, {
       version: 1, childId: input.childId, selectedDomain: domain, current: pending,

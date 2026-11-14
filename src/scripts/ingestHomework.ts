@@ -90,7 +90,8 @@ import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNo
 import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "../engine/learningCycleIngest";
 import { planSpellingIntakeWithTools } from "../engine/spellingIntakeWithTools";
 import { pastWeeksForDraft, readPastWeeks } from "../engine/pastWeeks";
-import type { HomeworkSources } from "../engine/schoolTestObjective";
+import { schoolTestFacts, type HomeworkSources } from "../engine/schoolTestObjective";
+import { setHomeworkTestDate } from "../profiles/homeworkTestDate";
 import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure, completeDiscoveryEvaluation, queueTargetedMathGeneration } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
@@ -2170,9 +2171,12 @@ export async function runSpellingDiscoveryIntake(args: {
     console.log(` 🎮 [spelling-discovery] [assignment-capture] [running] child=${args.childId} homework=${homeworkId}`);
     const { extraction } = await loadOrExtractAssignmentSource(args.sourceFile, path.join(draft, "assignment-extraction.json"));
     const packetFile = path.join(draft, "spelling-intake-request.json");
+    // The parent's test date (this run's --testDate, else the one already on this week) sets the Planner's clock (E5).
+    const testDate = validIsoDate(args.testDate) ? args.testDate : schoolTestFacts(chart.homework as HomeworkSources, homeworkId)?.testDate ?? null;
+    const masteryContext = buildAssignmentMasteryContext(testDate ? { testDate, testDateSource: "human_confirmed", testDateConfirmed: true } : {});
     const packet = fs.existsSync(packetFile) ? JSON.parse(fs.readFileSync(packetFile, "utf8")) as AssignmentPlanningPacket
-      : args.confirmedCapture ? buildAssignmentPlanningPacket({ childId: args.childId, extraction, childChart: chart })
-        : prepareSpellingDiagnosticPacket(buildAssignmentPlanningPacket({ childId: args.childId, extraction, childChart: chart }), chart);
+      : args.confirmedCapture ? buildAssignmentPlanningPacket({ childId: args.childId, extraction, childChart: chart, masteryContext })
+        : prepareSpellingDiagnosticPacket(buildAssignmentPlanningPacket({ childId: args.childId, extraction, childChart: chart, masteryContext }), chart);
     if (packet.childId !== args.childId || packet.sourceDocument.fileHash !== fingerprint) throw new Error("spelling_intake_checkpoint_identity_mismatch");
     if (!fs.existsSync(packetFile)) save("spelling-intake-request.json", packet);
     const responseFile = path.join(draft, "spelling-intake-response.json");
@@ -2235,6 +2239,7 @@ export async function runSpellingDiscoveryIntake(args: {
     const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection, ...(checkItemIds ? { checkItemIds } : {}), boardDefinition: capture.boardDefinition ? {...capture.boardDefinition, portals:capture.boardDefinition.portals.map(portal => portal.activityNodeId === "diagnostic" ? {...portal,activityNodeId:`${homeworkId}:discovery`} : portal)} : undefined }, { rootDir });
     const activeSessionPlan = buildSpellingDiscoveryPlan({ cycle, companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
     await publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
+    if (validIsoDate(args.testDate)) setHomeworkTestDate(args.childId, homeworkId, args.testDate, "spelling intake --testDate", { rootDir });
     if (checkItemIds?.length === 0) {
       // The Planner opened with teaching: Discovery closes with no answers and the teaching board starts building now.
       const opened = completeDiscoveryEvaluation({ ...scope, completedAt: new Date().toISOString() });

@@ -1,6 +1,6 @@
 import {renderBoardDefinition} from "../shared/adventureBoardDefinition";
 import { pastWeeksForDraft, readPastWeeks } from "../engine/pastWeeks";
-import type { HomeworkSources } from "../engine/schoolTestObjective";
+import { schoolTestFacts, type HomeworkSources } from "../engine/schoolTestObjective";
 import { verifyPreparingBoardCanvas } from '../engine/adventureBoardCanvas';
 import { loadSunnyRuntimeEnvironment } from "./sunnyMenu";
 loadSunnyRuntimeEnvironment();
@@ -33,7 +33,7 @@ import {
   recordGenerationFailure,
 } from "../engine/adaptiveMathDiscovery";
 import { readAssignmentSourceExtraction } from "../engine/assignmentSourceExtraction";
-import { attachSpellingDiscoveryEvidence, buildAssignmentPlanningPacket, planAssignmentFromSourceWithTelemetry, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
+import { attachSpellingDiscoveryEvidence, buildAssignmentMasteryContext, buildAssignmentPlanningPacket, planAssignmentFromSourceWithTelemetry, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
 import { buildSpellingTargetedCycleInput, normalizeSpellingNativeNodeIdentity } from "../engine/learningCycleIngest";
 import { generateBoardNodeImages } from "../engine/boardNodeImageGenerator";
 import { resolveChildContextDir } from "../utils/contextRoot";
@@ -1048,7 +1048,8 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     const responseFile = path.join(draft, "spelling-targeted-response.json");
     const chart = getChildChart(childId, { rootDir });
     const packet = fs.existsSync(requestFile) ? read<AssignmentPlanningPacket>(requestFile)
-      : attachSpellingDiscoveryEvidence(buildAssignmentPlanningPacket({ childId, childChart: chart, extraction: readAssignmentSourceExtraction(path.join(draft, "assignment-extraction.json")) }), chart);
+      : attachSpellingDiscoveryEvidence(buildAssignmentPlanningPacket({ childId, childChart: chart, extraction: readAssignmentSourceExtraction(path.join(draft, "assignment-extraction.json")),
+        masteryContext: (testDate => buildAssignmentMasteryContext(testDate ? { testDate, testDateSource: "human_confirmed", testDateConfirmed: true } : {}))(schoolTestFacts(chart.homework as HomeworkSources, homeworkId)?.testDate) }), chart);
     if (!fs.existsSync(requestFile)) write(requestFile, packet);
     const saved = fs.existsSync(responseFile) ? read<{ result: Awaited<ReturnType<typeof planAssignmentFromSourceWithTelemetry>>; requestHash: string; outputHash: string; createdAt: string }>(responseFile) : undefined;
     if (saved && (saved.requestHash !== hashDiscoveryContract(packet) || saved.outputHash !== hashDiscoveryContract(saved.result))) throw new Error("spelling_targeted_checkpoint_hash_mismatch");
