@@ -28,7 +28,7 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
-import { interruptedExchange, isBackchannel, isListeningNoise, isSelfEcho, isVerbatimEchoOfCompanion, normalizeUtterance, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
+import { interruptedExchange, isBackchannel, isListeningNoise, selfEchoSource, isVerbatimEchoOfCompanion, normalizeUtterance, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
 
 /** Sunny's own speech (narration or a reply) can come back through the room mic this long after it played. */
 const SELF_ECHO_WINDOW_MS = 15_000;
@@ -1700,8 +1700,9 @@ export class SessionManager {
       });
     }
 
-    if (!opts?.fromReadingComplete && isSelfEcho(transcript, this.ttsBridge?.recentlySpoken?.(SELF_ECHO_WINDOW_MS) ?? [])) {
-      console.log(` 🎮 [transcript] [self-echo-dropped] words=${transcript.split(/\s+/).length} replay=${isReplay}`);
+    const echoOf = opts?.fromReadingComplete ? undefined : selfEchoSource(transcript, this.ttsBridge?.recentlySpoken?.(SELF_ECHO_WINDOW_MS) ?? []);
+    if (echoOf !== undefined) {
+      console.log(` 🎮 [transcript] [self-echo-dropped] words=${transcript.split(/\s+/).length} replay=${isReplay} heard=${JSON.stringify(transcript)} echo_of=${JSON.stringify(echoOf.slice(0, 200))}`);
       auditLog("transcript", { action: "dropped", reason: "self_echo", turnState: this.turnSM.getState(), tts, childName: auditChild, round: auditRound });
       this.debugRecorder.recordEvent("transcript", "dropped", { reason: "self_echo", round: auditRound, transcriptLength: transcript.length });
       this.voiceLatency?.discardLatest("ignored");

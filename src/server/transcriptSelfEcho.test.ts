@@ -32,6 +32,15 @@ describe("Sunny does not answer its own voice", () => {
     expect(isSelfEcho("Pick a gate to read the clues, skywrite the word.", [])).toBe(false);
   });
 
+  // Human catch (Ila, 2026-11-09): two of her turns (5 and 10 words) were dropped as Elli's echo and she asked
+  // "Should I hear me, Ellie?". The log kept only a word count, so it could not show they were not an echo; the
+  // lab only fed back exact narration, never a child sentence built from the common words of Elli's long reply.
+  it("keeps a child turn that shares only common words and one short phrase with Elli's long reply", () => {
+    const elli = "You did it! Can you help me find the next word? I think it is in the blue gate, so you can tap it when you want.";
+    expect(isSelfEcho("I want the next one, can you help me", [elli])).toBe(false);
+    expect(isSelfEcho("Can you help me find the next word?", [elli])).toBe(true);
+  });
+
   it("the voice bridge remembers what it spoke for 15 seconds, one entry per playback", () => {
     vi.useFakeTimers();
     try {
@@ -70,7 +79,9 @@ describe("Sunny does not answer its own voice", () => {
     const h = session([NARRATION]);
     await h.handleEndOfTurn("Pick a gate to read the clues, skywrite the word.");
     expect(runAgent).not.toHaveBeenCalled();
-    expect(log.mock.calls.some(([line]) => String(line).includes("🎮 [transcript] [self-echo-dropped]"))).toBe(true);
+    const dropped = log.mock.calls.map(([line]) => String(line)).find(line => line.includes("🎮 [transcript] [self-echo-dropped]"));
+    expect(dropped).toContain(`heard="Pick a gate to read the clues, skywrite the word."`);
+    expect(dropped).toContain(`echo_of="${NARRATION}"`);
     log.mockRestore();
   });
 
