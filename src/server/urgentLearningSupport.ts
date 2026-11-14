@@ -2,6 +2,7 @@ import { childPaceFacts, itemAttemptFacts } from "./itemAttemptFacts";
 import { sunnyHealthFacts } from "../engine/sunnyHealth";
 import { noteCompanionHelpOnItem } from "./companionItemHelp";
 import { gamePaceFacts, noteGamePace } from "./gamePace";
+import { isChildHelpRequest, normalizeSpeechText } from "../engine/helpRequest";
 import { getChildChart } from "../profiles/childChart";
 import type { SpellingAssessmentState } from "./game-event-handler";
 import type {
@@ -127,15 +128,6 @@ function isActiveLearningGame(context: LiveLearningContext | null): context is L
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizeSpeechText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[’']/g, "")
-    .replace(/[^a-z0-9\s]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 export type CompanionPresenceTranscriptRoute =
@@ -509,9 +501,6 @@ export function handleCompanionPresenceTranscript(input: {
   return false;
 }
 
-/** A child asking for help, as speech recognition writes it (normalized, no punctuation). */
-const HELP_REQUEST = /\b(?:(?:can|could|will|would) (?:you|i|u) (?:help|get help|have help|get some help)|help me|i need (?:some )?help|i want help|im stuck|i am stuck|i dont get it|i dont understand)\b/;
-
 export function routeCompanionPresenceTranscript(input: {
   transcript: string;
   presence: "collapsed" | "summoned";
@@ -551,7 +540,7 @@ export function routeCompanionPresenceTranscript(input: {
   if (wake.test(text)) return { action: "summon_and_respond" };
   // A request for help is addressed to her companion whatever name was heard, even while a game listens
   // (Nov 8: Ila asked twice, was ignored, and ended up yelling).
-  if (HELP_REQUEST.test(text)) {
+  if (isChildHelpRequest(text)) {
     console.log(` 🎮 [companion-presence] [help-request] [summoned] armed=${input.speechCaptureArmed === true}`);
     return { action: "summon_and_respond" };
   }

@@ -6,6 +6,7 @@ import { boardDeliveries, currentBoardInstance } from "./learningBoardInstances"
 import { listChildProductIssues } from "./productIssues";
 import { isFirstTryOnHerOwn, sessionGames, type SessionGame, isRetry } from "./sessionTimeline";
 import { raiseParentAlert } from "./sunnyHealth";
+import { isChildHelpRequest } from "./helpRequest";
 import { scorePlannerCalls } from "./plannerIntrospection";
 import { minutesByDay, minutesLine, sessionMinutes, type SessionMinutes } from "./sessionTime";
 
@@ -57,7 +58,7 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
         firstTries: rows.filter(row => !retry(row)).length, firstTryRight: rows.filter(row => !retry(row) && row.result.correct).length, retries: rows.filter(retry).length },
       games: sessionGames(input.sessionDir, cycle).map(game => ({ title: game.title, answers: game.answers, right: game.right, finished: game.finished,
         minutesToFirstAnswer: game.firstAnswerMin === null ? null : round1(game.firstAnswerMin - game.openedMin) })),
-      helpRequests: childTurns.filter(text => /\bhelp\b/i.test(text)).length,
+      helpRequests: childTurns.filter(isChildHelpRequest).length,
       bugsReported: listChildProductIssues(input.childId, { rootDir: opts.rootDir, limit: 200 }).filter(row => Date.parse(row.createdAt) >= from).length,
       // The Planner's calls answered in this session, checked by code (2026-11-10).
       predictions: (() => {
