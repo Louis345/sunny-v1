@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { acceptVisibleMacKiosk, countMacWindows, kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macShutdownBrowserTargets, kioskDebugArgs, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
+import { acceptVisibleMacKiosk, bringKioskToFront, countMacWindows, kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macShutdownBrowserTargets, kioskDebugArgs, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
 import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
@@ -306,6 +306,7 @@ async function main() {
             macBrowserPid = undefined;
           } else {
             console.log(` 🎮 [kiosk] [macos-launch] [launchservices] browserPid=${macBrowserPid}`);
+            await bringKioskToFront(macBrowserPid);
           }
         } else {
           accepted = await acceptOrStopKioskCandidate(

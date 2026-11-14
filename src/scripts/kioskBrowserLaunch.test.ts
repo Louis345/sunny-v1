@@ -129,3 +129,27 @@ describe("macOS kiosk window watch (owner 2026-11-12: closed window left Chrome 
     expect(kioskWindowWatchAction(nextEmptyWindowChecks(0, null))).toBe("wait");
   });
 });
+
+// Owner 2026-11-05: twice on Saori the kiosk was running but hidden behind other windows until a restart.
+// The page handshake proves the page loaded, not that it is in front, so no log or lab check could see it.
+describe("macOS kiosk comes to the front", () => {
+  it("activates exactly the kiosk's Chrome by its pid, without a permission prompt", async () => {
+    const { kioskBringToFrontCommand } = await import("./kioskBrowserLaunch") as any;
+    const command = kioskBringToFrontCommand("darwin", 4242);
+    expect(command.executable).toBe("/usr/bin/osascript");
+    expect(command.args.slice(0, 2)).toEqual(["-l", "JavaScript"]);
+    expect(command.args.at(-1)).toBe("4242");
+    expect(command.args.join(" ")).toContain("runningApplicationWithProcessIdentifier");
+    expect(command.args.join(" ")).toContain("activateWithOptions");
+  });
+  it("does nothing off macOS or without a matched pid", async () => {
+    const { kioskBringToFrontCommand } = await import("./kioskBrowserLaunch") as any;
+    expect(kioskBringToFrontCommand("linux", 4242)).toBeNull();
+    expect(kioskBringToFrontCommand("darwin", undefined)).toBeNull();
+  });
+  it("is run by the launcher after every accepted macOS kiosk, and logged", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+    expect(source).toContain("bringKioskToFront(macBrowserPid)");
+    expect(fs.readFileSync(path.join(process.cwd(), "src/scripts/kioskBrowserLaunch.ts"), "utf8")).toContain("[kiosk] [bring-to-front]");
+  });
+});

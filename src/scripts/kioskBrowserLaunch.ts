@@ -86,6 +86,32 @@ export function countMacWindows(pid: number): Promise<number | null> {
   });
 }
 
+/** Owner 2026-11-05: the kiosk could load behind other windows. Activate the kiosk's own Chrome by pid
+ * (NSRunningApplication needs no Automation permission and never picks a personal Chrome instance).
+ */
+const MAC_ACTIVATE_JXA = `ObjC.import("AppKit");
+function run(argv) { const app = $.NSRunningApplication.runningApplicationWithProcessIdentifier(parseInt(argv[0]));
+  if (!app || app.isNil()) return "false";
+  return String(app.activateWithOptions(3)); }`;
+export function kioskBringToFrontCommand(platform: string, pid: number | undefined): { executable: string; args: string[] } | null {
+  if (platform !== "darwin" || !pid) return null;
+  return { executable: "/usr/bin/osascript", args: ["-l", "JavaScript", "-e", MAC_ACTIVATE_JXA, String(pid)] };
+}
+export function bringKioskToFront(pid: number | undefined): Promise<void> {
+  const command = kioskBringToFrontCommand(process.platform, pid);
+  if (!command) {
+    console.warn(` 🎮 [kiosk] [bring-to-front] [skipped] platform=${process.platform} browserPid=${pid ?? "unmatched"}`);
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    execFile(command.executable, command.args, { timeout: 4000 }, (error, stdout) => {
+      if (error) console.warn(` 🎮 [kiosk] [bring-to-front] [failed] browserPid=${pid} ${error.message}`);
+      else console.log(` 🎮 [kiosk] [bring-to-front] [${stdout.trim() === "true" ? "activated" : "not-activated"}] browserPid=${pid}`);
+      resolve();
+    });
+  });
+}
+
 export function macShutdownBrowserTargets(browserPid: number | undefined, table: string, profileDir: string): number[] {
   return browserPid ? [browserPid] : findStaleSunnyKioskPids(table, profileDir);
 }
