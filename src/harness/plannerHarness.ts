@@ -108,3 +108,18 @@ body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif;ma
 <body><h1>${escape(input.title)}</h1><p class="note">${escape(input.note ?? "Rules are checked by code at $0. Creativity needs a judge (paid) and outcomes need real sessions; neither is invented here.")}</p>
 <h2>Walls the Planner hit</h2><div class="scroll">${walls}</div><div class="scroll">${scoreRows}</div></body></html>`;
 }
+
+/** I6: every Anthropic text model Sunny reads from the environment. A paid harness run sets each to HARNESS_MODEL, so
+ * Sunny shapes each request (streaming, tool_choice, max_tokens) for the model that receives it. */
+export const SUNNY_TEXT_MODEL_ENV = [
+  "SUNNY_ARCHITECT_MODEL", "SUNNY_COMPANION_GAME_MODEL", "SUNNY_COMPANION_TALK_MODEL", "SUNNY_DIRECT_REPAIR_MODEL", "SUNNY_DISCOVERY_REPAIR_MODEL",
+  "SUNNY_EXPERIENCE_PLANNER_MODEL", "SUNNY_GENERATION_MODEL", "SUNNY_HANDOFF_MODEL", "SUNNY_HOMEWORK_MODEL", "SUNNY_INGEST_MODEL", "SUNNY_PLANNER_MODEL",
+  "SUNNY_PSYCHOLOGIST_MODEL", "SUNNY_QUEST_BOSS_MODEL", "SUNNY_SPELLING_GAME_MODEL", "SUNNY_VISUAL_JUDGE_MODEL", "SUNNY_VOICE_MODEL",
+] as const;
+export function harnessModelEnv(model: string | undefined): Record<string, string> {
+  return model ? Object.fromEntries(SUNNY_TEXT_MODEL_ENV.map(name => [name, model])) : {};
+}
+/** A request Sunny shaped for another model is refused, never re-addressed. */
+export function assertShapedForHarnessModel(request: { model?: string }, model: string): void {
+  if (request.model !== model) throw new Error(`harness_model_mismatch: request=${request.model} harness=${model}`);
+}
