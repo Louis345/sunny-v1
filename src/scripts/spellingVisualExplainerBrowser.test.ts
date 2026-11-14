@@ -335,7 +335,7 @@ it('shows right or wrong on her pick at once, and her first pick stands',async()
  expect(await right.evaluate((b:any)=>b.classList.contains('right'))).toBe(true);
  expect(await right.isDisabled()).toBe(true);
  expect(await frame.locator('#predFeedback').textContent()).not.toContain('Choice saved');
- expect(await wrong.evaluate((b:any)=>getComputedStyle(b).animationName)).not.toBe('none');
+ expect(await wrong.evaluate((b:any)=>b.ownerDocument.defaultView.getComputedStyle(b).animationName)).not.toBe('none');
 });
 it('marks a right pick right at once',async()=>{
  const {frame}=await launch({width:1280,height:720});
