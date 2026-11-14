@@ -2,8 +2,8 @@
 export function CallProgressBadge({ stopsLeft, companionName }: { stopsLeft: number | undefined; companionName: string }) {
   if (stopsLeft === undefined || stopsLeft <= 0) return null;
   const text = stopsLeft === 1
-    ? `1 more stop to your call with ${companionName}!`
-    : `${stopsLeft} stops to your call with ${companionName}`;
+    ? `1 more game to your call with ${companionName}!`
+    : `${stopsLeft} games to your call with ${companionName}`;
   return (
     <div
       data-testid="call-progress-badge"
