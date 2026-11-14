@@ -57,7 +57,7 @@ import {
 import { generateCanvasCapabilitiesManifest } from "./canvas/registry";
 import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
-import { isBoardBeingPrepared, startMaxDurationTimer } from "./session-triggers";
+import { boardBeingBuilt, startMaxDurationTimer } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import type { VoiceLatencyMark } from "./voiceTurnLatency";
 import { mathProblem, resetMathProbeSession } from "../agents/elli/tools/mathProblem";
@@ -1556,8 +1556,8 @@ This is a safe space to test everything.
     }, () => {
       try {
         const limitChildId = String(session.chartChildId ?? homeworkChild).toLowerCase();
-        const homeworkId = getChildChart(limitChildId).learningCycle?.homeworkId;
-        return Boolean(homeworkId) && isBoardBeingPrepared(getMathGenerationStatus(limitChildId, homeworkId!)?.phase);
+        const cycle = getChildChart(limitChildId).learningCycle;
+        return Boolean(cycle?.homeworkId) && boardBeingBuilt(cycle, getMathGenerationStatus(limitChildId, cycle!.homeworkId));
       } catch (err) {
         console.error("  🎮 [session-limit] [board-status] [unavailable]", err);
         return false;

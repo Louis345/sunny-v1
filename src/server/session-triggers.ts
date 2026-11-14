@@ -125,6 +125,16 @@ export function isBoardBeingPrepared(phase: string | null | undefined): boolean 
   return PREPARING_PHASES.has(phase ?? "");
 }
 
+/** She is waiting for a board when the build job says so, or her own record does: a preparing lifecycle, or a next
+ * board not yet published (spelling next boards never write the math build file; BUGS.md S2, 2026-11-14). */
+export function boardBeingBuilt(
+  cycle: { lifecycle?: string | null; boards?: Array<{ publishedAt: string | null }> } | null | undefined,
+  job: { phase?: string | null } | null | undefined,
+): boolean {
+  return isBoardBeingPrepared(job?.phase) || isBoardBeingPrepared(cycle?.lifecycle)
+    || Boolean(cycle?.boards?.some(board => board.publishedAt === null));
+}
+
 export function startMaxDurationTimer(
   childName: ChildName,
   onExpired: () => void,
