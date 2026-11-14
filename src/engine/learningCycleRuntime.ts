@@ -368,9 +368,12 @@ function observationsForCompletion(input: {
   }
   const prediction = input.cycle.academicPredictions.find((candidate) => candidate.predictionId === node.predictionId);
   const constructId = prediction?.constructId ?? `${input.cycle.domain}.${slug(node.academicTarget.skill)}`;
-  const rows = input.result.targetResults?.length
-    ? input.result.targetResults
-    : [{ target: node.nodeId, correct: input.result.accuracy >= 0.5 }];
+  // No per-item results: not collected for items, never one invented whole-game answer (measurement audit 2026-11-13 (d)).
+  if (!input.result.targetResults?.length) {
+    console.log(` 🎮 [learning-cycle] [items-not-collected] [activity-limited] node=${node.nodeId} reason=no_per_item_results`);
+    return [];
+  }
+  const rows = input.result.targetResults;
   const companionHelp = input.cycle.domain !== "spelling" && (input.result.companionInteractions?.length ?? 0) > 0;
   const previouslyExposedItemIds = new Set(input.cycle.observations.map((observation) => observation.itemId));
   // Each try is its own observation: the first is the measure, later tries are practice (2026-11-10).
@@ -556,7 +559,9 @@ export function recordCanonicalNodeCompletion(
     ...(typeof accuracy === "number" ? { accuracy } : {}),
     summary: typeof accuracy === "number"
       ? `${node.title} completed at ${Math.round(accuracy * 100)}% across ${scoredObservations.length} scored target readings.`
-      : `${node.title} completed with no independently scorable target response.`,
+      : observations.length
+        ? `${node.title} completed with no independently scorable target response.`
+        : `${node.title} completed; per-item results not collected for items (activity limited).`,
   }];
   const spellingResponseTimes = cycle.domain === "spelling"
     ? (input.result.targetResults ?? [])

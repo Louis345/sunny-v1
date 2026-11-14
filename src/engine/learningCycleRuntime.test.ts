@@ -603,6 +603,21 @@ describe("canonical learning cycle runtime", () => {
     expect(replay.nodes.find(row => row.nodeId === "facts")!.state).toBe("completed");
   });
 
+  // BUGS.md "Measurement audit 2026-11-13" (d), AI-caught: a game that reported no per-item results was saved as one
+  // answer on an invented item (the stop itself, right when its accuracy was at least half). Why the logs missed it:
+  // the completion line looked normal. Why the lab missed it: lab games always report items. No item claim is made.
+  it.each(["math", "reading"] as const)("saves a %s game with no per-item results as not collected for items, never as one answer", (domain) => {
+    const rootDir = root();
+    createLearningCycle({ ...input(), domain }, { rootDir });
+    const log = vi.spyOn(console, "log");
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000 } }, { rootDir })!;
+    expect(cycle.observations).toEqual([]);
+    expect(cycle.nodes.find(row => row.nodeId === "facts")!.state).toBe("completed");
+    expect(cycle.evidence.academic.find(row => row.evidenceId === "s1:facts:completion")!.summary).toContain("not collected for items");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("[learning-cycle] [items-not-collected] [activity-limited] node=facts"));
+    log.mockRestore();
+  });
+
   it("refuses later tries for a stop whose completion is not saved yet", () => {
     const rootDir = root();
     createLearningCycle(input(), { rootDir });
