@@ -24,6 +24,17 @@ The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, t
 - [x] E10 Post-session finalization errors (`soul.md` path, `.some` of undefined) *(Oct; check today's logs)* (fixed 5e90a5a3, 2026-11-14; the `.some` crash not reproduced: no October logs remain, no stack)
 - [ ] E11 The 11/6 graded tests were never entered (11/08 "Graded test photo"; needs the photos)
 
+### Saori's try-on of every item on every companion (human-caught, 2026-11-14)
+Testing mode (`/companions/?wardrobeLab=true`) now lends every item to every companion with no checks, so a grown-up sees how each really fits. Saori tried them all on Saori:
+- [x] Elli, Matilda and Hikari: everything looks good (the only fitted bodies).
+- [ ] W1 Royal Crown sits front-to-back on Melty, Tene and Towa, and does not show on Princess (likely their models face the other way from the crown's reference).
+- [ ] W2 Cat ears are too big and float on Melty, Princess, Tene and Towa (accessories are not sized or placed per head).
+- [ ] W3 Kefla: the blazer and the hoodie are tops only and remove her own bottoms and boots ("she needs underwear or bottoms", "her boots disappear").
+- [ ] W4 Dresses fit badly at the shoulders: strange on Melty; Towa is missing the shoulder-to-elbow part.
+- [ ] W5 Princess: no outfit can be put on at all.
+- [ ] W6 Yukari not tried yet.
+Why the human caught it: until today no screen let anyone put an unapproved item on these six, and no automatic check judges how clothing looks. Why the AI lab missed it: the tests use fixture approvals and never draw these bodies. The real fix for W3–W5 is fitting each body (the wardrobe preparation step on Saori), one companion at a time; W1–W2 are one placement rule for accessories. Not for the girls' shop until fixed: the shop still hides unfitted pairs.
+
 ### Hurts a session
 - [x] S1 Sunny shut down instead of reopening when the kiosk window closed; the window can open behind others (11/12, 11/05) *(fixed 2026-11-14 on fix/s1-s2: reopens unless closed twice within a minute; brought to front by pid; not yet seen on Saori)*
 - [x] S2 The 35-minute session limit counts waiting time *(Oct)*; it ended Ila's 11/12 session while she waited for a board *(fixed 2026-11-14 on fix/s1-s2: board-building minutes paused, 45-minute cap; launch time before she starts still counts; not yet seen on Saori)*
