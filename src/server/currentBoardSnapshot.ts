@@ -90,6 +90,15 @@ export function retainSpellingItemState(state: Record<string, unknown>, previous
     ? {itemId:previous.itemId,phase:previous.phase,...state} : state;
 }
 
+/** Leaving a stop before its last Done keeps where she left it as a fact for Elli (BUGS.md 2026-11-09). */
+export function noteUnfinishedExit(state: Record<string, unknown>, previous: CurrentBoardSnapshot | null): Record<string, unknown> {
+  if (state.phase !== "closed" || !previous || previous.nodeId !== state.nodeId || previous.phase === "node_complete" || previous.completed === true
+    || typeof previous.itemIndex !== "number" || typeof previous.totalItems !== "number") return state;
+  const page = `page ${previous.itemIndex + 1} of ${previous.totalItems}`;
+  console.log(` 🎮 [board-snapshot] [left-unfinished] node=${previous.nodeId} ${page}`);
+  return { ...state, progress: `She left this stop before its last Done, on ${page}; it is not finished.` };
+}
+
 export function canonicalSpellingPractice(
   cycle: LearningCycleRecordV2 | null | undefined,
   launch: { nodeId: string; launchId: string; launchToken?: string } | undefined,

@@ -252,7 +252,7 @@
             chunk.disabled = !visible;
             if (visible && !entry.exposureRecorded && window.GameBridge) {
               entry.exposureRecorded = true;
-              window.GameBridge.reportState("Spelling model shown", { spellingItemOpened:true, currentWord:entry.word.text, phase:"presentation", answerVisibility:"visible" });
+              window.GameBridge.reportState("Spelling model shown", { spellingItemOpened:true, currentWord:entry.word.text, phase:"presentation", answerVisibility:"visible", itemIndex:rowIndex, totalItems:modelNodes.length });
             }
             chunk.classList.toggle("focus", shownNow && local >= .55 && chunk.dataset.focus === "true");
           });

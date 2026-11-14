@@ -101,7 +101,7 @@ import {
 import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import {
   buildCurrentBoardSnapshot,
-  canonicalSpellingPractice, noteSupportModeChange, retainSpellingItemState,
+  canonicalSpellingPractice, noteSupportModeChange, noteUnfinishedExit, retainSpellingItemState,
   companionBoardSnapshot,
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
@@ -761,7 +761,7 @@ export class SessionManager {
       return;
     }
     const previous = this.currentBoardSnapshot;
-    state = retainSpellingItemState(state, previous, this.spellingAssessment, this.spellingLaunch);
+    state = noteUnfinishedExit(retainSpellingItemState(state, previous, this.spellingAssessment, this.spellingLaunch), previous);
     if (previous?.itemId && (state.itemId && state.itemId !== previous.itemId
       || state.nodeId && state.nodeId !== previous.nodeId || state.phase === "closed")) {
       const audio = this.ttsBridge?.currentPlaybackIdentity?.();

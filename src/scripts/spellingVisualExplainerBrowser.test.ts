@@ -309,3 +309,15 @@ it('leaves an older saved explainer\'s long adult steps off her screen',async()=
  expect(await frame.locator('#strategySteps li').count()).toBe(0);
  expect(errors).toEqual([]);
 });
+
+// BUGS.md 2026-11-09 (Ila left Word Story Hooks early): each word page tells the companion which page of how many
+// she is on, so when she leaves before the last Done, Elli knows where she left it.
+it('reports which word page of how many she is on',async()=>{
+ const modelConfig=structuredClone(config);
+ modelConfig.spellingModel.words=['light','night','right'].map(text=>({id:'frozen-'+text,text,chunks:[text[0],'ight'],focusChunk:'ight',tip:'ight sticks together.'}));
+ const {page,frame}=await launch({width:1280,height:720},{modelConfig});
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(60,false));
+ await page.waitForFunction(()=>(globalThis as any).captured.some((row:any)=>row.type==='game_state_update'&&row.payload?.currentWord==='right'));
+ const shown=await page.evaluate(()=>(globalThis as any).captured.filter((row:any)=>row.type==='game_state_update'&&row.payload?.spellingItemOpened).map((row:any)=>row.payload));
+ expect(shown.at(-1)).toMatchObject({currentWord:'right',itemIndex:2,totalItems:3});
+});
