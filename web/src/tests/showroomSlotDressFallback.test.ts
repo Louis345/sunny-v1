@@ -33,3 +33,17 @@ describe("main-stage slot outfit", () => {
     expect(shouldFallBackToPlainLook({ presentationState: "ready", loadedOutfitId: "sleeveless-dress" })).toBe(false);
   });
 });
+
+// Owner 2026-11-14 (watching Saori test): in testing mode the drawing step must not filter the look again, and the
+// slot draws an unapproved outfit (candidate preview), so she sees how each item really fits each companion.
+describe("dressing room testing mode", () => {
+  it("keeps the chosen look on a companion with no approved fits and draws it as a candidate", async () => {
+    const { dressingRoomLook } = await import("../components/CompanionShowroom");
+    const melty = { companionId: "melty", modelUrl: "/companions/4573661938486170180.vrm" };
+    expect(dressingRoomLook({ ...melty, testing: true, outfitId: "sleeveless-dress", accessoryId: "cat-ears" }))
+      .toEqual({ outfitId: "sleeveless-dress", accessoryId: "cat-ears", qaMode: "candidate_preview" });
+    const normal = dressingRoomLook({ ...melty, testing: false, outfitId: "sleeveless-dress", accessoryId: "cat-ears" });
+    expect(normal.qaMode).toBe("enforced");
+    expect(normal.outfitId).toBe("none");
+  });
+});

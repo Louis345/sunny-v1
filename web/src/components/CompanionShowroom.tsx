@@ -685,6 +685,18 @@ export function shouldRevealWardrobeCompanionCanvas(args: {
  * The outfit a slot actually loads (BUGS.md 2026-11-08, companions vanished while scrolling): only one approved
  * for the model this slot loads, and none once its dressed load failed, so she sees the companion in its own clothes.
  */
+/** The look the dressing room draws. Testing mode (owner 2026-11-14) keeps whatever was chosen and draws it as a
+ * candidate, so a grown-up sees how each item really fits; otherwise only fitted, approved items are drawn. */
+export function dressingRoomLook(args: { testing: boolean; outfitId: WardrobeOutfitId; accessoryId: WardrobeAccessoryId; modelUrl: string; companionId: string }):
+  { outfitId: WardrobeOutfitId; accessoryId: WardrobeAccessoryId; qaMode: "enforced" | "candidate_preview" } {
+  if (args.testing) return { outfitId: args.outfitId, accessoryId: args.accessoryId, qaMode: "candidate_preview" };
+  return {
+    outfitId: isWardrobeOutfitCompatible(args.outfitId, args.modelUrl, args.companionId) ? args.outfitId : "none",
+    accessoryId: fittedCallLook({ accessoryId: args.accessoryId, outfitId: "none" }, args.modelUrl, args.companionId).accessoryId,
+    qaMode: "enforced",
+  };
+}
+
 export function resolveSlotWardrobeOutfit(args: {
   outfitId: WardrobeOutfitId;
   modelUrl: string;
@@ -4008,21 +4020,15 @@ export function CompanionShowroom({
       apply: handleWardrobeStoreChange,
     }).catch((error: unknown) => console.error(" 🎮 [wardrobe-wallet] [call-start-look] [failed]", error));
   }, [earnedCallWallet?.childId, current, currentWardrobeModelUrl, handleWardrobeStoreChange]);
-  const effectiveWardrobeOutfitId: WardrobeOutfitId =
-    current &&
-    isWardrobeOutfitCompatible(
-      wardrobeOutfitId,
-      currentWardrobeModelUrl,
-      current.id,
-    )
-      ? wardrobeOutfitId
-      : "none";
+  const wardrobeTestingMode = wardrobeLabEnabled && !earnedCallWallet;
+  const dressingLook = current
+    ? dressingRoomLook({ testing: wardrobeTestingMode, outfitId: wardrobeOutfitId, accessoryId: wardrobeAccessoryId, modelUrl: currentWardrobeModelUrl, companionId: current.id })
+    : { outfitId: "none" as const, accessoryId: "none" as const, qaMode: "enforced" as const };
+  const effectiveWardrobeOutfitId: WardrobeOutfitId = dressingLook.outfitId;
   const effectiveWardrobeOutfitMaterialVariant =
     effectiveWardrobeOutfitId === "none" ? null : wardrobeOutfitMaterialVariant;
   // The accessory is checked for fit like the outfit (BUGS.md 2026-11-08).
-  const effectiveWardrobeAccessoryId: WardrobeAccessoryId = current
-    ? fittedCallLook({ accessoryId: wardrobeAccessoryId, outfitId: "none" }, currentWardrobeModelUrl, current.id).accessoryId
-    : "none";
+  const effectiveWardrobeAccessoryId: WardrobeAccessoryId = dressingLook.accessoryId;
   // The call's portrait wears what she bought (BUGS.md 2026-11-08).
   const callLook = callPortraitLook({ shopEnabled: Boolean(earnedCallWallet), current, dressable: wardrobeStoreEntry,
     dressableFailed: Boolean(wardrobeStoreEntry && failedPortraitModels.includes(wardrobeStoreEntry.companionConfig?.vrmUrl ?? wardrobeStoreEntry.vrmUrl)),
@@ -7610,6 +7616,7 @@ export function CompanionShowroom({
               <CompanionSlot
                 key={`wardrobe-store-${view}-${current.id}`}
                 entry={wardrobeStoreEntry}
+                wardrobeQaMode={dressingLook.qaMode}
                 slot="current"
                 active
                 contained

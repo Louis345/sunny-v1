@@ -793,6 +793,31 @@ describe("WardrobeStoreLab testing mode", () => {
   });
 });
 
+// Owner 2026-11-14 (watching Saori test): testing mode is a human try-on, so no check may refuse an item:
+// "Could not equip this item (incompatible)" on Melty and Kefla hid exactly what she was there to see.
+describe("testing mode never refuses an item", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(cleanup);
+  it("wears an accessory and an outfit on a companion with no approved fits", () => {
+    const melty = { id: "melty", name: "Melty", modelUrl: "/companions/4573661938486170180.vrm" };
+    const onWardrobeChange = vi.fn();
+    render(
+      <WardrobeStoreLab companion={melty} companionPreview={<div />} call={createCallProps()} onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()} visitSeed="testing-equip" testingCloset />,
+    );
+    for (const name of ["Cat Ears", "Navy Ribbon Dress"]) {
+      fireEvent.click(screen.getByRole("button", { name: "Melty’s closet" }));
+      const closet = screen.getByRole("dialog", { name: "Melty’s closet" });
+      const button = [...closet.querySelectorAll("button")].find(b => b.textContent?.includes(name))!;
+      fireEvent.click(button);
+      expect(document.body.textContent).not.toContain("Could not equip");
+    }
+    const looks = onWardrobeChange.mock.calls.map(call => call[0]);
+    expect(looks.some(look => look?.accessoryId === "cat-ears")).toBe(true);
+    expect(looks.some(look => look?.outfitId && look.outfitId !== "none")).toBe(true);
+  });
+});
+
 // Owner 2026-11-14: new items for Saori to test. They appear in testing mode only; the kids' shop shows an item
 // only once it is priced in the reward catalog, which happens after she approves it.
 describe("new items waiting for approval", () => {

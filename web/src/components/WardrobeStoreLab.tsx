@@ -237,12 +237,9 @@ function previewSelection(
   state: WardrobeStoreState,
   companion: WardrobeStoreCompanion,
   item: WardrobeStoreItem,
+  testing = false,
 ): WardrobeSelection {
-  const equipped = resolveEquippedWardrobeSelection(
-    state,
-    companion.id,
-    companion.modelUrl,
-  );
+  const equipped = resolveEquippedWardrobeSelection(state, companion.id, companion.modelUrl, { testing });
   const preview = resolveWardrobeItemSelection(item);
   return item.asset.kind === "accessory"
     ? { ...equipped, accessoryId: preview.accessoryId }
@@ -488,10 +485,12 @@ export function WardrobeStoreLab({
           state,
           companion.id,
           companion.modelUrl,
+          { testing: testingAll },
+
         ),
       );
     },
-    [companion.id, companion.modelUrl, onWardrobeChange],
+    [companion.id, companion.modelUrl, onWardrobeChange, testingAll],
   );
 
   useEffect(() => {
@@ -506,6 +505,8 @@ export function WardrobeStoreLab({
         storeState,
         companion.id,
         companion.modelUrl,
+          { testing: testingAll },
+
       ),
     );
     console.log(
@@ -513,7 +514,7 @@ export function WardrobeStoreLab({
     );
     // Persisted state is intentionally read only when the companion changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companion.id, companion.modelUrl, onWardrobeChange]);
+  }, [companion.id, companion.modelUrl, onWardrobeChange, testingAll]);
 
   useEffect(() => {
     onShoppingContextChange?.(shoppingContext);
@@ -573,7 +574,7 @@ export function WardrobeStoreLab({
     setMode("try-on");
     setConfirmation(null);
     setStatusMessage(null);
-    onWardrobeChange(previewSelection(nextState, companion, item));
+    onWardrobeChange(previewSelection(nextState, companion, item, testingAll));
     const context = contextFor(item, "try_on", nextState);
     console.log(
       ` 🎮 [wardrobe-store-lab] try_on opened companion=${companion.id} item=${item.id} variant=${item.asset.kind === "outfit" ? item.asset.materialVariant.id : "none"} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"} conversation=waiting_for_child`,
@@ -639,6 +640,7 @@ export function WardrobeStoreLab({
   };
 
   const saveForLater = (item: WardrobeStoreItem) => {
+    if (testingAll) { equipOwnedItem(item); return; }
     const saved = saveWardrobeItemForLater(
       storeState,
       item.id,
@@ -680,6 +682,7 @@ export function WardrobeStoreLab({
       companion.id,
       item.id,
       companion.modelUrl,
+      { testing: testingAll },
     );
     if (equipped.status !== "equipped") {
       setStatusMessage(`Could not equip this item (${equipped.status}).`);
@@ -707,6 +710,8 @@ export function WardrobeStoreLab({
 
   const buyAndWear = () => {
     if (!selectedItem) return;
+    // Testing mode lends everything: "wear it" just puts it on, nothing is bought.
+    if (testingAll) { equipOwnedItem(selectedItem); return; }
     if (wallet) {
       void buyWithSavedCoins(selectedItem);
       return;

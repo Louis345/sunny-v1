@@ -745,13 +745,15 @@ export function equipWardrobeItem(
   companionId: string,
   itemId: string,
   companionModelUrl: string,
+  /** Testing mode (owner 2026-11-14): a human try-on, so fit is shown, never refused. */
+  options: { testing?: boolean } = {},
 ): { state: WardrobeStoreState; status: WardrobeEquipStatus } {
   const item = getWardrobeStoreItem(itemId);
   if (!item) return { state, status: "item_not_found" };
   if (!state.ownedItemIds.includes(itemId)) {
     return { state, status: "not_owned" };
   }
-  if (!isWardrobeStoreItemCompatible(item, companionModelUrl, companionId)) {
+  if (!options.testing && !isWardrobeStoreItemCompatible(item, companionModelUrl, companionId)) {
     return { state, status: "incompatible" };
   }
 
@@ -809,12 +811,15 @@ export function resolveEquippedWardrobeSelection(
   state: WardrobeStoreState,
   companionId: string,
   companionModelUrl: string,
+  options: { testing?: boolean } = {},
 ): WardrobeSelection {
   const equipped = state.equippedByCompanion[companionId];
   const empty: WardrobeSelection = { accessoryId: "none", outfitId: "none" };
   if (!equipped) return empty;
   const accessory = getWardrobeStoreItem(equipped.accessoryItemId ?? "");
   const outfit = getWardrobeStoreItem(equipped.outfitItemId ?? "");
+  // Testing mode draws whatever she put on; the renderer shows how it really fits (owner 2026-11-14).
+  if (options.testing) return selectionFromItem(selectionFromItem(empty, accessory), outfit);
   const compatibleAccessory =
     accessory && isWardrobeStoreItemCompatible(accessory, companionModelUrl, companionId)
       ? accessory
