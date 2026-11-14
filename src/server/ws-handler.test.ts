@@ -288,6 +288,7 @@ describe("ws handler", () => {
     expect(ws.sent).toContainEqual({
       type: "error",
       fatal: true,
+      retryable: false,
       code: "voice_connection_unavailable",
       message: "Voice connection is having trouble. You can still type.",
     });
