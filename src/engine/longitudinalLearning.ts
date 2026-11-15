@@ -78,6 +78,11 @@ function stableId(value: unknown): string {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
 }
 
+/** The calibration a returned graded work makes, by its source; readers pair a score with when it arrived. */
+export function returnedWorkCalibrationId(sourceId: string, homeworkId: string): string {
+  return `calibration:${stableId({ sourceId, homeworkId })}`;
+}
+
 function round(value: number): number {
   return Math.round(value * 10_000) / 10_000;
 }
@@ -199,7 +204,7 @@ export function recordConfirmedReturnedWork(
     observations,
     evaluations,
     calibration: {
-      calibrationId: `calibration:${stableId({ sourceId: input.source.sourceId, homeworkId: input.homeworkId })}`,
+      calibrationId: returnedWorkCalibrationId(input.source.sourceId, input.homeworkId),
       gradedAt: takenAt(input.source),
       score,
       status: "inconclusive",

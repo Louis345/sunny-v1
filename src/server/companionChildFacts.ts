@@ -6,6 +6,7 @@ import { RECALL_ABOUT_HER_TOOL, REMEMBER_CHILD_GIVEN_NAME_TOOL } from "./compani
 import { readCompanionInteractionEvents } from "./companionInteractionMemory";
 import { familyDay } from "../utils/familyCalendar";
 import { todaysPlayLines } from "./todaysPlayFacts";
+import { companionWorldLines } from "./companionWorldFacts";
 import { callScreenControlsBlock } from "../shared/companions/callScreenControls";
 
 /** Facts any companion gets about the child, read from her chart (Law 12). No clinical notes. */
@@ -89,6 +90,8 @@ export function buildCompanionCallContext(
     livingProfileLines(readLivingProfile(input.childId)),
     // Shared by every companion: today's board play from her learning record (nothing when she did not play today).
     todaysPlayLines(input.childId, opts),
+    // Her world: day, light, weather, birthday, time since you last talked, recent school results (owner 2026-11-15).
+    input.childId === "showroom" ? undefined : companionWorldLines(input.childId, input.companionId, opts),
     buildShowroomTalkMemoryPrompt(memory),
     callScreenLines(input),
   ].filter((part): part is string => Boolean(part));
