@@ -78,7 +78,7 @@ describe("what a companion knows about her world", () => {
 
   it("marks a new test score as news only to companions who have not talked with her since it came in", () => {
     const results = schoolResultsFromCycles([spellingCycle({ testDate: "2026-11-14", capturedAt: "2026-11-15T01:00:00.000Z", score: 1, correct: Array(10).fill(true) })]);
-    expect(results).toEqual([{ title: "Spelling week 6", subject: "spelling", score: 1, right: 10, total: 10, testDay: "2026-11-14", arrivedAt: "2026-11-15T01:00:00.000Z" }]);
+    expect(results).toEqual([{ title: "Spelling week 6", subject: "spelling", score: 1, right: 10, total: 10, testDay: "2026-11-14", arrivedAt: "2026-11-15T01:00:00.000Z", kind: "school_test" }]);
     const fresh = formatCompanionWorldFacts({ now: NOW, skyMood: "day", weather: null, schoolResults: results, lastTalkWithYou: "2026-11-14T23:00:00.000Z" })!;
     expect(fresh).toContain("\"Spelling week 6\"");
     expect(fresh).toContain("100% (10 of 10 right)");
@@ -87,6 +87,21 @@ describe("what a companion knows about her world", () => {
     const old = formatCompanionWorldFacts({ now: NOW, skyMood: "day", weather: null, schoolResults: results, lastTalkWithYou: "2026-11-15T16:00:00.000Z" })!;
     expect(old).not.toMatch(/new since you last talked/i);
     expect(old).toMatch(/already talked with her since/i);
+  });
+
+  it("tells a home worksheet done alone apart from a school test (owner 2026-11-15)", () => {
+    const cycle = spellingCycle({ testDate: "2026-11-15", capturedAt: "2026-11-15T20:00:00.000Z", score: 0.83, correct: [true, true, false] });
+    (cycle.evidenceSources[0] as { type: string }).type = "delayed_reassessment";
+    (cycle as { observations: unknown[] }).observations = [true, true, false].map((correct, index) => ({
+      observationId: `o${index}`, sourceId: "source-1", itemId: `i${index}`, constructLinks: [], result: { correct },
+      assistance: { status: "unassisted", scaffolds: [] }, exposure: "unknown", provenance: "delayed_reassessment", observedAt: "2026-11-15T12:00:00.000Z", confounds: [] }));
+    const results = schoolResultsFromCycles([cycle]);
+    expect(results[0]).toMatchObject({ kind: "home_check", help: "done alone" });
+    const text = formatCompanionWorldFacts({ now: NOW, skyMood: "day", weather: null, schoolResults: results })!;
+    expect(text).toContain("home worksheet, done alone");
+    expect(text).not.toMatch(/\(spelling\) test on/);
+    const school = schoolResultsFromCycles([spellingCycle({ capturedAt: "2026-11-15T01:00:00.000Z", score: 1, correct: [true] })]);
+    expect(school[0]).toMatchObject({ kind: "school_test" });
   });
 
   it("forgets test scores older than three weeks (they live in memory, not in today's news)", () => {
