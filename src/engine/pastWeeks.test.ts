@@ -119,3 +119,26 @@ it("freezes the archive beside a Planner's turns, so a restart asks the same que
   // A reader failure never stops a board: the Planner plans without past weeks, and the log says why.
   expect(pastWeeksForDraft({ draftDir: path.join(rootDir, "broken"), stagePrefix: "x", build: () => { throw new Error("disk"); } })).toBeUndefined();
 });
+
+// Owner 2026-11-15: a home check (paper done at home after practice, a parent recording how much help she had) is the
+// Planner's second reference. In past weeks it must never read as the school test or as a first try in Sunny.
+it("lays out a home check apart from the school test and from her first tries in Sunny", () => {
+  const { rootDir } = seeded();
+  const file = path.join(rootDir, "src/context", PAST_WEEKS_CHILD, "homework", "cycles", `${WEEK2}.json`);
+  const cycle = JSON.parse(fs.readFileSync(file, "utf8"));
+  const home = (itemId: string, wrote: string, correct: boolean) => ({ observationId: `home:${itemId}`, sourceId: "returned-work:home", itemId, prompt: itemId, childResponse: wrote,
+    constructLinks: [], result: { correct, score: correct ? 1 : 0 }, assistance: { status: "unassisted", scaffolds: [] }, exposure: "unknown",
+    provenance: "delayed_reassessment", observedAt: "2026-11-06T12:00:00.000Z", confounds: [] });
+  cycle.observations.push(home("p1", "354", true), home("p2", "335", false));
+  fs.writeFileSync(file, JSON.stringify(cycle));
+  const archive = readPastWeeks(PAST_WEEKS_CHILD, { rootDir, homework: PAST_HOMEWORK });
+  const row = pastWeekIndex(archive).find(entry => entry.week === WEEK2)!;
+  expect(row.schoolTest).toBe("no graded test uploaded");
+  expect(row.homeCheck).toBe("1 of 2 right, done alone, 2026-11-06");
+  expect(row.firstTriesOnHerOwn).toBe("board 1: 1 of 2 right; board 2: 1 of 1 right");
+  const lines = pastWeekLines(archive.weeks.find(week => week.homeworkId === WEEK2)!);
+  expect(lines).toContain("School test: no graded test uploaded");
+  expect(lines).toContain("Home check (paper at home after practice, not the school test): 2026-11-06: 1 of 2 right, done alone");
+  expect(lines.some(line => /^- 2026-11-06 home check: p1 .*wrote "354" right, done alone$/.test(line))).toBe(true);
+});
+

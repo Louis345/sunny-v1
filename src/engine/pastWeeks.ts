@@ -6,7 +6,7 @@ import path from "node:path";
 import { z } from "zod";
 import { boardDeliveries, boardDeliveryLines, listBoardInstances, type BoardDelivery } from "./learningBoardInstances";
 import type { LearningCycleNodeContract, LearningCycleRecordV2, PlannerSelfReview } from "./learningCycleRepository";
-import { readCanonicalCycles } from "./longitudinalLearning";
+import { readCanonicalCycles, returnedWorkCalibrationId, returnedWorkHelpLabel } from "./longitudinalLearning";
 import { activityOf, answers, plannerJournalFile, scorePlannerCalls, targetsOf } from "./plannerIntrospection";
 import { toolFor, type PlannerTool } from "./plannerToolLoop";
 import type { HomeworkSources } from "./schoolTestObjective";
@@ -26,7 +26,8 @@ import { predictionHistoryLines } from "../chart/spelling/predictionBond";
  */
 type Count = { right: number; total: number };
 type Help = "on her own" | "with help" | "help not recorded";
-export type PastWeekAnswer = { target: string; at: string; board?: number; stop?: string; wrote?: string; right: boolean; help: Help; retry: boolean; school: boolean };
+/** homeCheck: paper done at home after practice (owner 2026-11-15), never the school test; homeHelp is the parent's answer. */
+export type PastWeekAnswer = { target: string; at: string; board?: number; stop?: string; wrote?: string; right: boolean; help: Help; retry: boolean; school: boolean; homeCheck?: true; homeHelp?: string };
 export type PastWeekStop = { title: string; game: string; targets: string[]; focus?: string };
 export type PastWeekDecision = { number: number; at: string; afterBoard?: number; action: string; status: string; reason: string; change: string[]; testNext: string[];
   selfReview?: PlannerSelfReview; builtBoard?: number; stops: PastWeekStop[]; targets: string[]; before: Count; after: Count };
@@ -43,6 +44,8 @@ export type PastWeek = {
   predictions: { evaluated: number; inRange: number };
   minutes: { learning: number; play: number; call: number; sessions: number } | null;
   schoolTest: { gradedAt: string; right: number; total: number; score: number | null; missed: Array<{ target: string; wrote?: string }> } | null;
+  /** The latest home check (owner 2026-11-15); absent when none, and on older archives. */
+  homeCheck?: { at: string; right: number; total: number; help: string };
   journal: { file: string; lines: string[] } | null;
   /** Her chart's bond of your locked predictions to the graded test (owner 2026-11-12); absent without a chart. */
   bonded?: string[];
@@ -54,12 +57,13 @@ const SCHOOL = new Set(["graded_work", "delayed_reassessment"]);
 const HELP: Record<string, Help> = { unassisted: "on her own", assisted: "with help", unknown: "help not recorded" };
 const day = (iso: string | undefined) => familyDay(iso);
 const count = (list: PastWeekAnswer[]): Count => ({ right: list.filter(row => row.right).length, total: list.length });
-const firstTry = (row: PastWeekAnswer) => row.help === "on her own" && !row.retry && !row.school;
+const firstTry = (row: PastWeekAnswer) => row.help === "on her own" && !row.retry && !row.school && !row.homeCheck;
 const ofTotal = (c: Count) => c.total ? `${c.right} of ${c.total} right` : "not answered on her own";
 const rate = (c: Count) => c.right / c.total;
 const direction = (before: Count, after: Count) => !after.total ? "none yet" : !before.total ? "no earlier answers to compare" : rate(after) > rate(before) ? "up" : rate(after) < rate(before) ? "down" : "same";
 const stopLabel = (stop: PastWeekStop) => `${stop.game} "${stop.title}" (${stop.targets.join(", ")}${stop.focus ? `; aimed at: ${stop.focus}` : ""})`;
 const percent = (test: NonNullable<PastWeek["schoolTest"]>) => Math.round((test.score ?? test.right / Math.max(1, test.total)) * 100);
+const homeLine = (home: NonNullable<PastWeek["homeCheck"]>) => `${home.right} of ${home.total} right, ${home.help}, ${day(home.at)}`;
 const schoolLine = (week: PastWeek) => week.schoolTest ? `${week.schoolTest.right} of ${week.schoolTest.total} right (${percent(week.schoolTest)}%), graded ${day(week.schoolTest.gradedAt)}` : "no graded test uploaded";
 const noun = (week: PastWeek) => week.domain === "spelling" ? "words" : "problems";
 
@@ -79,7 +83,8 @@ export function pastWeekOf(cycle: LearningCycleRecordV2, opts: { rootDir?: strin
   if (!targets.size) for (const target of cycle.assignment.targets) targets.set(target, { id: target, label: target, text: target });
   const rows: PastWeekAnswer[] = answers(cycle).map(({ row, word, node, board }) => ({ target: word, at: row.observedAt, ...(board ? { board } : {}), ...(node ? { stop: node.title } : {}),
     ...(row.childResponse?.trim() ? { wrote: row.childResponse.trim() } : {}), right: row.result.correct === true, help: HELP[row.assistance?.status] ?? "help not recorded",
-    retry: isRetry(row), school: SCHOOL.has(String(row.provenance)) }));
+    retry: isRetry(row), school: row.provenance === "graded_work",
+    ...(row.provenance === "delayed_reassessment" ? { homeCheck: true as const, homeHelp: returnedWorkHelpLabel(row.assistance) } : {}) }));
   const answered = new Set(answers(cycle).flatMap(row => row.node ? [row.node.nodeId] : []));
   const stopOf = (node: LearningCycleNodeContract) => ({ title: node.title, game: activityOf(node) ?? "activity", targets: targetsOf(node), ...(node.focus ? { focus: node.focus } : {}) });
   const delivery = new Map(boardDeliveries(cycle).filter(row => row.stops.length).map(row => [row.boardId, row]));
@@ -106,7 +111,11 @@ export function pastWeekOf(cycle: LearningCycleRecordV2, opts: { rootDir?: strin
   const sessions = (() => { try { return timeRecord(cycle, { rootDir: opts.rootDir }).sessions; } catch { return []; } })();
   const sum = (key: "learning" | "play" | "call") => Math.round(sessions.reduce((total, row) => total + (row.minutes[key] ?? 0), 0) * 10) / 10;
   const graded = rows.filter(row => row.school);
-  const calibration = (cycle.calibrations ?? []).at(-1);
+  // A home check makes a calibration too; only a school test's calibration is the school test.
+  const homeSources = new Set((cycle.evidenceSources ?? []).filter(source => source.type === "delayed_reassessment").map(source => returnedWorkCalibrationId(source.sourceId, cycle.homeworkId)));
+  const calibration = (cycle.calibrations ?? []).filter(row => !homeSources.has(row.calibrationId)).at(-1);
+  const homeRows = rows.filter(row => row.homeCheck), homeLast = homeRows.at(-1);
+  const homeOnLast = homeLast ? homeRows.filter(row => day(row.at) === day(homeLast.at)) : [];
   const journalFile = plannerJournalFile(cycle, { rootDir: opts.rootDir });
   return {
     homeworkId: cycle.homeworkId, domain: cycle.domain, title: cycle.assignment.title, lifecycle: cycle.lifecycle, started: cycle.createdAt,
@@ -122,6 +131,7 @@ export function pastWeekOf(cycle: LearningCycleRecordV2, opts: { rootDir?: strin
       missed: graded.length ? graded.filter(row => !row.right).map(row => ({ target: row.target, ...(row.wrote ? { wrote: row.wrote } : {}) }))
         : (calibration?.gradedItems ?? []).filter(row => !row.correct).map(row => ({ target: row.target })),
     } : null,
+    ...(homeLast ? { homeCheck: { at: homeLast.at, ...count(homeOnLast), help: [...new Set(homeOnLast.map(row => row.homeHelp))].join(" / ") } } : {}),
     journal: fs.existsSync(journalFile) ? { file: path.relative(path.resolve(journalFile, "../../.."), journalFile), lines: fs.readFileSync(journalFile, "utf8").split("\n").filter(line => line.trim()) } : null,
   };
 }
@@ -176,8 +186,8 @@ const claimRow = (row: LearnerHypothesisView) => ({ hypothesisId: row.hypothesis
 const tryText = (row: PastWeekAnswer) => `board ${row.board ?? "unknown"} ${row.right ? "right" : `missed${row.wrote ? ` "${row.wrote}"` : ""}`} (${day(row.at)})`;
 function targetFacts(week: PastWeek, target: string) {
   const rows = week.answers.filter(row => row.target === target);
-  const first = rows.filter(firstTry), helped = rows.filter(row => row.help === "with help" && !row.school), unknown = rows.filter(row => row.help === "help not recorded" && !row.school);
-  const retries = rows.filter(row => row.retry && !row.school).length, school = rows.filter(row => row.school).at(-1);
+  const first = rows.filter(firstTry), helped = rows.filter(row => row.help === "with help" && !row.school && !row.homeCheck), unknown = rows.filter(row => row.help === "help not recorded" && !row.school && !row.homeCheck);
+  const retries = rows.filter(row => row.retry && !row.school && !row.homeCheck).length, school = rows.filter(row => row.school).at(-1);
   const practicedIn = week.boards.flatMap(board => board.played ? board.stops.filter(stop => stop.targets.includes(target)).map(stop => `${stop.game} "${stop.title}" (board ${board.number})`) : []);
   return { firstTries: first.length ? first.map(tryText).join("; ") : "none", ...(helped.length ? { withHelp: ofTotal(count(helped)) } : {}), ...(unknown.length ? { helpNotRecorded: ofTotal(count(unknown)) } : {}),
     retries, schoolTest: school ? (school.right ? "right" : `missed${school.wrote ? ` "${school.wrote}"` : ""}`) : "not on a graded test", practicedIn };
@@ -188,7 +198,7 @@ export function pastWeekIndex(archive: PastWeeksArchive) {
     testDate: week.testDate ?? "not recorded", targets: week.targets.length, boardsPlayed: week.boards.filter(board => board.played).length, decisions: week.decisions.length,
     firstTriesOnHerOwn: [...new Set(week.answers.filter(firstTry).map(row => row.board ?? 0))].sort((a, b) => a - b)
       .map(board => `board ${board || "unknown"}: ${ofTotal(count(week.answers.filter(row => firstTry(row) && (row.board ?? 0) === board)))}`).join("; ") || "none",
-    schoolTest: schoolLine(week) }));
+    schoolTest: schoolLine(week), ...(week.homeCheck ? { homeCheck: homeLine(week.homeCheck) } : {}) }));
 }
 
 /** One week in full, as lines (the tool pages them). */
@@ -220,9 +230,11 @@ export function pastWeekLines(week: PastWeek): string[] {
     week.minutes ? `Minutes: learning games ${week.minutes.learning}, play (Mystery/arcade) ${week.minutes.play}, call ${week.minutes.call}, over ${week.minutes.sessions} session${week.minutes.sessions === 1 ? "" : "s"}` : "Minutes: not recorded",
     ...(week.bonded ? ["Your locked predictions against the graded school test (bonded in her chart by code; the latest lock per word shown):", ...week.bonded] : []),
     week.schoolTest ? `School test: graded ${day(week.schoolTest.gradedAt)}: ${week.schoolTest.right} of ${week.schoolTest.total} right (${percent(week.schoolTest)}%)${week.schoolTest.missed.length ? `; missed: ${week.schoolTest.missed.map(row => `${label.get(row.target) ?? row.target}${row.wrote ? ` (wrote "${row.wrote}")` : ""}`).join(", ")}` : ""}` : "School test: no graded test uploaded",
+    ...(week.homeCheck ? [`Home check (paper at home after practice, not the school test): ${day(week.homeCheck.at)}: ${week.homeCheck.right} of ${week.homeCheck.total} right, ${week.homeCheck.help}`] : []),
     ...(week.journal ? [`Journal file: ${week.journal.file}`, ...week.journal.lines] : ["Journal file: none"]),
     "Every recorded answer (oldest first):",
-    ...week.answers.map(row => row.school ? `- ${day(row.at)} school test: ${label.get(row.target) ?? row.target}${row.wrote ? ` wrote "${row.wrote}"` : ""} ${row.right ? "right" : "missed"}`
+    ...week.answers.map(row => row.homeCheck ? `- ${day(row.at)} home check: ${label.get(row.target) ?? row.target}${row.wrote ? ` wrote "${row.wrote}"` : ""} ${row.right ? "right" : "missed"}, ${row.homeHelp}`
+      : row.school ? `- ${day(row.at)} school test: ${label.get(row.target) ?? row.target}${row.wrote ? ` wrote "${row.wrote}"` : ""} ${row.right ? "right" : "missed"}`
       : `- ${day(row.at)} board ${row.board ?? "unknown"}${row.stop ? ` "${row.stop}"` : ""}: ${label.get(row.target) ?? row.target}${row.wrote ? ` wrote "${row.wrote}"` : ""} ${row.right ? "right" : "missed"}, ${row.help}${row.retry ? ", retry" : ""}`),
   ];
 }

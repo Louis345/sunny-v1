@@ -342,6 +342,26 @@ it("lists every returned school test item for the Planner, matched to her homewo
   expect(schoolTestSection(ilaLikeIntrospectionCycle())).toContain("- No returned school test recorded yet.");
 });
 
+// Owner 2026-11-15: two references for the Planner, never mixed: the graded school test, and a home check (paper work
+// done at home after practice) with how much help she had. A home check never reads as a school test.
+it("lays out home checks apart from school tests, with how much help she had", () => {
+  const row = (id: string, provenance: string, prompt: string, correct: boolean, assistance: { status: string; scaffolds: string[] }) => ({
+    observationId: id, sourceId: `returned-work:${id}`, itemId: id, prompt, childResponse: "x", constructLinks: [],
+    result: { correct, score: correct ? 1 : 0 }, assistance, exposure: "unknown", provenance, observedAt: "2026-11-15T18:00:00.000Z", confounds: [] });
+  const cycle = { ...ilaLikeIntrospectionCycle(), observations: [...ilaLikeIntrospectionCycle().observations,
+    row("school-1", "graded_work", "Round 47 to the nearest ten.", false, { status: "unknown", scaffolds: [] }),
+    row("home-1", "delayed_reassessment", "Round 24 to the nearest ten", true, { status: "unassisted", scaffolds: [] }),
+    row("home-2", "delayed_reassessment", "Round 395 to the nearest hundred", false, { status: "assisted", scaffolds: ["caregiver_help_some"] })] } as never;
+  const section = schoolTestSection(cycle);
+  const [school, home] = section.split("\n\n");
+  expect(school).toContain("Round 47 to the nearest ten.");
+  expect(school).not.toContain("Round 24");
+  expect(home.split("\n")[0]).toBe("Her home checks (paper work done at home after practice, not a school test; a parent recorded how much help she had):");
+  expect(home).toContain(`- 2026-11-15: "Round 24 to the nearest ten" she wrote "x": right, done alone`);
+  expect(home).toContain(`- 2026-11-15: "Round 395 to the nearest hundred" she wrote "x": missed, some help`);
+  expect(schoolTestSection(ilaLikeIntrospectionCycle())).not.toContain("home checks");
+});
+
 // Owner 2026-11-09 ("how do we measure we are heading in the right direction?"): after every session, code counts
 // one scorecard: her answers (on her own, with help), each game's time to first answer, help requests, bugs she
 // reported, and how the Planner's predictions are landing. The Planner reads recent ones as a trend; no judgment here.

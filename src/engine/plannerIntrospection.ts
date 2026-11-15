@@ -1,5 +1,6 @@
 import { observationNode } from "./observationNode";
 import { isFirstTryOnHerOwn } from "./sessionTimeline";
+import { returnedWorkHelpLabel } from "./longitudinalLearning";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
@@ -190,10 +191,15 @@ export function childFeedbackSection(cycle: LearningCycleRecordV2, opts: Learnin
 /** Every returned school test item, confirmed by a parent, in the order written: the real test is the goal. */
 export function schoolTestSection(cycle: LearningCycleRecordV2): string {
   const header = "Her returned school tests (each item as a parent confirmed it from the graded paper):";
-  const rows = (cycle.observations ?? []).filter(row => SCHOOL.has(String(row.provenance)) && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
+  const returned = (cycle.observations ?? []).filter(row => SCHOOL.has(String(row.provenance)) && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
     .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
-  if (!rows.length) return `${header}\n- No returned school test recorded yet.`;
-  return [header, ...rows.map(row => `- ${row.observedAt.slice(0, 10)}: "${clip(row.prompt ?? row.itemId, 80)}"${row.childResponse ? ` she wrote "${clip(row.childResponse, 40)}"` : ""}: ${row.result?.correct === true ? "right" : row.result?.correct === false ? "missed" : "not marked"}${row.result?.teacherNote ? ` (teacher: ${clip(String(row.result.teacherNote), 80)})` : ""}`)].join("\n");
+  const line = (row: LearningObservation, help?: string) => `- ${row.observedAt.slice(0, 10)}: "${clip(row.prompt ?? row.itemId, 80)}"${row.childResponse ? ` she wrote "${clip(row.childResponse, 40)}"` : ""}: ${row.result?.correct === true ? "right" : row.result?.correct === false ? "missed" : "not marked"}${help ? `, ${help}` : ""}${row.result?.teacherNote ? ` (teacher: ${clip(String(row.result.teacherNote), 80)})` : ""}`;
+  // Owner 2026-11-15: a home check (paper done at home after practice, with how much help she had) is its own reference.
+  const school = returned.filter(row => row.provenance !== "delayed_reassessment");
+  const home = returned.filter(row => row.provenance === "delayed_reassessment");
+  const schoolPart = school.length ? [header, ...school.map(row => line(row))].join("\n") : `${header}\n- No returned school test recorded yet.`;
+  if (!home.length) return schoolPart;
+  return `${schoolPart}\n\n${["Her home checks (paper work done at home after practice, not a school test; a parent recorded how much help she had):", ...home.map(row => line(row, returnedWorkHelpLabel(row.assistance)))].join("\n")}`;
 }
 
 /** When the owner closed her board early for this decision, the reason as a fact (with a trailing newline), else "". */
