@@ -69,4 +69,77 @@ describe("returned-work assignment linking", () => {
     expect(cycle?.evidenceSources).toHaveLength(1);
     expect(cycle?.decisionHistory.filter((decision) => decision.eventType === "theory_decided")).toHaveLength(1);
   });
+
+  // Owner 2026-11-15: two references, never mixed. The school test is one; the other is whether she can do the work
+  // at home with no one helping (Ila's Lesson 1.2 rounding reteach sheet). A parent records how much help she had.
+  function mathCycle(rootDir: string) {
+    createLearningCycle({
+      childId: "ila", homeworkId: "hw-rounding", domain: "math",
+      assignment: { title: "Chapter 1 Reteach", contentFingerprint: "original", capturedEvidenceIds: ["source:assignment"], targets: ["math.rounding"] },
+      academicTheory: { theoryId: "theory:one", revision: 1, hypothesis: "Rounding is developing.", supportCriteria: ["external result"], reviseCriteria: ["mixed"], falsifyCriteria: ["contradiction"] },
+      engagementTheory: null, nodes: [],
+      academicPredictions: [{
+        predictionId: "prediction:school", theoryId: "theory:one", constructId: "math.rounding",
+        context: "school test", horizon: "one week", expectedMetric: { key: "academic.accuracy", min: 0.6, max: 0.9 },
+        predictedErrorPatterns: [], confidence: 0.5, evidenceIds: ["source:assignment"], intervention: "rounding",
+        evidenceLimit: "calibrated_mastery", createdAt: "2026-11-10T12:00:00.000Z", lockedAt: "2026-11-10T12:00:00.000Z",
+        eligibility: { sources: ["graded_work"], maxDelayDays: 365 },
+      }],
+    }, { rootDir });
+    const uploadFile = path.join(rootDir, "reteach.json");
+    fs.writeFileSync(uploadFile, JSON.stringify({
+      title: "Lesson 1.2 Reteach", testDate: "2026-11-15",
+      gradedItems: [{ target: "Round 24 to the nearest ten", wrote: "20", correct: true }, { target: "Round 395 to the nearest hundred", wrote: "300", correct: false }],
+    }), "utf8");
+    return uploadFile;
+  }
+  const quiet = { log: () => undefined };
+  const interpret = async () => { throw new Error("planner_not_called_in_test"); };
+
+  it("saves a home check done alone as a later check, not a school test, with every item marked done on her own", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-upload-home-check-"));
+    const uploadFile = mathCycle(rootDir);
+    await runUploadGradedHomework(["--child=ila", `--pdf=${uploadFile}`, "--homework=hw-rounding", "--yes", "--kind=home-check", "--help=alone"],
+      { rootDir, logger: quiet, interpret });
+    const cycle = getLearningCycle("ila", "hw-rounding", { rootDir })!;
+    expect(cycle.evidenceSources.map((source) => source.type)).toEqual(["delayed_reassessment"]);
+    expect(cycle.observations).toHaveLength(2);
+    for (const row of cycle.observations) {
+      expect(row.provenance).toBe("delayed_reassessment");
+      expect(row.assistance).toEqual({ status: "unassisted", scaffolds: [] });
+    }
+    // The school-test prediction is not scored by a home check.
+    expect(cycle.predictionEvaluations).toEqual([]);
+  });
+
+  it("records some or lots of help as help, never as on her own", async () => {
+    for (const [help, scaffold] of [["some", "caregiver_help_some"], ["lots", "caregiver_help_lots"]] as const) {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-upload-home-check-help-"));
+      const uploadFile = mathCycle(rootDir);
+      await runUploadGradedHomework(["--child=ila", `--pdf=${uploadFile}`, "--homework=hw-rounding", "--yes", "--kind=home-check", `--help=${help}`],
+        { rootDir, logger: quiet, interpret });
+      const cycle = getLearningCycle("ila", "hw-rounding", { rootDir })!;
+      expect(cycle.observations.map((row) => row.assistance)).toEqual([
+        { status: "assisted", scaffolds: [scaffold] }, { status: "assisted", scaffolds: [scaffold] }]);
+    }
+  });
+
+  it("refuses a home check without the help answer, and saves nothing", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-upload-home-check-missing-"));
+    const uploadFile = mathCycle(rootDir);
+    await expect(runUploadGradedHomework(["--child=ila", `--pdf=${uploadFile}`, "--homework=hw-rounding", "--yes", "--kind=home-check"],
+      { rootDir, logger: quiet, interpret })).rejects.toThrow("home_check_needs_help:alone|some|lots");
+    await expect(runUploadGradedHomework(["--child=ila", `--pdf=${uploadFile}`, "--homework=hw-rounding", "--yes", "--kind=quiz", "--help=alone"],
+      { rootDir, logger: quiet, interpret })).rejects.toThrow("upload_kind_unknown:quiz");
+    expect(getLearningCycle("ila", "hw-rounding", { rootDir })!.observations).toEqual([]);
+  });
+
+  it("keeps a school test upload exactly as before when no kind is given", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-upload-school-default-"));
+    const uploadFile = mathCycle(rootDir);
+    await runUploadGradedHomework(["--child=ila", `--pdf=${uploadFile}`, "--homework=hw-rounding", "--yes"], { rootDir, logger: quiet, interpret });
+    const cycle = getLearningCycle("ila", "hw-rounding", { rootDir })!;
+    expect(cycle.evidenceSources.map((source) => source.type)).toEqual(["graded_work"]);
+    expect(cycle.observations.every((row) => row.provenance === "graded_work" && row.assistance.status === "unknown")).toBe(true);
+  });
 });

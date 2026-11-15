@@ -36,6 +36,8 @@ export type ConfirmedReturnedWork = {
   source: LearningEvidenceSourceRef;
   score?: { earned: number; possible: number };
   items: ConfirmedReturnedWorkItem[];
+  /** How much help she had on this paper, as a parent recorded it (owner 2026-11-15); unknown when not asked. */
+  assistance?: LearningObservation["assistance"];
 };
 
 export type LongitudinalConstructHistory = {
@@ -76,6 +78,14 @@ export function frozenSpellingWordMapping(cycle: LearningCycleRecordV2): Array<{
 
 function stableId(value: unknown): string {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
+}
+
+/** How much help she had on returned paper work, in words (owner 2026-11-15); a parent's answer, never inferred. */
+export function returnedWorkHelpLabel(assistance: LearningObservation["assistance"] | undefined): string {
+  if (assistance?.status === "unassisted") return "done alone";
+  if (assistance?.scaffolds.includes("caregiver_help_lots")) return "lots of help";
+  if (assistance?.scaffolds.includes("caregiver_help_some")) return "some help";
+  return assistance?.status === "assisted" ? "with help" : "help not recorded";
 }
 
 /** The calibration a returned graded work makes, by its source; readers pair a score with when it arrived. */
@@ -171,7 +181,7 @@ function observationsFromReturnedWork(input: ConfirmedReturnedWork): LearningObs
       ...(item.observedErrorType ? { observedErrorType: item.observedErrorType } : {}),
       ...(item.teacherNote ? { teacherNote: item.teacherNote } : {}),
     },
-    assistance: { status: "unknown", scaffolds: [] },
+    assistance: input.assistance ? { status: input.assistance.status, scaffolds: [...input.assistance.scaffolds] } : { status: "unknown", scaffolds: [] },
     exposure: "unknown",
     provenance: input.source.type === "delayed_reassessment" ? "delayed_reassessment" : "graded_work",
     observedAt: takenAt(input.source),

@@ -83,6 +83,21 @@ type CliArgs = {
   homeworkId?: string;
   dryRun: boolean;
   yes: boolean;
+  kind: ReturnedWorkKind;
+  help?: HomeCheckHelp;
+};
+
+/**
+ * Two references, never mixed (owner 2026-11-15): a graded school test, or a home check, paper work done at home after
+ * practice, where a parent records how much help she had. A home check is saved as a later check outside Sunny
+ * (delayed_reassessment), so it never scores the school-test forecast.
+ */
+export type ReturnedWorkKind = "school-test" | "home-check";
+export type HomeCheckHelp = "alone" | "some" | "lots";
+const HELP_ASSISTANCE: Record<HomeCheckHelp, { status: "unassisted" | "assisted"; scaffolds: string[] }> = {
+  alone: { status: "unassisted", scaffolds: [] },
+  some: { status: "assisted", scaffolds: ["caregiver_help_some"] },
+  lots: { status: "assisted", scaffolds: ["caregiver_help_lots"] },
 };
 
 type UploadRunOptions = {
@@ -280,12 +295,19 @@ function parseCliArgs(argv: string[]): CliArgs {
   const homeworkArg = argv.find((arg) => arg.startsWith("--homework="));
   if (!childId) throw new Error("Missing --child=<childId>");
   if (!pdfPath) throw new Error("Missing --pdf=<path>");
+  const kind = (argv.find((arg) => arg.startsWith("--kind="))?.slice("--kind=".length).trim() || "school-test") as ReturnedWorkKind;
+  if (kind !== "school-test" && kind !== "home-check") throw new Error(`upload_kind_unknown:${kind}`);
+  const help = argv.find((arg) => arg.startsWith("--help="))?.slice("--help=".length).trim() as HomeCheckHelp | undefined;
+  if (help !== undefined && !(help in HELP_ASSISTANCE)) throw new Error(`home_check_needs_help:alone|some|lots`);
+  if (kind === "home-check" && !help) throw new Error(`home_check_needs_help:alone|some|lots`);
   return {
     childId,
     pdfPath,
     homeworkId: homeworkArg?.slice("--homework=".length).trim(),
     dryRun: argv.includes("--dry-run"),
     yes: argv.includes("--yes"),
+    kind,
+    ...(help ? { help } : {}),
   };
 }
 
@@ -361,7 +383,10 @@ async function recordCanonicalUpload(input: {
   candidate: HomeworkMatchCandidate & { cycle: LearningCycleRecordV2 };
   explicitSelection: boolean;
   interpret?: UploadRunOptions["interpret"];
+  kind?: ReturnedWorkKind;
+  help?: HomeCheckHelp;
 }): Promise<{ status: string; calibrationId: string }> {
+  const homeCheck = input.kind === "home-check";
   if (input.upload.gradedItems.length === 0) {
     throw new Error("returned_work_item_review_required");
   }
@@ -377,7 +402,8 @@ async function recordCanonicalUpload(input: {
   const fileFingerprint = crypto.createHash("sha256").update(bytes).digest("hex");
   // Her chart database first (owner 2026-11-12): the graded test bonded to the predictions locked before it. If the
   // chart refuses, nothing is written anywhere and the upload stops loudly; rerunning the same file is safe.
-  if (spelling) bondSpellingSchoolTestInChart({ cycle: input.candidate.cycle, testDate: testDate ?? familyDay(input.now), fileFingerprint, items: input.upload.gradedItems });
+  // A home check is not a school test: it is never bonded to the school-test predictions.
+  if (spelling && !homeCheck) bondSpellingSchoolTestInChart({ cycle: input.candidate.cycle, testDate: testDate ?? familyDay(input.now), fileFingerprint, items: input.upload.gradedItems });
   const sourceId = `returned-work:${crypto.createHash("sha256").update(`${input.upload.childId}:${input.candidate.homeworkId}:${fileFingerprint}`).digest("hex").slice(0, 20)}`;
   const sourceDir = path.join(resolveChildContextDir(input.upload.childId, { rootDir: input.rootDir }), "homework", "returned-work", "sources", sourceId.replace(/:/g, "-"));
   fs.mkdirSync(sourceDir, { recursive: true });
@@ -386,9 +412,10 @@ async function recordCanonicalUpload(input: {
   const cycle = recordConfirmedReturnedWork({
     childId: input.upload.childId,
     homeworkId: input.candidate.homeworkId,
+    ...(input.help ? { assistance: HELP_ASSISTANCE[input.help] } : {}),
     source: {
       sourceId,
-      type: "graded_work",
+      type: homeCheck ? "delayed_reassessment" : "graded_work",
       fileFingerprint,
       sourceFile,
       provenance: "caregiver",
@@ -496,7 +523,7 @@ export async function runUploadGradedHomework(
   const orderedCandidates = selected
     ? [selected, ...candidates.filter((candidate) => candidate.homeworkId !== selected.homeworkId)]
     : candidates;
-  logger.log(`📄 Graded upload: ${path.basename(upload.sourceFile)}`);
+  logger.log(`📄 Graded upload: ${path.basename(upload.sourceFile)} kind=${args.kind}${args.help ? ` help=${args.help}` : ""}`);
   if (orderedCandidates.length === 0 || (!selected && (orderedCandidates[0]?.confidence ?? 0) < MIN_CONFIDENT_MATCH)) {
     logger.log("⚠️  No confident assignment match found.");
     if (orderedCandidates[0]) {
@@ -530,6 +557,8 @@ export async function runUploadGradedHomework(
           candidate: { ...candidate, cycle: candidate.cycle },
           explicitSelection: candidate.homeworkId === args.homeworkId,
           interpret: opts.interpret,
+          kind: args.kind,
+          ...(args.help ? { help: args.help } : {}),
         });
       } catch (error) {
         if (error instanceof Error && error.message.startsWith("returned_spelling_word_unknown:")) {
@@ -549,6 +578,8 @@ export async function runUploadGradedHomework(
         logger.log(`⚠️  Evidence saved; Planner interpretation is pending: ${error instanceof Error ? error.message : String(error)}`);
         return;
       }
+    } else if (args.kind === "home-check") {
+      throw new Error(`home_check_needs_canonical_cycle:${candidate.homeworkId}`);
     } else {
       entry = recordGradedHomeworkCalibration(args.childId, {
         homeworkId: candidate.homeworkId,
