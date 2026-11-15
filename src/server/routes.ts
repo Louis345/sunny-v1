@@ -1,4 +1,5 @@
 import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
+import { kioskLiveWeather } from "./liveWeather";
 import { takeServerTries, withServerTries } from "./itemAttemptFacts";
 import { recordWardrobeSignal } from "./wardrobeSignals";
 import { typedSpellingForChart } from "./spellingKeyboardInput";
@@ -1900,6 +1901,13 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     profile.tamagotchi = applyTamagotchiFill(depleted, "vrr_reward_claim");
     writeLearningProfile(childId, profile);
     res.json({ ok: true, rewardId, tamagotchi: profile.tamagotchi });
+  });
+
+  // The real weather for the start screen (owner 2026-11-15). Cached, refreshed at most every 30 minutes, never throws.
+  app.get("/api/weather", async (_req: Request, res: Response) => {
+    const weather = kioskLiveWeather();
+    await weather.refresh();
+    res.json({ weather: weather.current() });
   });
 
   app.get("/api/companions", async (_req: Request, res: Response) => {
