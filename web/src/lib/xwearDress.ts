@@ -375,6 +375,7 @@ export function setVrmBaseClothingVisible(
   ],
   outfitId?: string,
 ) {
+  restoreBaseClothingGeometry(scene);
   const selectedCategories = new Set(categories);
   // A base material hides only when the outfit replaces everything it draws. VRoid bodies exported with one merged
   // clothing atlas (Kefla) name it "Tops_" although it also draws the bottoms and boots, so a top alone keeps it (W3).
@@ -410,6 +411,169 @@ export function setVrmBaseClothingVisible(
   console.log(
     ` 🎮 [companion-wardrobe-lab] base_clothing visibility=${visible} materials=${changed}`,
   );
+}
+
+/** Her own clothing this close inside the outfit's outline still counts as inside it (model units ≈ metres). */
+const OUTFIT_INSIDE_MARGIN = 0.015;
+/** Height slices and directions for "wraps all the way round her" (a skirt or bodice does; a hanging ribbon does not). */
+const OUTFIT_RING_SLICE = 0.02, OUTFIT_RING_DIRECTIONS = 24, OUTFIT_RING_MIN_DIRECTIONS = 18;
+
+const textureAlphaReaders = new WeakMap<THREE.Texture, ((u: number, v: number) => number) | null>();
+
+/** Reads a texture's alpha at a UV, or null when its pixels cannot be read (then every part counts as drawn). */
+function textureAlphaReader(texture: THREE.Texture | null | undefined) {
+  if (!texture) return null;
+  if (textureAlphaReaders.has(texture)) return textureAlphaReaders.get(texture)!;
+  let reader: ((u: number, v: number) => number) | null = null;
+  try {
+    const image = texture.image as { data?: ArrayLike<number>; width?: number; height?: number } | undefined;
+    let data = image?.data, width = image?.width ?? 0, height = image?.height ?? 0;
+    if (!data && width && height && typeof document !== "undefined") {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.drawImage(image as CanvasImageSource, 0, 0);
+        data = context.getImageData(0, 0, width, height).data;
+      }
+    }
+    if (data && width && height) {
+      const pixels = data;
+      const wrap = (n: number) => n - Math.floor(n);
+      reader = (u, v) => {
+        const x = Math.min(width - 1, Math.floor(wrap(u) * width));
+        const y = Math.min(height - 1, Math.floor((texture.flipY ? 1 - wrap(v) : wrap(v)) * height));
+        return pixels[(y * width + x) * 4 + 3] / 255;
+      };
+    }
+  } catch (error) {
+    console.warn(` 🎮 [companion-wardrobe-lab] outfit_alpha unreadable reason=${error instanceof Error ? error.message : String(error)}`);
+  }
+  textureAlphaReaders.set(texture, reader);
+  return reader;
+}
+
+/** The points an outfit actually draws: garment files carry parts whose material is hidden. */
+function drawnOutfitPoints(outfitParts: readonly THREE.Object3D[], meshes: Set<THREE.Object3D>) {
+  const points: THREE.Vector3[] = [];
+  for (const part of outfitParts) part.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    meshes.add(object);
+    if (!object.visible) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    const geometry = object.geometry;
+    const total = geometry.index?.count ?? geometry.getAttribute("position")?.count ?? 0;
+    const drawn = new Set<number>();
+    const uv = geometry.getAttribute("uv");
+    for (const range of geometry.groups.length ? geometry.groups : [{ start: 0, count: total, materialIndex: 0 }]) {
+      const material = materials[range.materialIndex ?? 0] as THREE.Material & { map?: THREE.Texture | null };
+      if (!material?.visible) continue;
+      // Parts the texture cuts away are not drawn either (a dress's see-through underskirt reaching the floor).
+      const alphaAt = material.alphaTest > 0 && uv ? textureAlphaReader(material.map) : null;
+      for (let k = range.start; k < Math.min(range.start + range.count, total); k++) {
+        const vertex = geometry.index ? geometry.index.getX(k) : k;
+        if (alphaAt && alphaAt(uv.getX(vertex), uv.getY(vertex)) < material.alphaTest) continue;
+        drawn.add(vertex);
+      }
+    }
+    for (const i of drawn) points.push(object.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(object.matrixWorld));
+  });
+  return points;
+}
+
+/**
+ * Saori's try-on (2026-11-14): her own clothing hides only where the new outfit actually covers it. VRoid bodies keep
+ * several garments in one material (Kefla's boots, Tene's skirt with her top) and drop the skin under their own sleeves
+ * (Towa, Yukari), so a whole hidden material showed bare feet, underwear and missing arms. A hidden clothing triangle
+ * stays hidden only when it sits inside the outfit's outline at a height where the outfit wraps all the way round her;
+ * every other one (legs below a hem, arms outside a bodice) is drawn again with a visible twin of its material.
+ */
+export function revealUncoveredBaseClothing(scene: THREE.Object3D, outfitParts: readonly THREE.Object3D[]) {
+  if (scene.userData.sunnyWardrobe) return;
+  scene.updateMatrixWorld(true);
+  const outfitMeshes = new Set<THREE.Object3D>();
+  const points = drawnOutfitPoints(outfitParts, outfitMeshes);
+  if (points.length === 0) return;
+  const sliceOf = (y: number) => Math.floor(y / OUTFIT_RING_SLICE);
+  const directionOf = (p: THREE.Vector3, centre: THREE.Vector3) =>
+    Math.floor(((Math.atan2(p.x - centre.x, p.z - centre.z) + Math.PI) / (2 * Math.PI)) * OUTFIT_RING_DIRECTIONS) % OUTFIT_RING_DIRECTIONS;
+  // Her middle, from the outfit's upper half (a bodice or top sits round her body; ribbons and hems hang below).
+  const top = Math.max(...points.map((p) => p.y)), bottom = Math.min(...points.map((p) => p.y));
+  const upper = points.filter((p) => p.y >= (top + bottom) / 2);
+  const middle = upper.reduce((sum, p) => sum.add(new THREE.Vector3(p.x, 0, p.z)), new THREE.Vector3()).divideScalar(upper.length);
+  const centres = { get: (_slice: number) => middle };
+  // The outfit's outline: per slice, how far out it reaches in each direction.
+  const outline = new Map<number, number[]>();
+  for (const p of points) {
+    const slice = sliceOf(p.y), centre = centres.get(slice)!;
+    const reach = outline.get(slice) ?? outline.set(slice, new Array(OUTFIT_RING_DIRECTIONS).fill(0)).get(slice)!;
+    const direction = directionOf(p, centre);
+    reach[direction] = Math.max(reach[direction], Math.hypot(p.x - centre.x, p.z - centre.z));
+  }
+  const inside = (p: THREE.Vector3) => {
+    for (const slice of [sliceOf(p.y), sliceOf(p.y) - 1, sliceOf(p.y) + 1]) {
+      const reach = outline.get(slice);
+      if (!reach || reach.filter((r) => r > 0).length < OUTFIT_RING_MIN_DIRECTIONS) continue;
+      const centre = centres.get(slice)!, direction = directionOf(p, centre);
+      const near = [reach[direction], reach[(direction + 1) % OUTFIT_RING_DIRECTIONS], reach[(direction + OUTFIT_RING_DIRECTIONS - 1) % OUTFIT_RING_DIRECTIONS]];
+      if (Math.hypot(p.x - centre.x, p.z - centre.z) <= Math.max(...near) + OUTFIT_INSIDE_MARGIN) return true;
+    }
+    return false;
+  };
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  let revealed = 0, considered = 0;
+  scene.traverse((object) => {
+    if (!(object instanceof THREE.Mesh) || outfitMeshes.has(object) || !object.geometry.index) return;
+    // VRM bodies are either one mesh per garment with one material, or a material list (an outline makes one).
+    const materials: THREE.Material[] = Array.isArray(object.material) ? object.material.slice() : [object.material];
+    const geometry: THREE.BufferGeometry = object.geometry;
+    const index = geometry.index!;
+    const sourceGroups: THREE.GeometryGroup[] = geometry.groups.length ? geometry.groups : [{ start: 0, count: index.count, materialIndex: 0 }];
+    if (!sourceGroups.some((group) => !materials[group.materialIndex ?? 0].visible)) return;
+    object.userData.sunnyBaseClothingOriginal ??= { index: index.array.slice(), groups: geometry.groups.map((group) => ({ ...group })), material: object.material, twins: [] as THREE.Material[] };
+    const groups: typeof geometry.groups = [];
+    for (const group of sourceGroups) {
+      const material = materials[group.materialIndex ?? 0];
+      if (material.visible) { groups.push(group); continue; }
+      const kept: number[] = [], hidden: number[] = [];
+      for (let t = group.start; t < group.start + group.count; t += 3) {
+        const i0 = index.getX(t), i1 = index.getX(t + 1), i2 = index.getX(t + 2);
+        object.getVertexPosition(i0, a).applyMatrix4(object.matrixWorld);
+        object.getVertexPosition(i1, b).applyMatrix4(object.matrixWorld);
+        object.getVertexPosition(i2, c).applyMatrix4(object.matrixWorld);
+        (inside(a.add(b).add(c).divideScalar(3)) ? hidden : kept).push(i0, i1, i2);
+      }
+      considered += group.count / 3;
+      if (kept.length === 0) { groups.push(group); continue; }
+      [...kept, ...hidden].forEach((vertex, offset) => index.setX(group.start + offset, vertex));
+      const twin = material.clone();
+      twin.visible = true;
+      materials.push(twin);
+      object.userData.sunnyBaseClothingOriginal.twins.push(twin);
+      groups.push({ start: group.start, count: kept.length, materialIndex: materials.length - 1 });
+      if (hidden.length) groups.push({ start: group.start + kept.length, count: hidden.length, materialIndex: group.materialIndex });
+      revealed += kept.length / 3;
+    }
+    geometry.groups = groups;
+    object.material = materials;
+    index.needsUpdate = true;
+  });
+  console.log(` 🎮 [companion-wardrobe-lab] base_clothing uncovered_kept triangles=${revealed} of=${considered}`);
+}
+
+/** Undo revealUncoveredBaseClothing: her own geometry, groups and materials exactly as loaded. */
+function restoreBaseClothingGeometry(scene: THREE.Object3D) {
+  scene.traverse((object) => {
+    const original = object.userData.sunnyBaseClothingOriginal;
+    if (!(object instanceof THREE.Mesh) || !original) return;
+    for (const twin of original.twins as THREE.Material[]) twin.dispose();
+    object.geometry.index!.array.set(original.index);
+    object.geometry.index!.needsUpdate = true;
+    object.geometry.groups = original.groups.map((group: THREE.GeometryGroup) => ({ ...group }));
+    object.material = original.material;
+    delete object.userData.sunnyBaseClothingOriginal;
+  });
 }
 
 export function bindSkinnedMeshInAvatarSpace(

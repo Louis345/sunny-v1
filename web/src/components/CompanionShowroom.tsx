@@ -58,6 +58,7 @@ import {
   isXwearOutfitApprovedForAvatar,
   isXwearOutfitAnimationSupported,
   setVrmBaseClothingVisible,
+  revealUncoveredBaseClothing,
   type XwearMaterialVariant,
 } from "../lib/xwearDress";
 import {
@@ -2510,6 +2511,7 @@ function reconcileVrmBaseClothingVisibility(
       outfitDefinition.slots.replaces,
       outfitDefinition.id,
     );
+    revealUncoveredBaseClothing(vrmScene, outfitParts);
   }
 }
 
