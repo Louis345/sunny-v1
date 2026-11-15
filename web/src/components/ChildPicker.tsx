@@ -5,7 +5,9 @@ import {
   type CompanionThemeConfig,
   type CompanionThemeResponse,
 } from "../../../src/shared/companionTheme";
-import { kioskSkyClockInput, skyMoodForTime, type SkyClockInput, type SkyMood } from "../../../src/shared/skyClock";
+import { kioskSkyClockInput, seasonOf, skyMoodForTime, type SkyClockInput, type SkyMood } from "../../../src/shared/skyClock";
+import { readLiveWeather, type LiveWeather } from "../../../src/shared/liveWeather";
+import { StartScreenWeather } from "./StartScreenWeather";
 
 interface Props {
   /** `diagKiosk` uses child=creator + Charlotte on the server (diagnostic prompt). */
@@ -65,6 +67,37 @@ function useKioskSky(): StartSky {
   }, []);
   return sky;
 }
+
+/**
+ * The real weather from the kiosk (owner 2026-11-15), asked for once and every thirty minutes. The screen never waits
+ * for it: until it arrives, or when the kiosk has none, the season paints the weather.
+ */
+function useKioskWeather(): LiveWeather | null {
+  const [weather, setWeather] = useState<LiveWeather | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetch("/api/weather")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body: { weather?: unknown } | null) => {
+          if (!cancelled) setWeather(readLiveWeather(body?.weather));
+        })
+        .catch((error: unknown) => {
+          console.warn(` 🎮 [start-screen] [weather] [unavailable] reason=${error instanceof Error ? error.message : String(error)}`);
+        });
+    };
+    load();
+    const timer = window.setInterval(load, 30 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+  return weather;
+}
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** One full turn of the night sky every five minutes: visibly moving, still calm (owner, 2026-11-07). */
 const STARFIELD_TURN_MS = 300_000;
@@ -237,6 +270,7 @@ export function StartScreenSky({ sky }: { sky: StartSky }) {
 export function ChildPicker({ onSelect }: Props) {
   const showDevTools = devToolsVisible();
   const sky = useKioskSky();
+  const weather = useKioskWeather();
   const [companions, setCompanions] = useState<CompanionThemeConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -307,6 +341,7 @@ export function ChildPicker({ onSelect }: Props) {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-8 relative overflow-hidden" style={{ position: "absolute", inset: 0 }}>
       <StartScreenSky sky={sky} />
+      <StartScreenWeather weather={weather} season={seasonOf(new Date())} reducedMotion={prefersReducedMotion()} />
       <div className="text-center relative">
         <h1 className="text-3xl font-medium" style={{ color: sky.text }}>
           Who's learning today?
