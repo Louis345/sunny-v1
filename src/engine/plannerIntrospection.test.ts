@@ -274,6 +274,29 @@ it("scores the Planner's per-word calls against her next answer on her own, and 
   expect(prompt).toContain(`import: you expected right; she wrote "inport"`);
 }, 120000);
 
+// 2026-11-16 (owner: "is the Planner set up to tell us when it feels confident she understands the concepts?"): it
+// judged concepts only in prose, nobody was told, and paper never checked it. Why the human caught it: only he asks
+// "can she do this alone yet?"; the logs had no such line and the lab only scored item calls inside Sunny. Invariant:
+// the Planner's per-concept chances are saved on its decision, a ready one is logged for the parent, and its next
+// question shows each call beside her paper done alone.
+it("saves the Planner's ready-on-paper calls, logs a ready one for the parent, and shows them back", async () => {
+  const f = liveFixture();
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  f.decision.readyOnPaper = [{ concept: "Prefix words", chance: 0.85, why: "8 of 8 alone", proof: "Unit 3 spelling sheet" }, { concept: "Silent letters", chance: 0.4, why: "missed 2", proof: "same sheet" }];
+  const logs: string[] = [];
+  const spy = vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => { logs.push(args.join(" ")); });
+  try { await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts); } finally { spy.mockRestore(); }
+  expect(f.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema.properties.ready_on_paper).toBeTruthy();
+  expect(getLearningCycle(childId, homeworkId, f.opts)!.decisionHistory.filter(row => row.eventType === "theory_decided").at(-1)).toMatchObject({
+    readyOnPaper: [{ concept: "Prefix words", chance: 0.85 }, { concept: "Silent letters", chance: 0.4 }] });
+  expect(logs.find(line => line.includes("[ready-on-paper] [ready]"))).toContain("concepts=Prefix words");
+  const cycle = await f.prepare();
+  f.play(currentBoardInstance(cycle).nodeIds[0], new Date().toISOString());
+  const asked = f.requests.length;
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  expect(promptOf(f.requests[asked])).toContain("Prefix words: you said 0.85; no paper done alone on it yet");
+}, 120000);
+
 // 2026-11-10, both audits: a FaceTime call with no homework got a lesson retro ("plan the next lesson to start with
 // ar/or words before any games"), and it took one of the three retro slots the Planner reads. A session in which she
 // answered nothing is play: no lesson retro is written for it.

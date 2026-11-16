@@ -1,5 +1,6 @@
 import {isDeepStrictEqual} from "node:util";
 import type { SchoolForecast } from "./schoolForecast";
+import type { PaperReadinessCall } from "./readyOnPaper";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS, type HomeworkSources } from "./schoolTestObjective";
@@ -131,6 +132,7 @@ export type CanonicalProgressionDecision = {
   expectations?: PlannerExpectation[];
   /** The Planner's school-test forecast at this decision, with its model (owner, 2026-11-13). */
   schoolForecast?: SchoolForecast;
+  readyOnPaper?: PaperReadinessCall[];
   gameNotes?: Array<{ nodeId: string; verdict: "keep" | "fix" | "retire"; why: string }>;
   /** The one complete successor board program. Absent only for await_calibration. */
   successor?: SuccessorProgram;
@@ -703,6 +705,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     ...(Array.isArray(row.gameNotes) ? { gameNotes: (row.gameNotes as Array<Record<string, unknown>>).filter(note => typeof note?.nodeId === "string" && ["keep", "fix", "retire"].includes(String(note.verdict)) && typeof note.why === "string")
       .map(note => ({ nodeId: String(note.nodeId), verdict: note.verdict as "keep" | "fix" | "retire", why: String(note.why).trim() })) } : {}),
     ...(row.schoolForecast && typeof row.schoolForecast === "object" ? { schoolForecast: row.schoolForecast as SchoolForecast } : {}),
+    ...(Array.isArray(row.readyOnPaper) ? { readyOnPaper: (row.readyOnPaper as PaperReadinessCall[]).filter(call => typeof call?.concept === "string" && typeof call.chance === "number") } : {}),
     ...(Array.isArray(row.expectations) ? { expectations: (row.expectations as Array<Record<string, unknown>>).filter(call => typeof call?.itemId === "string" && typeof call.onHerOwn === "boolean").map(call => ({ itemId: String(call.itemId), onHerOwn: Boolean(call.onHerOwn) })) } : {}),
     ...(action !== "await_calibration" ? { successor: { instruments, boardDefinition } } : {}),
   };

@@ -131,6 +131,19 @@ describe("code checks every history id the grammar no longer lists", () => {
     expect(math.call("decide", decide(math.facts, { prediction_evaluation_ids: [math.facts.evaluationIds[0]], school_test_forecast: { min: 0.6, max: 0.8, why: "w" } }))).toMatchObject({ ok: true });
   });
 
+  // 2026-11-16: per concept, the chance she gets it right alone on paper; code scores it against her next paper.
+  it("ready_on_paper: chances 0 to 1, each concept once, saved on the decision", () => {
+    for (const facts of [history(small), history({ ...small, problems: 3 })]) {
+      const { call } = session(facts);
+      const ok = { concept: "Rounding", chance: 0.85, why: "w", proof: "Lesson 1.2 sheet" };
+      expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], ready_on_paper: [{ ...ok, chance: 1.2 }] }))).toMatchObject({ ok: false, error: expect.stringContaining("between 0 and 1") });
+      expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], ready_on_paper: [ok, { ...ok, concept: " rounding " }] }))).toMatchObject({ ok: false, error: expect.stringContaining("once") });
+      const kit = spellingSuccessorToolkit(facts), state = kit.initialState(), tool = kit.tools.find(row => row.name === "decide")!;
+      expect(tool.run(state, tool.schema.parse(decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], ready_on_paper: [ok] })) as never)).toMatchObject({ ok: true });
+      expect((state as { decision?: { readyOnPaper?: unknown } }).decision?.readyOnPaper).toEqual([{ concept: "Rounding", chance: 0.85, why: "w", proof: "Lesson 1.2 sheet" }]);
+    }
+  });
+
   it("math: expect_on_her_own.item, add_step problems and build_from, add_problem based_on", () => {
     const { call, facts } = session(history({ ...large, problems: 30 }));
     const real = facts.problems![29].id;

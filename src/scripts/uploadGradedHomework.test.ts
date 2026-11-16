@@ -112,6 +112,21 @@ describe("returned-work assignment linking", () => {
     expect(cycle.predictionEvaluations).toEqual([]);
   });
 
+  // 2026-11-16: the Planner calls each concept's chance on paper; the parent tags each paper item with its concept so
+  // code can score that call. An untagged item keeps exactly its old links.
+  it("links each paper item to the concept the parent tagged, so the Planner's ready-on-paper calls can be scored", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-upload-concept-"));
+    const uploadFile = mathCycle(rootDir);
+    const body = JSON.parse(fs.readFileSync(uploadFile, "utf8"));
+    body.gradedItems[0].concept = "Rounding to tens";
+    fs.writeFileSync(uploadFile, JSON.stringify(body), "utf8");
+    await runUploadGradedHomework(["--child=ila", `--pdf=${uploadFile}`, "--homework=hw-rounding", "--yes", "--kind=home-check", "--help=alone"],
+      { rootDir, logger: quiet, interpret });
+    const [tagged, untagged] = getLearningCycle("ila", "hw-rounding", { rootDir })!.observations;
+    expect(tagged.constructLinks).toContainEqual({ constructId: "concept:rounding to tens", role: "secondary", confidence: 1 });
+    expect(untagged.constructLinks).toHaveLength(1);
+  });
+
   it("records some or lots of help as help, never as on her own", async () => {
     for (const [help, scaffold] of [["some", "caregiver_help_some"], ["lots", "caregiver_help_lots"]] as const) {
       const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-upload-home-check-help-"));

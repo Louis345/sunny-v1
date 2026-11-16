@@ -19,6 +19,7 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 import { familyDay } from "../utils/familyCalendar";
 import { openChart } from "../chart/db";
 import { recordGradedTestBond } from "../engine/predictionBond";
+import { paperConceptId } from "../engine/readyOnPaper";
 
 type HomeworkCycleCandidateRecord = HomeworkCycle | LearningCycleRecordV2;
 
@@ -40,6 +41,8 @@ export type GradedHomeworkUpload = {
     note?: string;
     /** What she wrote, when the parent typed it. */
     wrote?: string;
+    /** The concept this item checks, in the Planner's words, so its ready-on-paper call is scored (2026-11-16). */
+    concept?: string;
   }>;
   contentFingerprint?: string;
 };
@@ -445,7 +448,8 @@ async function recordCanonicalUpload(input: {
       ...(item.observedErrorType ? { observedErrorType: item.observedErrorType } : {}),
       ...(item.note ? { teacherNote: item.note } : {}),
       extractionConfidence: 1,
-      constructLinks: [{ constructId: constructIdFor(item.target), role: "primary", confidence: 1 }],
+      constructLinks: [{ constructId: constructIdFor(item.target), role: "primary", confidence: 1 },
+        ...(typeof item.concept === "string" && item.concept.trim() ? [{ constructId: paperConceptId(item.concept), role: "secondary" as const, confidence: 1 }] : [])],
     })),
   }, { rootDir: input.rootDir, now: input.now });
   const result = await interpretReturnedWorkBatch({
@@ -524,6 +528,8 @@ export async function runUploadGradedHomework(
     ? [selected, ...candidates.filter((candidate) => candidate.homeworkId !== selected.homeworkId)]
     : candidates;
   logger.log(`📄 Graded upload: ${path.basename(upload.sourceFile)} kind=${args.kind}${args.help ? ` help=${args.help}` : ""}`);
+  const tagged = upload.gradedItems.filter((item) => typeof item.concept === "string" && item.concept.trim()).length;
+  logger.log(` 🎮 [homework-upload] [concepts] [${tagged ? "tagged" : "none"}] items=${upload.gradedItems.length} tagged=${tagged}`);
   if (orderedCandidates.length === 0 || (!selected && (orderedCandidates[0]?.confidence ?? 0) < MIN_CONFIDENT_MATCH)) {
     logger.log("⚠️  No confident assignment match found.");
     if (orderedCandidates[0]) {

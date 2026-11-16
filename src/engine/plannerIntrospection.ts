@@ -1,4 +1,5 @@
 import { observationNode } from "./observationNode";
+import { readyOnPaperSection } from "./readyOnPaper";
 import { isFirstTryOnHerOwn } from "./sessionTimeline";
 import { returnedWorkHelpLabel } from "./longitudinalLearning";
 import fs from "node:fs";
@@ -132,8 +133,13 @@ export function scorePlannerCalls(cycle: LearningCycleRecordV2): Array<{ decisio
   }));
 }
 
-/** The Planner's calls, checked by code, decision by decision: the tutor's own score, shown back to it. */
+/** The Planner's calls, checked by code, decision by decision: the tutor's own score, shown back to it. Its item calls
+ * against her next answer in Sunny, then its ready-on-paper calls against her next paper done alone (2026-11-16). */
 export function plannerCallsSection(cycle: LearningCycleRecordV2): string {
+  return `${itemCallsSection(cycle)}\n\n${readyOnPaperSection(cycle)}`;
+}
+
+function itemCallsSection(cycle: LearningCycleRecordV2): string {
   const header = "Your calls, checked by code against her next answer on her own:";
   const calls = scorePlannerCalls(cycle);
   if (!calls.length) return `${header}\n- No calls yet. With decide, you may call for each ${cycle.domain === "spelling" ? "word" : "problem"} whether her next answer on her own will be right.`;

@@ -9,6 +9,7 @@ import { rewardBreakTool } from "./plannerMenu";
 import type { LearningCycleMathItem } from "./learningCycleRepository";
 import { queryRecordTool } from "./recordQuery";
 import { claimHowSheLearnsTool, pastWeeksTool, type PastWeeksArchive } from "./pastWeeks";
+import { conceptKey, type PaperReadinessCall } from "./readyOnPaper";
 
 /** The next-board Planner's small locked tools, one toolkit for every subject. The Planner makes the theory
  * decision and orders each step: a re-run of a tested built-in she played (its own words or fewer), or any
@@ -149,6 +150,10 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           : { school_test_forecast: z.array(z.object({ word: z.string().min(1).describe("A word id from her list."), chance: z.number().describe("The chance, 0 to 1, that she spells it right on the school test."),
               why: text("Why, from her answers on this word.") }).strict()).optional()
               .describe("Your forecast for her graded school test, word by word, every word on her list, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back. Give it every decision.") }) : {}),
+        ...(facts.selfReview ? { ready_on_paper: z.array(z.object({ concept: text("One concept this assignment teaches, in a parent's words (for example Rounding to tens)."),
+          chance: z.number().describe("The chance, 0 to 1, that she gets this concept right alone on paper now."), why: text("Why, from her answers on her own."),
+          proof: text("The paper work that would show it, for example the Lesson 1.2 sheet.") }).strict()).optional()
+          .describe("Your call, concept by concept: could she show it alone on paper now? A parent tags each item of her next paper with its concept; code scores your chance against what she does alone and checks across your calls whether a higher chance goes with a better result. A chance of 0.8 or more tells her parent to give her the paper. Give it every decision.") } : {}),
       }).strict(),
       run: (state, input) => {
         if (facts.evaluationIds.length && !input.prediction_evaluation_ids.length) return { ok: false, error: "cite at least one of the offered prediction_evaluation_ids" };
@@ -171,12 +176,17 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           if (!(score.min >= 0 && score.min <= score.max && score.max <= 1)) return { ok: false, error: "school_test_forecast: 0 <= min <= max <= 1" };
           schoolForecast = { forecaster: "planner", score: { min: score.min, max: score.max, why: score.why } };
         }
+        // Ready-on-paper calls (2026-11-16): chances 0 to 1, each concept once.
+        const ready = (input as { ready_on_paper?: PaperReadinessCall[] }).ready_on_paper;
+        if (ready?.some(row => !(row.chance >= 0 && row.chance <= 1))) return { ok: false, error: "ready_on_paper: each chance is between 0 and 1" };
+        if (ready && new Set(ready.map(row => conceptKey(row.concept))).size !== ready.length) return { ok: false, error: "ready_on_paper: name each concept once" };
         state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve, change: input.change, testNext: input.test_next,
           nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis,
           ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}),
           ...(calls?.length ? { expectations: calls.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}),
           ...(notes?.length ? { gameNotes: notes.map(row => ({ nodeId: row.game, verdict: row.verdict, why: row.why })) } : {}),
-          ...(schoolForecast ? { schoolForecast } : {}) };
+          ...(schoolForecast ? { schoolForecast } : {}),
+          ...(ready?.length ? { readyOnPaper: ready.map(row => ({ concept: row.concept.trim(), chance: row.chance, why: row.why, proof: row.proof })) } : {}) };
         state.result = undefined;
         return { ok: true, result: { action: input.progression_action } };
       } }),

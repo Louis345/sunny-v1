@@ -1,5 +1,6 @@
 import {journeyChoiceAvailable,unfinishedActivityClosesChoices} from '../shared/adventureBoardDefinition';
 import { schoolForecastPredictions, type SchoolForecast } from "./schoolForecast";
+import { READY_CHANCE, type PaperReadinessCall } from "./readyOnPaper";
 import { isLibraryPicture } from "./pictureLibrary";
 import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
@@ -392,6 +393,8 @@ export type LearningCycleDecision = {
   expectations?: PlannerExpectation[];
   /** The Planner's keep / fix / retire notes on games she played (2026-11-10). */
   gameNotes?: Array<{ nodeId: string; verdict: "keep" | "fix" | "retire"; why: string }>;
+  /** Per concept, the Planner's chance she gets it right alone on paper (2026-11-16); scored in readyOnPaper.ts. */
+  readyOnPaper?: PaperReadinessCall[];
   /** The stop this event changed and its Not ready reason after it (owner, 2026-11-11): a repair deletes the node's
    * reason, so the decision keeps which stop a system failure blocked. Older decisions have neither. */
   nodeId?: string;
@@ -760,6 +763,7 @@ export type LearningCycleEvent =
         expectations?: PlannerExpectation[];
         gameNotes?: LearningCycleDecision["gameNotes"];
         schoolForecast?: SchoolForecast;
+        readyOnPaper?: PaperReadinessCall[];
       };
     }
   | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
@@ -1950,6 +1954,11 @@ export function transitionLearningCycle(
     evidenceIds = [...event.decision.evidenceIds];
     // Every decision locks a school-test forecast: the Planner's when it gave one, and always code's baseline (2026-11-13).
     if (next.domain === "spelling" || next.domain === "math") next.schoolForecasts = [...(next.schoolForecasts ?? []), ...schoolForecastPredictions(next, event.decision.schoolForecast, at)];
+    // The parent's signal (2026-11-16): a concept the Planner calls 0.8 or more is ready for paper done alone.
+    if (event.decision.readyOnPaper?.length) {
+      const ready = event.decision.readyOnPaper.filter(call => call.chance >= READY_CHANCE);
+      console.log(` 🎮 [ready-on-paper] [${ready.length ? "ready" : "not-yet"}] child=${next.childId} homework=${next.homeworkId} concepts=${ready.map(call => call.concept).join("|") || "none"} calls=${event.decision.readyOnPaper.map(call => `${call.concept}:${call.chance}`).join("|")}`);
+    }
     if (event.decision.revisedHypothesis && event.decision.revisedHypothesis !== next.academicTheory.hypothesis) {
       next.academicTheory = {
         ...next.academicTheory,
@@ -2124,6 +2133,7 @@ export function transitionLearningCycle(
       ...(event.decision.selfReview ? { selfReview: structuredClone(event.decision.selfReview) } : {}),
       ...(event.decision.expectations?.length ? { expectations: structuredClone(event.decision.expectations) } : {}),
       ...(event.decision.gameNotes?.length ? { gameNotes: structuredClone(event.decision.gameNotes) } : {}),
+      ...(event.decision.readyOnPaper?.length ? { readyOnPaper: structuredClone(event.decision.readyOnPaper) } : {}),
     } : {}),
   };
   next.decisionHistory.push(decision);
