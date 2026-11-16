@@ -1114,3 +1114,6 @@
 @keyframes wardrobe-wish-ready { from { filter: brightness(1); } to { filter: brightness(1.25); } }
 @keyframes wardrobe-wish-pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .wardrobe-store-lab__wish-bar.is-ready > i, .wardrobe-store-lab__wish-granted { animation: none; } }
+/* No scroll bars for the kids (2026-11-15): the closet still scrolls by swipe. */
+.wardrobe-store-lab__closet { scrollbar-width: none; }
+.wardrobe-store-lab__closet::-webkit-scrollbar { display: none; }

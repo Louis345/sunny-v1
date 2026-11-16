@@ -666,6 +666,9 @@ export function WardrobeStoreLab({
   };
 
   /** Wear from the collection: an owned outfit that fits this companion; games are played from the map. */
+  // A Wear button always works: only what fits this companion gets one (2026-11-15, Princess's cat ears).
+  const canWearFromCollection = (reward: RewardItem) => reward.kind === "outfit" && compatibleItems.some((row) => row.id === reward.wardrobeItemId);
+  const rewardTint = (reward: RewardItem) => { const asset = WARDROBE_STORE_CATALOG.find((row) => row.id === reward.wardrobeItemId)?.asset; return asset?.kind === "outfit" ? asset.materialVariant?.tint : undefined; };
   const wearFromCollection = (reward: RewardItem) => {
     const item = compatibleItems.find((row) => row.id === reward.wardrobeItemId);
     if (!item) {
@@ -911,7 +914,7 @@ export function WardrobeStoreLab({
                 <h2>What should we look at?</h2>
                 {wallet && ownedRewardIds && (
                   <div className="wardrobe-store-lab__collection" data-testid="wardrobe-store-collection">
-                    <RewardCollection ownedIds={ownedRewardIds} onUse={wearFromCollection} />
+                    <RewardCollection ownedIds={ownedRewardIds} onUse={wearFromCollection} canUse={canWearFromCollection} tintOf={rewardTint} />
                   </div>
                 )}
               </div>
@@ -1181,6 +1184,9 @@ export function WardrobeStoreLab({
               <div><span>Already yours</span><h2>{companion.name}’s closet</h2></div>
               <button type="button" onClick={() => setClosetOpen(false)}>Close</button>
             </div>
+            {/* In a call the collection is the one list (every button works); the testing room keeps the full lists (2026-11-15). */}
+            {!(wallet && ownedRewardIds) && (
+              <>
             <h3>Owned</h3>
             <div className="wardrobe-store-lab__closet-grid">
               {ownedItems.length === 0 ? (
@@ -1201,9 +1207,11 @@ export function WardrobeStoreLab({
                 savedItems.map((item) => <span key={item.id}><WardrobeItemThumbnail item={item} /> {item.name}</span>)
               )}
             </div>
+              </>
+            )}
             {wallet && ownedRewardIds && (
               <div className="wardrobe-store-lab__collection">
-                <RewardCollection ownedIds={ownedRewardIds} onUse={wearFromCollection} />
+                <RewardCollection ownedIds={ownedRewardIds} onUse={wearFromCollection} canUse={canWearFromCollection} tintOf={rewardTint} />
               </div>
             )}
             <button type="button" className="wardrobe-store-lab__original" onClick={wearOriginalLook}>

@@ -185,3 +185,19 @@ it("celebrates the wished item when she buys it, and tells the companion", async
   expect(await screen.findByLabelText("Wish come true: Star Halo")).toBeTruthy();
   expect(contexts.at(-1)?.wishFulfilled).toEqual({ itemId: "star-halo", name: "Star Halo" });
 });
+
+// 2026-11-15 (Ila, Princess's closet): the closet listed her things twice ("Owned" buttons and the collection's Wear
+// buttons), the Owned buttons did nothing for items that do not fit, and the collection sat below a scroll. In a call
+// the closet is one list where every button works.
+it("the call's closet is one list: no Owned or Saved lists beside the collection", async () => {
+  const item = acceptedItem();
+  fakeServer({ coins: 100 });
+  shop(SEED);
+  buy(item);
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${item.name} added to Elli’s closet`));
+  fireEvent.click(screen.getByRole("button", { name: "Elli’s closet" }));
+  const closet = screen.getByRole("dialog", { name: "Elli’s closet" });
+  expect(within(closet).queryByText("Owned")).toBeNull();
+  expect(within(closet).queryByText("Saved for later")).toBeNull();
+  expect(within(closet).getByText("Your Collection")).toBeTruthy();
+});

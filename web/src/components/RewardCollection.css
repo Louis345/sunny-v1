@@ -26,3 +26,7 @@
 /* Dark until she wins it, lit once she owns it (owner, 2026-11-09). */
 .reward-tile[data-locked="true"] .reward-tile__icon { filter: brightness(0) saturate(0); opacity: 0.55; }
 .reward-tile[data-locked="false"] .reward-tile__icon { filter: drop-shadow(0 0 10px rgba(255, 215, 120, 0.85)); }
+/* An outfit's real colour behind its icon, so dresses are told apart at a glance (2026-11-15). */
+.reward-tile__icon[style] { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; }
+/* Owned but not for this companion yet: dimmed, with no button that would do nothing (2026-11-15). */
+.reward-tile[data-fits="false"] { opacity: 0.45; }
