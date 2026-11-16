@@ -154,3 +154,5 @@
 .ap-card .ap-new { position: absolute; left: 50%; top: -2cqmin; transform: translateX(-50%); padding: .3cqmin 1.2cqmin; border-radius: 1.2cqmin; background: var(--ap-go); color: var(--ap-go-ink); font-size: 2.4cqmin; font-weight: 800; white-space: nowrap; }
 .ap-card[data-result="correct"] .ap-result { color: #17643b; }
 .ap-card[data-result="incorrect"] .ap-result { color: #a52b28; }
+/* Right with a hint or Elli's help: still right, with a small helper picture (2026-11-15). */
+.ap-helped { font-size: 0.7em; margin-left: 0.15em; vertical-align: super; }

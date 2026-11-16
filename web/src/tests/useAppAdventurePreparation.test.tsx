@@ -55,6 +55,24 @@ describe("useAppAdventurePreparation", () => {
     expect(JSON.stringify(sendMessage.mock.calls)).toContain("42 stickers, 6 on each sheet. How many sheets?");
   });
 
+  // 2026-11-15 (Ila): a problem she got right with a hint showed no mark at all. Right with help is still right, and
+  // the card says she had help, with a picture, not words.
+  it("marks a problem she got right with help as right, with a helper badge", () => {
+    const math = { activeSessionPlan: { domain: "math" }, mathBoardResults: { "hw:board:5": [
+      { display: "36", spoken: "Problem", firstTry: false, correct: true, helped: true },
+      { display: "26", spoken: "Problem two", firstTry: false, correct: false, helped: true },
+    ] } };
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: "chapter", packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:5",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+    }));
+    render(<>{result.current.screen}</>);
+    const right = screen.getByRole("button", { name: "Hear 36 — Correct with help" });
+    expect(right).toHaveTextContent("✓");
+    expect(right.querySelector("[data-helped]")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Hear 26 — To practise" })).toHaveTextContent("✕");
+  });
+
   // 2026-11-01 Ila finished her board and nothing happened: the next board was ready but her screen still said done.
   describe("when she finishes a board", () => {
     const finished = { activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: ["mailbox", "moonlight"] }] },

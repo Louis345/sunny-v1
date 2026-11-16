@@ -91,7 +91,7 @@ export function useAppAdventurePreparation(input: {
     : input.finishedBoardId ? input.packet?.spellingBoardResults : input.packet?.spellingEvaluationResults;
   const resultsKey = JSON.stringify(subject === "math" ? mathResults : results);
   const items = useMemo(() => subject === "math"
-    ? (mathResults ?? []).map(result => ({ face: result.display, spoken: result.spoken, correct: result.correct, improved: result.firstTry === false && result.correct === true }))
+    ? (mathResults ?? []).map(result => ({ face: result.display, spoken: result.spoken, correct: result.correct, improved: result.firstTry === false && result.correct === true, ...(result.helped ? { helped: true } : {}) }))
     : (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
       const result = results?.find(item => item.display === face);
       return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true };

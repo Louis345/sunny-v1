@@ -12,7 +12,8 @@ export type ChildExperiencePacket = {
   /** Her first try at each word, and her latest try without help; a word with no such try has no `correct`. */
   spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean }>;
   /** Per math board: each problem she answered, shown as her answer and read aloud as the problem (owner 2026-11-12). */
-  mathBoardResults?: Record<string, Array<{ display: string; spoken: string; firstTry?: boolean; correct?: boolean }>>;
+  /** helped: her final answer came with a hint or Elli's help (shown honestly; never counted as on her own). */
+  mathBoardResults?: Record<string, Array<{ display: string; spoken: string; firstTry?: boolean; correct?: boolean; helped?: true }>>;
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
   spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
   /** Each built game's items to open through the contract's openItem, per stop (display = the item as she sees it). */
@@ -254,7 +255,8 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
         && row.assistance?.status === "unassisted" && row.constructLinks?.some(link => link.constructId === construct)).at(-1) : undefined;
       return { display: item.word, ...(typeof first?.result.correct === "boolean" ? { firstTry: first.result.correct } : {}), ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}) };
     })) : undefined;
-  // A helped answer is never counted right; her answer shown is her latest without help when she has one.
+  // The screen shows her final answer, right or still wrong, and says when she had help (2026-11-15: a fixed answer
+  // showed as a cross and a helped one as blank). Her learning record is unchanged: help is never "on her own".
   const mathCycle = chart.learningCycle?.domain === "math" ? chart.learningCycle : null;
   const mathBoardResults = mathCycle ? Object.fromEntries((mathCycle.boards ?? []).map(board => {
     const nodeIds = (board as { nodeIds?: string[] }).nodeIds ?? [];
@@ -262,11 +264,11 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       Object.values(node.evidenceContract?.itemContracts ?? {}).flatMap(item => {
         const seen = mathCycle.observations.filter(row => row.itemId === item.id && row.sourceId.endsWith(`:${node.nodeId}`));
         if (!seen.length) return [];
-        const latest = seen.filter(row => row.assistance?.status === "unassisted").at(-1);
-        const shown = latest ?? seen.at(-1)!;
-        return [{ display: String(shown.childResponse ?? "?"), spoken: item.prompt,
+        const final = seen.at(-1)!;
+        return [{ display: String(final.childResponse ?? "?"), spoken: item.prompt,
           ...(typeof seen[0].result.correct === "boolean" ? { firstTry: seen[0].result.correct } : {}),
-          ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}) }];
+          ...(typeof final.result.correct === "boolean" ? { correct: final.result.correct } : {}),
+          ...(final.assistance?.status === "assisted" ? { helped: true as const } : {}) }];
       }));
     return [board.boardId, rows] as const;
   }).filter(([, rows]) => rows.length)) : {};

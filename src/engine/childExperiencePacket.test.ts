@@ -75,7 +75,31 @@ describe("buildChildExperiencePacket", () => {
     const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: cycle, activeSessionPlan: { planId: "p", nodePlan: [], adventureBoard: { nodes: [] } } } as never);
     expect(packet.mathBoardResults).toEqual({ "hw:board:3": [
       { display: "7", spoken: "42 stickers, 6 on each sheet. How many sheets?", firstTry: false, correct: true },
-      { display: "8", spoken: "56 apples in 8 bags.", firstTry: true, correct: false },
+      { display: "7", spoken: "56 apples in 8 bags.", firstTry: true, correct: true, helped: true },
+    ] });
+  });
+  // 2026-11-15 human catch (Ila on the waiting screen): "26, 31, 50, 60" had no mark and "39, 80, 2" showed a cross
+  // though she fixed them. The screen showed her latest answer without help, or nothing, so a fixed answer read as
+  // wrong and a helped one as forgotten. Why logs missed it: the packet was internally consistent. Why the lab missed
+  // it: its fixture never had a problem fixed with help. Rule: the screen shows her final answer, right or still
+  // wrong, and marks honestly when she had help; her learning record is unchanged (help is never "on her own").
+  it("shows her final answer on each problem, marked right or still wrong, and says when she had help", () => {
+    const problem = (id: string) => ({ id, prompt: `Problem ${id}`, response: { mode: "numeric", expected: 36 } });
+    const cycle = { homeworkId: "hw", revision: 9, lifecycle: "quest_ready", domain: "math",
+      boards: [{ boardId: "hw:board:5", kind: "successor", nodeIds: ["n5"] }],
+      nodes: [{ nodeId: "n5", role: "baseline", implementationType: "generated-game", evidenceContract: { itemContracts: {
+        fixed: problem("fixed"), stuck: problem("stuck"), helped: problem("helped") } } }],
+      observations: [
+        { itemId: "fixed", sourceId: "activity:s:n5", childResponse: "39", result: { correct: false }, assistance: { status: "unassisted" } },
+        { itemId: "fixed", sourceId: "activity:s:n5", childResponse: "36", result: { correct: true }, assistance: { status: "assisted" } },
+        { itemId: "stuck", sourceId: "activity:s:n5", childResponse: "26", result: { correct: false }, assistance: { status: "assisted" } },
+        { itemId: "helped", sourceId: "activity:s:n5", childResponse: "50", result: { correct: true }, assistance: { status: "assisted" } },
+      ] };
+    const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: cycle, activeSessionPlan: { planId: "p", nodePlan: [], adventureBoard: { nodes: [] } } } as never);
+    expect(packet.mathBoardResults).toEqual({ "hw:board:5": [
+      { display: "36", spoken: "Problem fixed", firstTry: false, correct: true, helped: true },
+      { display: "26", spoken: "Problem stuck", firstTry: false, correct: false, helped: true },
+      { display: "50", spoken: "Problem helped", firstTry: true, correct: true, helped: true },
     ] });
   });
   it("projects the displayed canonical board kind independent of the plan ID", () => {
