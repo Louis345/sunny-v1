@@ -1,4 +1,4 @@
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { boardReadyRaiseHand, useAppAdventurePreparation, type PreparationSurface } from "../components/AdventurePreparation/useAppAdventurePreparation";
 import type { GenerationStatus } from "../hooks/useAdaptiveMathGenerationRefresh";
@@ -71,6 +71,32 @@ describe("useAppAdventurePreparation", () => {
     expect(right).toHaveTextContent("✓");
     expect(right.querySelector("[data-helped]")).not.toBeNull();
     expect(screen.getByRole("button", { name: "Hear 26 — To practise" })).toHaveTextContent("✕");
+  });
+
+  // 2026-11-15 (owner, approved mock): the finished-board screen is a report card: her answers grouped honestly (on her
+  // own, fixed it, with help, still growing) and her on-her-own count against the board before.
+  it("groups her answers like a report card and shows her progress since the last board", () => {
+    const math = { activeSessionPlan: { domain: "math" }, mathBoardResults: {
+      "hw:board:4": [{ display: "60", spoken: "a", firstTry: true, correct: true, own: true }],
+      "hw:board:5": [
+        { display: "70", spoken: "b", firstTry: true, correct: true, own: true },
+        { display: "500", spoken: "c", firstTry: true, correct: true, own: true },
+        { display: "36", spoken: "d", firstTry: false, correct: true },
+        { display: "50", spoken: "e", firstTry: true, correct: true, helped: true },
+        { display: "45", spoken: "f", firstTry: false, correct: false },
+      ] } };
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: "chapter", packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:5",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+    }));
+    render(<>{result.current.screen}</>);
+    const group = (name: string) => screen.getByTestId(`ap-group-${name}`);
+    expect(within(group("own")).getAllByRole("button").map(card => card.textContent)).toEqual([expect.stringContaining("70"), expect.stringContaining("500")]);
+    expect(within(group("fixed")).getByRole("button").textContent).toContain("36");
+    expect(within(group("helped")).getByRole("button").textContent).toContain("50");
+    expect(within(group("growing")).getByRole("button").textContent).toContain("45");
+    expect(screen.queryByTestId("ap-group-practised")).toBeNull();
+    expect(screen.getByTestId("ap-progress").textContent).toContain("1 → 2");
   });
 
   // 2026-11-01 Ila finished her board and nothing happened: the next board was ready but her screen still said done.

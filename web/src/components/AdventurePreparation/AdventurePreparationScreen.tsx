@@ -1,8 +1,12 @@
+import { REPORT_GROUPS, reportCardGroups, reportGroupOf, type ReportGroup } from "./reportCard";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PreparationState, PreparationStop } from "./adventurePreparationMachine";
 import "./AdventurePreparationScreen.css";
 
-export type PreparationItem = { face: string; spoken: string; correct?: boolean; improved?: boolean; helped?: boolean };
+export type PreparationItem = { face: string; spoken: string; correct?: boolean; improved?: boolean; helped?: boolean; own?: boolean };
+
+/** Each report-card group's picture: on her own, fixed it, with help, still growing, practised. */
+const GROUP_ICON: Record<ReportGroup, string> = { own: "✓", fixed: "✨", helped: "🤝", growing: "🌱", practised: "•" };
 
 /** "Correct", "Correct with help" or "To practise", for the card's spoken name. */
 const resultName = (item: PreparationItem) => item.correct === undefined ? "" : item.correct ? (item.helped ? " — Correct with help" : " — Correct") : " — To practise";
@@ -10,6 +14,8 @@ const resultName = (item: PreparationItem) => item.correct === undefined ? "" : 
 export type AdventurePreparationScreenProps = {
   state: PreparationState;
   items: PreparationItem[];
+  /** Her on-her-own count now and on the board before (null before: first board). */
+  progress?: { now: number; before: number | null } | null;
   /** Indexes of items already looked at during review (look state only). */
   reviewed: number[];
   /** Real stops from the plan; before the plan exists the map shows ghost stops. */
@@ -110,8 +116,16 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
           {!showMap ? (
             <div className="ap-celebrate">
               <h1>You did it!</h1>
+              {props.progress && props.progress.before !== null && (
+                <div className="ap-progress" data-testid="ap-progress" aria-label={`On your own: ${props.progress.before} then ${props.progress.now}`}>
+                  <span aria-hidden="true">✓</span> {props.progress.before} → {props.progress.now}
+                </div>
+              )}
               <div className="ap-cards" data-testid="ap-cards">
-                {items.map((item, i) => (
+                {REPORT_GROUPS.map(group => ({ group, list: reportCardGroups(items)[group] })).filter(({ list }) => list.length).map(({ group, list }) => (
+                <div key={group} className="ap-group" data-group={group} data-testid={`ap-group-${group}`}>
+                <span className="ap-group-icon" aria-hidden="true">{GROUP_ICON[group]}</span>
+                {list.map(({ index: i, ...item }) => (
                   <button
                     key={`${item.face}:${i}`} type="button" aria-label={`Hear ${item.face}${resultName(item)}`} data-result={item.correct === undefined ? undefined : item.correct ? "correct" : "incorrect"}
                     className={`ap-card${reviewing && i === currentReview ? " ap-now" : ""}${reviewing && i > currentReview && currentReview >= 0 ? " ap-wait" : ""}${tapped === i ? " ap-tapped" : ""}`}
@@ -121,6 +135,8 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
                     {item.improved && <span className="ap-new">New!</span>}
                     {reviewed.includes(i) && <i className="ap-seen" aria-hidden="true" />}
                   </button>
+                ))}
+                </div>
                 ))}
               </div>
             </div>
@@ -152,8 +168,8 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
               ) : (
                 <div className="ap-tray">
                   <span className="ap-lead" aria-hidden="true"><SpeakerIcon /></span>
-                  {items.map((item, i) => (
-                    <button key={`${item.face}:${i}`} type="button" aria-label={`Hear ${item.face}${resultName(item)}`} data-result={item.correct === undefined ? undefined : item.correct ? "correct" : "incorrect"} className={`ap-card${tapped === i ? " ap-tapped" : ""}`} onClick={() => hear(i)}>
+                  {REPORT_GROUPS.flatMap(group => reportCardGroups(items)[group]).map(({ index: i, ...item }) => (
+                    <button key={`${item.face}:${i}`} type="button" data-group={reportGroupOf(item)} aria-label={`Hear ${item.face}${resultName(item)}`} data-result={item.correct === undefined ? undefined : item.correct ? "correct" : "incorrect"} className={`ap-card${tapped === i ? " ap-tapped" : ""}`} onClick={() => hear(i)}>
                       {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.correct && item.helped && <span className="ap-helped" data-helped aria-hidden="true">🤝</span>}{item.face}
                       {item.improved && <span className="ap-new">New!</span>}
                     </button>

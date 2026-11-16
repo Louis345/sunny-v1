@@ -75,7 +75,7 @@ describe("buildChildExperiencePacket", () => {
     const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: cycle, activeSessionPlan: { planId: "p", nodePlan: [], adventureBoard: { nodes: [] } } } as never);
     expect(packet.mathBoardResults).toEqual({ "hw:board:3": [
       { display: "7", spoken: "42 stickers, 6 on each sheet. How many sheets?", firstTry: false, correct: true },
-      { display: "7", spoken: "56 apples in 8 bags.", firstTry: true, correct: true, helped: true },
+      { display: "7", spoken: "56 apples in 8 bags.", firstTry: true, correct: true, helped: true, own: true },
     ] });
   });
   // 2026-11-15 human catch (Ila on the waiting screen): "26, 31, 50, 60" had no mark and "39, 80, 2" showed a cross
@@ -88,18 +88,20 @@ describe("buildChildExperiencePacket", () => {
     const cycle = { homeworkId: "hw", revision: 9, lifecycle: "quest_ready", domain: "math",
       boards: [{ boardId: "hw:board:5", kind: "successor", nodeIds: ["n5"] }],
       nodes: [{ nodeId: "n5", role: "baseline", implementationType: "generated-game", evidenceContract: { itemContracts: {
-        fixed: problem("fixed"), stuck: problem("stuck"), helped: problem("helped") } } }],
+        fixed: problem("fixed"), stuck: problem("stuck"), helped: problem("helped"), own: problem("own") } } }],
       observations: [
         { itemId: "fixed", sourceId: "activity:s:n5", childResponse: "39", result: { correct: false }, assistance: { status: "unassisted" } },
         { itemId: "fixed", sourceId: "activity:s:n5", childResponse: "36", result: { correct: true }, assistance: { status: "assisted" } },
         { itemId: "stuck", sourceId: "activity:s:n5", childResponse: "26", result: { correct: false }, assistance: { status: "assisted" } },
         { itemId: "helped", sourceId: "activity:s:n5", childResponse: "50", result: { correct: true }, assistance: { status: "assisted" } },
+        { itemId: "own", sourceId: "activity:s:n5", childResponse: "60", result: { correct: true }, assistance: { status: "unassisted" } },
       ] };
     const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: cycle, activeSessionPlan: { planId: "p", nodePlan: [], adventureBoard: { nodes: [] } } } as never);
     expect(packet.mathBoardResults).toEqual({ "hw:board:5": [
       { display: "36", spoken: "Problem fixed", firstTry: false, correct: true, helped: true },
       { display: "26", spoken: "Problem stuck", firstTry: false, correct: false, helped: true },
       { display: "50", spoken: "Problem helped", firstTry: true, correct: true, helped: true },
+      { display: "60", spoken: "Problem own", firstTry: true, correct: true, own: true },
     ] });
   });
   it("projects the displayed canonical board kind independent of the plan ID", () => {

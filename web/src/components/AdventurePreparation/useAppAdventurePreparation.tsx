@@ -1,3 +1,4 @@
+import { ownProgress } from "./reportCard";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChildExperiencePacket } from "../../../../src/profiles/childExperiencePacket";
 import type { GenerationStatus } from "../../hooks/useAdaptiveMathGenerationRefresh";
@@ -91,11 +92,19 @@ export function useAppAdventurePreparation(input: {
     : input.finishedBoardId ? input.packet?.spellingBoardResults : input.packet?.spellingEvaluationResults;
   const resultsKey = JSON.stringify(subject === "math" ? mathResults : results);
   const items = useMemo(() => subject === "math"
-    ? (mathResults ?? []).map(result => ({ face: result.display, spoken: result.spoken, correct: result.correct, improved: result.firstTry === false && result.correct === true, ...(result.helped ? { helped: true } : {}) }))
+    ? (mathResults ?? []).map(result => ({ face: result.display, spoken: result.spoken, correct: result.correct, improved: result.firstTry === false && result.correct === true, ...(result.helped ? { helped: true } : {}), ...(result.own ? { own: true } : {}) }))
     : (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
       const result = results?.find(item => item.display === face);
-      return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true };
+      return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true, ...(result?.firstTry === true ? { own: true } : {}) };
     }), [scope, subject, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Her on-her-own count against the board before (the report card's progress line), math only for now.
+  const progress = useMemo(() => {
+    if (subject !== "math" || !input.finishedBoardId) return null;
+    const boards = Object.keys(input.packet?.mathBoardResults ?? {});
+    const before = boards[boards.indexOf(input.finishedBoardId) - 1];
+    return ownProgress(items, before ? input.packet?.mathBoardResults?.[before]?.map(row => ({ face: row.display, spoken: row.spoken, correct: row.correct, ...(row.own ? { own: true } : {}) })) : undefined);
+  }, [subject, input.finishedBoardId, resultsKey, items]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activityTypes = useMemo(() => new Map(
     (input.packet?.activeSessionPlan?.adventureBoard?.nodes ?? []).map(node => [node.id, node.activityId ?? node.kind] as [string, string]),
@@ -189,7 +198,7 @@ export function useAppAdventurePreparation(input: {
     screen: (
       <div className="h-screen w-screen">
         <AdventurePreparationScreen
-          state={state} items={items} reviewed={ctx.reviewed} stops={ctx.stops} ready={ctx.ready}
+          state={state} items={items} reviewed={ctx.reviewed} stops={ctx.stops} ready={ctx.ready} progress={progress}
           elapsedLabel={elapsedLabel}
           onHearItem={item => say(/[.!?]$/.test(item.spoken) ? item.spoken : `${item.spoken}.`, "preparation_word")}
           onStop={() => { exit("stop_for_now"); send({ type: "STOP" }); }}

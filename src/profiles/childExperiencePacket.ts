@@ -13,7 +13,7 @@ export type ChildExperiencePacket = {
   spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean }>;
   /** Per math board: each problem she answered, shown as her answer and read aloud as the problem (owner 2026-11-12). */
   /** helped: her final answer came with a hint or Elli's help (shown honestly; never counted as on her own). */
-  mathBoardResults?: Record<string, Array<{ display: string; spoken: string; firstTry?: boolean; correct?: boolean; helped?: true }>>;
+  mathBoardResults?: Record<string, Array<{ display: string; spoken: string; firstTry?: boolean; correct?: boolean; helped?: true; own?: true }>>;
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
   spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
   /** Each built game's items to open through the contract's openItem, per stop (display = the item as she sees it). */
@@ -268,7 +268,9 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
         return [{ display: String(final.childResponse ?? "?"), spoken: item.prompt,
           ...(typeof seen[0].result.correct === "boolean" ? { firstTry: seen[0].result.correct } : {}),
           ...(typeof final.result.correct === "boolean" ? { correct: final.result.correct } : {}),
-          ...(final.assistance?.status === "assisted" ? { helped: true as const } : {}) }];
+          ...(final.assistance?.status === "assisted" ? { helped: true as const } : {}),
+          // On her own: her very first answer was right, with no help (the report card's first group).
+          ...(seen[0].result.correct === true && seen[0].assistance?.status === "unassisted" ? { own: true as const } : {}) }];
       }));
     return [board.boardId, rows] as const;
   }).filter(([, rows]) => rows.length)) : {};

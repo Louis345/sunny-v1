@@ -124,3 +124,18 @@ const mathStops = [{ activityType: "generated-game" }, { activityType: "generate
 export const S13MathLookingAtWhatYouDid: Story = { render: () => <Frame size="kiosk"><AdventurePreparationScreen {...screenFor("look", { items: mathItems, reviewed: [0, 1, 2, 3, 4, 5] })} /></Frame> };
 export const S14MathBuildingNextBoard: Story = { render: () => <Frame size="kiosk"><AdventurePreparationScreen {...screenFor("build", { items: mathItems, stops: mathStops, ready: 1 })} /></Frame> };
 export const S15MathPhoneLooking: Story = { render: () => <Frame size="phone"><AdventurePreparationScreen {...screenFor("look", { items: mathItems, reviewed: [0, 1, 2, 3, 4, 5] })} /></Frame> };
+
+// Ila's real board 5 (2026-11-15) as a report card: on her own, fixed it, with help, still growing; progress on top.
+const ilaBoard5: PreparationItem[] = [
+  { face: "60", spoken: "Round 64 to the nearest ten.", correct: true, own: true },
+  { face: "70", spoken: "Round 67 to the nearest ten.", correct: true, own: true },
+  { face: "60", spoken: "Round 58 to the nearest ten.", correct: true, own: true },
+  { face: "500", spoken: "Round 462 to the nearest hundred.", correct: true, own: true },
+  { face: "36", spoken: "A number problem.", correct: true, improved: true },
+  { face: "70", spoken: "A number problem.", correct: true, improved: true },
+  { face: "31", spoken: "A pattern problem.", correct: true, helped: true },
+  { face: "50", spoken: "A number problem.", correct: true, helped: true },
+  { face: "45", spoken: "A pattern problem.", correct: false },
+];
+export const S11ReportCardIlaBoard5 = kiosk("look", { items: ilaBoard5, reviewed: [], progress: { before: 3, now: 4 } });
+export const S12ReportCardTray = kiosk("build", { items: ilaBoard5 });
