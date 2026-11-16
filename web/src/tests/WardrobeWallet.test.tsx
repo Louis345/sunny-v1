@@ -135,10 +135,10 @@ it("a purchase in the call's shop unlocks its tile in the collection", async () 
   await waitFor(() => expect(screen.getByTestId(`reward-tile-${reward.id}`)).toHaveAttribute("data-locked", "true"));
   buy(item);
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${item.name} added to Elli’s closet`));
+  // The call's closet is the try-on row (2026-11-15): what she bought is wearable, the rest shows its chest.
   fireEvent.click(screen.getByRole("button", { name: "Elli’s closet" }));
-  const closet = screen.getByRole("dialog", { name: "Elli’s closet" });
-  expect(within(closet).getByTestId(`reward-tile-${reward.id}`)).toHaveAttribute("data-locked", "false");
-  expect(within(closet).getByTestId("reward-tile-outfit:rose-ribbon-dress")).toHaveAttribute("data-locked", "true");
+  expect(screen.getByTestId(`try-on-${reward.id}`)).toHaveAttribute("aria-label", `Wear ${reward.name}`);
+  expect(screen.getByTestId("try-on-outfit:rose-ribbon-dress")).toHaveAttribute("aria-label", "Rose Ribbon Dress, locked");
 });
 
 // Owner 2026-11-11: Matilda is Reina's companion again and looks never migrate between companions, so opening a
@@ -186,18 +186,16 @@ it("celebrates the wished item when she buys it, and tells the companion", async
   expect(contexts.at(-1)?.wishFulfilled).toEqual({ itemId: "star-halo", name: "Star Halo" });
 });
 
-// 2026-11-15 (Ila, Princess's closet): the closet listed her things twice ("Owned" buttons and the collection's Wear
-// buttons), the Owned buttons did nothing for items that do not fit, and the collection sat below a scroll. In a call
-// the closet is one list where every button works.
-it("the call's closet is one list: no Owned or Saved lists beside the collection", async () => {
+// 2026-11-15 (owner, approved mock): in a call the closet is one row over the live companion; a tap dresses her.
+it("the call's closet opens as one row over the companion, and a tap wears the item", async () => {
   const item = acceptedItem();
-  fakeServer({ coins: 100 });
+  const reward = rewardForWardrobeItem(item.id)!;
+  fakeServer({ coins: 100, owned: [reward.id] });
   shop(SEED);
-  buy(item);
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${item.name} added to Elli’s closet`));
+  await waitFor(() => expect(screen.getByTestId(`reward-tile-${reward.id}`)).toHaveAttribute("data-locked", "false"));
   fireEvent.click(screen.getByRole("button", { name: "Elli’s closet" }));
-  const closet = screen.getByRole("dialog", { name: "Elli’s closet" });
-  expect(within(closet).queryByText("Owned")).toBeNull();
-  expect(within(closet).queryByText("Saved for later")).toBeNull();
-  expect(within(closet).getByText("Your Collection")).toBeTruthy();
+  const tray = screen.getByTestId("try-on-tray");
+  expect(within(tray).queryByText("Your Collection")).toBeNull();
+  fireEvent.click(within(tray).getByTestId(`try-on-${reward.id}`));
+  await waitFor(() => expect(screen.getByTestId(`try-on-${reward.id}`)).toHaveAttribute("data-worn", "true"));
 });

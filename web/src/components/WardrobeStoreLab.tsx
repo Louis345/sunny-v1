@@ -31,7 +31,8 @@ import {
   type WardrobeStoreItem,
   type WardrobeStoreState,
 } from "../lib/wardrobeStore";
-import type { RewardItem } from "../../../src/shared/rewardCatalog";
+import { collectionView, type RewardItem } from "../../../src/shared/rewardCatalog";
+import { TryOnTray } from "./TryOnTray";
 import { rewardForWardrobeItem, walletShopItems, withServerWallet, type ServerWallet } from "../lib/wardrobeWallet";
 import { COINS_CHANGED_EVENT, type CoinsChangedDetail } from "./CallClock";
 import { RewardCollection } from "./RewardCollection";
@@ -1172,7 +1173,21 @@ export function WardrobeStoreLab({
         </aside>
       </div>
 
-      {closetOpen && (
+      {closetOpen && wallet && ownedRewardIds ? (
+        // In a call: the try-on row over the live companion (owner 2026-11-15, approved mock).
+        <TryOnTray
+          companionName={companion.name}
+          entries={collectionView(ownedRewardIds).filter((entry) => entry.item.kind === "outfit").map((entry) => ({
+            item: entry.item, owned: entry.owned, fits: canWearFromCollection(entry.item), tint: rewardTint(entry.item),
+            ...(entry.bestChest ? { chest: entry.bestChest } : {}),
+            worn: [storeState.equippedByCompanion[companion.id]?.outfitItemId, storeState.equippedByCompanion[companion.id]?.accessoryItemId].includes(entry.item.wardrobeItemId),
+          }))}
+          onWear={wearFromCollection}
+          onLocked={(entry) => console.log(` 🎮 [wardrobe-store] [try-on] [locked-tap] companion=${companion.id} reward=${entry.item.id} chest=${entry.chest ?? "none"}`)}
+          onOriginal={wearOriginalLook}
+          onClose={() => setClosetOpen(false)}
+        />
+      ) : closetOpen && (
         <div className="wardrobe-store-lab__closet-backdrop">
           <section
             role="dialog"
