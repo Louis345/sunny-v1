@@ -202,14 +202,15 @@ export function hydrateLearningProfileFromWaterfall(
           },
         }
       : {}),
-    pendingHomework: profile.pendingHomework ?? homework.current ?? undefined,
-    activeHomeworkByDomain: profile.activeHomeworkByDomain ?? homework.activeByDomain,
+    // homework/current.json owns her subjects (2026-11-16): a profile copy is stale by definition and never wins.
+    pendingHomework: homework.current ?? undefined,
+    activeHomeworkByDomain: homework.activeByDomain,
     activeSessionPlan: profile.activeSessionPlan ?? sessionPlan.current ?? undefined,
     activeSessionPlanByDomain: profile.activeSessionPlanByDomain ?? sessionPlan.activeByDomain,
     aiContentCatalog: catalog.items,
     learningExperiments: profile.learningExperiments ?? carePlan.learningExperiments,
     learningTheoryDecisions: profile.learningTheoryDecisions ?? carePlan.theoryDecisions,
-    selectedHomeworkDomain: profile.selectedHomeworkDomain ?? homework.selectedDomain,
+    selectedHomeworkDomain: homework.selectedDomain ?? profile.selectedHomeworkDomain,
   };
 }
 
@@ -302,7 +303,12 @@ export function writeWaterfallHomework(
   opts: WaterfallOptions = {},
 ): void {
   const links = resolveWaterfallLinks(childId, profile.chartLinks, opts);
-  writeJson(links.currentHomework, buildWaterfallHomeworkFile(childId, profile, opts));
+  const next = buildWaterfallHomeworkFile(childId, profile, opts);
+  // A save changes only the subjects it names (2026-11-16: a spelling save erased Ila's math lane).
+  const saved = readJson<WaterfallHomeworkFile>(links.currentHomework)?.activeByDomain ?? {};
+  const kept = Object.keys(saved).filter(domain => !(domain in next.activeByDomain));
+  if (kept.length) console.log(` 🎮 [homework-lanes] [save] [kept] child=${childId} subjects=${kept.join(",")}`);
+  writeJson(links.currentHomework, { ...next, activeByDomain: { ...saved, ...next.activeByDomain } });
 }
 
 export function writeWaterfallContentCatalog(

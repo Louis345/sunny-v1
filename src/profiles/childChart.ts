@@ -519,7 +519,8 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
   // But the label alone is insufficient: every selected projection must agree.
   const mixedPlan = [legacySelectedActiveSessionPlan, selectedActiveSessionPlan, learningProfile.activeSessionPlan].some(plan =>
     plan && (plan.domain !== homeworkSelectedDomain || plan.activeHomeworkId !== selectedHomeworkId));
-  const mixedHomework = [selectedPendingHomework, learningProfile.pendingHomework].some(homework =>
+  // The profile file's own copy is never read as her homework (homework/current.json owns it), but it still counts as a disagreement here.
+  const mixedHomework = [selectedPendingHomework, learningProfile.pendingHomework, rawLearningProfile.pendingHomework].some(homework =>
     homework && (inferHomeworkDomainFromPending(homework) !== homeworkSelectedDomain || (homework.homeworkId ?? homework.weekOf) !== selectedHomeworkId));
   if (!homeworkSelectedDomain || homeworkSelectedDomain === "math" || mixedPlan || mixedHomework) {
     assertChildPublicationCommitted(childId, { rootDir });
