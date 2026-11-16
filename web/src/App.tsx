@@ -1,3 +1,4 @@
+import { COMPANION_LOOK_SHOWN_EVENT } from "./lib/boardPortraitLook";
 import {
   useCallback,
   useEffect,
@@ -901,6 +902,7 @@ function App() {
   const preparationScreenActive = preparation.screen != null;
   // One report of what the child sees, from the same decisions that render it: Elli's only screen source.
   const discoveryChapterEnd = directDiscoveryMode && Boolean(effectiveDiscoveryCompletionHandoff);
+  const companionLook = useCompanionLookShown();
   const screenReportKey = JSON.stringify(kioskScreenReport({
     packet: plannerBoardPacket,
     packetLoading: plannerBoardPacketState.loading,
@@ -910,6 +912,7 @@ function App() {
     heldStatusShown: !preparation.screen && (discoveryChapterEnd || (!directDiscoveryMode && targetedBoardHeldForPreparation)),
     launch: plannerBoardLaunch ? { nodeId: plannerBoardLaunch.node.id, title: plannerBoardLaunch.node.title } : null,
     finished: homeworkSessionFinished,
+    companionLook,
   }));
   useEffect(() => {
     if (homeworkBoardMode) reportScreen(JSON.parse(screenReportKey));
@@ -2904,3 +2907,18 @@ function App() {
 }
 
 export default App;
+
+/** The look the board portrait last said it draws (2026-11-15, W8); null until it says. */
+function useCompanionLookShown(): { outfit: string; accessory: string } | null {
+  const [look, setLook] = useState<{ outfit: string; accessory: string } | null>(null);
+  useEffect(() => {
+    const onShown = (event: Event) => {
+      const detail = (event as CustomEvent<{ outfit?: unknown; accessory?: unknown }>).detail;
+      if (detail && typeof detail.outfit === "string" && typeof detail.accessory === "string") setLook({ outfit: detail.outfit, accessory: detail.accessory });
+    };
+    window.addEventListener(COMPANION_LOOK_SHOWN_EVENT, onShown);
+    return () => window.removeEventListener(COMPANION_LOOK_SHOWN_EVENT, onShown);
+  }, []);
+  return look;
+}
+

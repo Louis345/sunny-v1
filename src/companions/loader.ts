@@ -18,6 +18,12 @@ export function readCompanionBaseMarkdown(): string {
   return fs.readFileSync(basePath, "utf-8").trim();
 }
 
+/** One `## heading` section of the shared base, heading included, for rooms that do not read the whole base. "" if absent. */
+export function readCompanionBaseSection(heading: string): string {
+  const section = readCompanionBaseMarkdown().split(/^(?=## )/m).find((part) => part.startsWith(`## ${heading}`));
+  return section?.trim() ?? "";
+}
+
 /**
  * Assembled companion markdown for prompts: **base** (`companion-base.md`) then **individual**
  * (`relativeToSrc` under `src/`). Use for any companion path — no per-id branching here.

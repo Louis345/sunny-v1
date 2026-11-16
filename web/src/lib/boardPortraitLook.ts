@@ -1,10 +1,21 @@
 import { fittedCallLook } from "./callStartLook";
 import { resolvePreparedWardrobePresentation } from "./wardrobeBodyProfiles";
-import type { WardrobeSelection } from "./wardrobeStore";
+import { WARDROBE_STORE_CATALOG, type WardrobeSelection } from "./wardrobeStore";
 import { savedEquippedLook, type ServerWallet } from "./wardrobeWallet";
 
 /** Sent by the closet whenever a child saves a look, so the board portrait redraws in it (BUGS.md 2026-11-12). */
 export const WARDROBE_LOOK_CHANGED_EVENT = "sunny:wardrobe-look-changed";
+
+/** Sent by the board portrait with the look it draws, by name, so Elli can be told what she is wearing (W8). */
+export const COMPANION_LOOK_SHOWN_EVENT = "sunny:companion-look-shown";
+
+/** A look by its store names; "" for her own clothes or no accessory. */
+export function companionLookNames(look: WardrobeSelection): { outfit: string; accessory: string } {
+  const outfit = look.outfitId === "none" ? undefined : WARDROBE_STORE_CATALOG.find((item) => item.asset.kind === "outfit"
+    && item.asset.outfitId === look.outfitId && (item.asset.materialVariant?.id ?? null) === (look.outfitMaterialVariant?.id ?? null));
+  const accessory = look.accessoryId === "none" ? undefined : WARDROBE_STORE_CATALOG.find((item) => item.asset.kind === "accessory" && item.asset.accessoryId === look.accessoryId);
+  return { outfit: outfit?.name ?? (look.outfitId === "none" ? "" : look.outfitId), accessory: accessory?.name ?? "" };
+}
 
 export type BoardPortraitLook = { modelUrl: string; look: WardrobeSelection };
 

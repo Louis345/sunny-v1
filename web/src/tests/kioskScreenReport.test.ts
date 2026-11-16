@@ -30,3 +30,20 @@ it("names the resting screen once the session has ended, whatever is still loade
   expect(kioskScreenReport({ ...base, finished: true })).toEqual({ screen: "resting" });
   expect(kioskScreenReport({ ...base, finished: true, launch: { nodeId: "n" }, heldStatusShown: true })).toEqual({ screen: "resting" });
 });
+
+// 2026-11-15 (W8): the report carries the look the board portrait draws, so Elli can "look at her dress".
+it("reports the companion's look the portrait is drawing, by name", () => {
+  expect(kioskScreenReport({ ...base, companionLook: { outfit: "Sky Ribbon Dress", accessory: "none" } }))
+    .toEqual({ screen: "board", boardId: "b2", boardTitle: "Long i Rescue", companionLook: { outfit: "Sky Ribbon Dress", accessory: "none" } });
+  expect(kioskScreenReport({ ...base, companionLook: null })).toEqual({ screen: "board", boardId: "b2", boardTitle: "Long i Rescue" });
+});
+
+it("names a look from the store catalog, her own clothes when none", async () => {
+  const { companionLookNames } = await import("../lib/boardPortraitLook");
+  const { WARDROBE_STORE_CATALOG } = await import("../lib/wardrobeStore");
+  const sky = WARDROBE_STORE_CATALOG.find((item) => item.id === "sky-ribbon-dress")!.asset as unknown as { outfitId: string; materialVariant?: { id: string; tint: string } };
+  const ears = WARDROBE_STORE_CATALOG.find((item) => item.id === "cat-ears")!;
+  expect(companionLookNames({ outfitId: sky.outfitId, outfitMaterialVariant: sky.materialVariant, accessoryId: "cat-ears" } as never))
+    .toEqual({ outfit: "Sky Ribbon Dress", accessory: ears.name });
+  expect(companionLookNames({ outfitId: "none", accessoryId: "none" })).toEqual({ outfit: "", accessory: "" });
+});

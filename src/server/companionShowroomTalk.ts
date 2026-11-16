@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { readCompanionBaseSection } from "../companions/loader";
+import { sideTalkAnthropicTool } from "./companionSideTalk";
 import {
   type CompanionCommand,
   type AnimationName,
@@ -308,6 +310,8 @@ export function getShowroomRelationshipTools() {
         additionalProperties: false,
       },
     },
+    // Shared with every companion in every room (owner 2026-11-15).
+    sideTalkAnthropicTool,
   ];
 }
 
@@ -906,6 +910,8 @@ export function buildShowroomTalkSystemPrompt(input: {
     `Call source: ${callSource}.`,
     `Relationship state: ${relationshipState}.`,
     `Persona notes: ${input.personality}`,
+    // The shared base every companion inherits, for the part that applies in a call (owner 2026-11-15).
+    readCompanionBaseSection("Side conversations and things that go wrong"),
     "Answer the child directly in 1-3 short sentences.",
     "Use a warm, child-safe tone. Ask at most one follow-up question.",
     "Never tutor unless the child explicitly asks for learning help; follow the child's conversational lead.",

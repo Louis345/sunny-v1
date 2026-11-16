@@ -7,6 +7,7 @@ import { readCompanionInteractionEvents } from "./companionInteractionMemory";
 import { familyDay } from "../utils/familyCalendar";
 import { todaysPlayLines } from "./todaysPlayFacts";
 import { companionWorldLines } from "./companionWorldFacts";
+import { SIDE_TALK_TOOL, keepTimeOnSideTalk, sideTalkLine } from "./companionSideTalk";
 import { callScreenControlsBlock } from "../shared/companions/callScreenControls";
 
 /** Facts any companion gets about the child, read from her chart (Law 12). No clinical notes. */
@@ -92,6 +93,8 @@ export function buildCompanionCallContext(
     todaysPlayLines(input.childId, opts),
     // Her world: day, light, weather, birthday, time since you last talked, recent school results (owner 2026-11-15).
     input.childId === "showroom" ? undefined : companionWorldLines(input.childId, input.companionId, opts),
+    // Her own side-conversation clock, when she set one (owner 2026-11-15).
+    sideTalkLine(sideTalkKey(input.childId, input.companionId)),
     buildShowroomTalkMemoryPrompt(memory),
     callScreenLines(input),
   ].filter((part): part is string => Boolean(part));
@@ -121,7 +124,15 @@ export function applyCompanionRelationshipToolUses(
     .filter((block) => block.type === "tool_use" && block.name === RECALL_ABOUT_HER_TOOL && block.id)
     .slice(0, 2)
     .map((block) => recallAboutHer(input.childId, block.id as string, (block.input ?? {}) as Record<string, unknown>, opts));
-  return [...recalls, ...input.content
+  const sideTalk = input.content
+    .filter((block) => block.type === "tool_use" && block.name === SIDE_TALK_TOOL && block.id)
+    .slice(0, 2)
+    .map((block) => {
+      const result = keepTimeOnSideTalk(sideTalkKey(input.childId, input.companionId), (block.input ?? {}) as Record<string, unknown>);
+      return { type: "tool_result" as const, tool_use_id: block.id as string, is_error: !result.kept,
+        content: JSON.stringify({ type: "side_talk_clock_result", ...result, instruction: "Answer with the exact short words you say aloud." }) };
+    });
+  return [...recalls, ...sideTalk, ...input.content
     .filter((block) => block.type === "tool_use" && block.name === REMEMBER_CHILD_GIVEN_NAME_TOOL && block.id)
     .slice(0, 2)
     .map((block) => {
@@ -176,3 +187,9 @@ function recallAboutHer(childId: string, toolUseId: string, raw: Record<string, 
     return { type: "tool_result" as const, tool_use_id: toolUseId, is_error: true, content: JSON.stringify({ type: "recall_about_her_result", facts: [], said: [] }) };
   }
 }
+
+/** One clock per child and companion, the same key in a call and in a homework session. */
+export function sideTalkKey(childId: string, companionId: string): string {
+  return `${childId.trim().toLowerCase()}:${companionId.trim().toLowerCase()}`;
+}
+

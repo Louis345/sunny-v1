@@ -17,7 +17,7 @@ import type {
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
-import { WARDROBE_LOOK_CHANGED_EVENT, loadBoardPortraitLook, type BoardPortraitLook } from "../lib/boardPortraitLook";
+import { COMPANION_LOOK_SHOWN_EVENT, WARDROBE_LOOK_CHANGED_EVENT, companionLookNames, loadBoardPortraitLook, type BoardPortraitLook } from "../lib/boardPortraitLook";
 import { attachXwearOutfit, captureXwearAvatarBindPose, getXwearOutfitDefinition, isXwearOutfitApprovedForAvatar, type XwearOutfitDefinition } from "../lib/xwearDress";
 import { retainIntrinsicAccessories } from "../lib/wardrobeAccessoryFit";
 import { attachWardrobeHairCollisions } from "../lib/wardrobeHairCollision";
@@ -198,7 +198,12 @@ export function CompanionLayer({
         fetchWallet: (id) => fetch(`/api/rewards/wallet/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(5000) })
           .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`status ${response.status}`)))),
       })
-        .then((look) => { if (current) setPortraitLook({ ...look, companionId }); })
+        .then((look) => {
+          if (!current) return;
+          setPortraitLook({ ...look, companionId });
+          // Tell the screen report what she is drawn wearing, so Elli can be told (2026-11-15, W8).
+          window.dispatchEvent(new CustomEvent(COMPANION_LOOK_SHOWN_EVENT, { detail: companionLookNames(look.look) }));
+        })
         .catch((error: unknown) => console.error(" 🎮 [board-portrait] [look] [failed]", error));
     };
     resolve();
