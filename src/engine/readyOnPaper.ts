@@ -1,4 +1,5 @@
 import type { LearningCycleRecordV2, LearningObservation } from "./learningCycleRepository";
+import { isFirstTryOnHerOwn } from "./sessionTimeline";
 
 /**
  * "Can she do it alone on paper?" (owner 2026-11-16). At each decision the Planner may give, per concept, the chance
@@ -8,7 +9,11 @@ import type { LearningCycleRecordV2, LearningObservation } from "./learningCycle
  * Across calls, code checks whether a higher chance goes with a better result (a monotonic relationship, measured by
  * Spearman's rank correlation): if not, the Planner's numbers rank nothing yet and nobody should trust them.
  */
-export type PaperReadinessCall = { concept: string; chance: number; why: string; proof: string };
+export type PaperReadinessCall = { concept: string; chance: number; why: string; proof: string;
+  /** Her problems or words the Planner counts in this concept; code locks the arithmetic guess from them. */
+  items?: string[];
+  /** Plain arithmetic's guess, locked with the call: her last first tries on her own on those items, smoothed. */
+  baseline?: { chance: number; right: number; tries: number } };
 
 export type ScoredReadyCall = PaperReadinessCall & {
   decisionId: string;
@@ -75,8 +80,36 @@ export function spearman(xs: number[], ys: number[]): number | null {
   return vx && vy ? cov / Math.sqrt(vx * vy) : null;
 }
 
-/** Chance vs paper result, one pair per concept per paper (the latest call before it), across her assignments. */
-export function readinessCalibration(cycles: LearningCycleRecordV2[]): { pairs: Array<{ chance: number; share: number }>; rho: number | null; enough: boolean } {
+/** Her last 10 first tries on her own in Sunny on these items before `at`, smoothed so one answer never reads as
+ * certainty: (right + 1) / (tries + 2). Spelling items count by their word. Paper is what this guesses, so it is left out. */
+export function baselineChance(cycle: LearningCycleRecordV2, itemIds: string[], at: string): { chance: number; right: number; tries: number } | undefined {
+  if (!itemIds.length) return undefined;
+  const wordOf = new Map<string, string>();
+  for (const node of cycle.nodes ?? []) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) if (item.wordId) wordOf.set(item.id, item.wordId);
+  const wanted = new Set(itemIds);
+  const rows = (cycle.observations ?? []).filter(row => typeof row.result?.correct === "boolean" && isFirstTryOnHerOwn(row) && !doneAlone(row)
+    && Date.parse(row.observedAt) < Date.parse(at) && (wanted.has(row.itemId) || wanted.has(wordOf.get(row.itemId) ?? "")))
+    .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt)).slice(-10);
+  const right = rows.filter(row => row.result.correct === true).length;
+  return { chance: Math.round(((right + 1) / (rows.length + 2)) * 1000) / 1000, right, tries: rows.length };
+}
+
+type Pair = { chance: number; share: number };
+export type Calibration = { pairs: Pair[]; rho: number | null; enough: boolean; meanChance?: number; meanShare?: number;
+  /** Average chance minus average paper result: above 0 is too optimistic. */ gap?: number;
+  /** Average distance between each chance and its paper result. */ meanError?: number };
+
+function calibrationOf(pairs: Pair[]): Calibration {
+  const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+  const stats = pairs.length ? { meanChance: mean(pairs.map(row => row.chance)), meanShare: mean(pairs.map(row => row.share)),
+    meanError: mean(pairs.map(row => Math.abs(row.chance - row.share))) } : {};
+  return { pairs, rho: spearman(pairs.map(row => row.chance), pairs.map(row => row.share)), enough: pairs.length >= MIN_CALIBRATION_PAIRS,
+    ...stats, ...(pairs.length ? { gap: stats.meanChance! - stats.meanShare! } : {}) };
+}
+
+/** Chance vs paper result, one pair per concept per paper (the latest call before it), across her assignments: the
+ * Planner's, and beside it arithmetic's on the calls that locked one. */
+export function readinessCalibration(cycles: LearningCycleRecordV2[]): Calibration & { baseline: Calibration } {
   const latest = new Map<string, ScoredReadyCall>();
   for (const row of cycles.flatMap(scoreReadyCalls)) {
     if (!row.paper) continue;
@@ -84,8 +117,9 @@ export function readinessCalibration(cycles: LearningCycleRecordV2[]): { pairs: 
     const seen = latest.get(key);
     if (!seen || Date.parse(row.decidedAt) >= Date.parse(seen.decidedAt)) latest.set(key, row);
   }
-  const pairs = [...latest.values()].map(row => ({ chance: row.chance, share: row.paper!.share }));
-  return { pairs, rho: spearman(pairs.map(row => row.chance), pairs.map(row => row.share)), enough: pairs.length >= MIN_CALIBRATION_PAIRS };
+  const rows = [...latest.values()];
+  return { ...calibrationOf(rows.map(row => ({ chance: row.chance, share: row.paper!.share }))),
+    baseline: calibrationOf(rows.filter(row => row.baseline).map(row => ({ chance: row.baseline!.chance, share: row.paper!.share }))) };
 }
 
 /** The Planner's own calls and what paper said, shown back to it with its other calls. */
@@ -109,7 +143,20 @@ export function readyReportLines(childId: string, cycles: LearningCycleRecordV2[
     lines.push("", `${cycle.homeworkId}:`, ready.length ? `Ready for paper alone: ${ready.map(row => `${row.concept} (${row.chance}; proof: ${row.proof})`).join(", ")}` : "Ready for paper alone: nothing yet",
       ...readyOnPaperSection(cycle).split("\n").slice(1));
   }
-  const { pairs, rho, enough } = readinessCalibration(cycles);
+  const calibration = readinessCalibration(cycles);
+  const { pairs, rho, enough } = calibration;
+  const honest = (name: string, row: Calibration) => {
+    if (row.gap === undefined) return [];
+    const points = Math.round(Math.abs(row.gap) * 100);
+    return [`${name}: says ${row.meanChance!.toFixed(2)} on average; she got ${Math.round(row.meanShare! * 100)}% alone on paper: ${points < 5 ? "about right" : `too ${row.gap > 0 ? "optimistic" : "cautious"} by ${points} points`}`];
+  };
+  lines.push("", ...honest("Planner", calibration), ...honest("Arithmetic", calibration.baseline));
+  if (calibration.meanError !== undefined && calibration.baseline.meanError !== undefined) {
+    const ai = Math.round(calibration.meanError * 100), plain = Math.round(calibration.baseline.meanError * 100);
+    lines.push(ai === plain ? `Closer to her paper so far: a tie (off by ${ai} points per call)` : ai < plain
+      ? `Closer to her paper so far: the Planner (off by ${ai} points per call vs arithmetic's ${plain})`
+      : `Closer to her paper so far: arithmetic (off by ${plain} points per call vs the Planner's ${ai})`);
+  }
   lines.push("", enough && rho !== null
     ? `Monotonic check: ${pairs.length} scored calls; Spearman ${rho.toFixed(2)} (1 = higher chance always did better on paper, 0 = no relationship, below 0 = backwards)`
     : `Monotonic check: ${pairs.length} scored call${pairs.length === 1 ? "" : "s"}; needs ${MIN_CALIBRATION_PAIRS} before it means anything`);

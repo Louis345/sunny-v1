@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LearningCycleRecordV2, LearningObservation } from "./learningCycleRepository";
-import { paperConceptId, readinessCalibration, readyNow, readyOnPaperSection, readyReportLines, scoreReadyCalls, spearman } from "./readyOnPaper";
+import { baselineChance, paperConceptId, readinessCalibration, readyNow, readyOnPaperSection, readyReportLines, scoreReadyCalls, spearman } from "./readyOnPaper";
 
 // Owner 2026-11-15/16: "we should figure out if the ai-planner is properly set up to tell us when it feels confident
 // that Ila understands the concepts." It judged each concept only in prose ("rounding mostly secure"), nobody was
@@ -106,5 +106,39 @@ describe("the parent's ready report", () => {
     expect(lines).toContain("Ready for paper alone: Rounding (0.85; proof: Lesson 1.2 sheet)");
     expect(lines).toContain("Patterns: you said 0.3; home check done alone: 0 of 1 right");
     expect(lines).toContain("Monotonic check: 1 scored call; needs 5 before it means anything");
+  });
+});
+
+// 2026-11-16 (owner: "my goal has always been to make Sunny predictive and grounded in reality"): ranking right is not
+// enough; a Planner that always says 0.9 when she gets 60% ranks well and is still wrong. Calibration checks the
+// numbers themselves, and a plain arithmetic guess (her own first-try rate on the concept's items, locked with each
+// call) is scored the same way, so the report shows whether the AI beats arithmetic.
+describe("are the numbers honest, and does the Planner beat arithmetic?", () => {
+  const own = (id: string, at: string, correct: boolean, status: "unassisted" | "assisted" = "unassisted"): LearningObservation => ({
+    observationId: `${id}:${at}`, sourceId: "activity:x", itemId: id, constructLinks: [], result: { correct }, assistance: { status, scaffolds: [] },
+    exposure: "unknown", provenance: "independent_probe", observedAt: at, confounds: [] });
+
+  it("baselineChance: her last first tries on her own on the concept's items before the call, smoothed (right+1)/(tries+2)", () => {
+    const c = cycle([], [own("p1", "2026-11-15T10:00:00Z", true), own("p2", "2026-11-15T10:01:00Z", true), own("p2", "2026-11-15T10:02:00Z", false, "assisted"),
+      own("p3", "2026-11-15T10:03:00Z", false), own("p1", "2026-11-17T10:00:00Z", false)]);
+    expect(baselineChance(c, ["p1", "p2", "p3"], "2026-11-16T00:00:00Z")).toEqual({ chance: 0.6, right: 2, tries: 3 });
+    expect(baselineChance(c, [], "2026-11-16T00:00:00Z")).toBeUndefined();
+  });
+
+  it("measures how far the average chance is from the average paper result, for the Planner and for arithmetic", () => {
+    const withBaseline = (concept: string, chance: number, base: number) => ({ concept, chance, baseline: { chance: base, right: 0, tries: 0 } });
+    const c = cycle([{ ...decision("d1", "2026-11-15T23:00:00Z", []), readyOnPaper: [withBaseline("A", 0.9, 0.6), withBaseline("B", 0.7, 0.4)].map(row => ({ ...row, why: "w", proof: "p" })) }],
+      [paper("a1", "2026-11-16T15:00:00Z", "a", true, "home"), paper("a2", "2026-11-16T15:00:00Z", "a", false, "home"), paper("b1", "2026-11-16T15:00:00Z", "b", false, "home")]);
+    const result = readinessCalibration([c]);
+    expect(result.meanChance).toBeCloseTo(0.8);
+    expect(result.meanShare).toBeCloseTo(0.25);
+    expect(result.gap).toBeCloseTo(0.55);
+    expect(result.meanError).toBeCloseTo(0.55);
+    expect(result.baseline.pairs).toEqual([{ chance: 0.6, share: 0.5 }, { chance: 0.4, share: 0 }]);
+    expect(result.baseline.meanError).toBeCloseTo(0.25);
+    const lines = readyReportLines("ila", [c]).join("\n");
+    expect(lines).toContain("Planner: says 0.80 on average; she got 25% alone on paper: too optimistic by 55 points");
+    expect(lines).toContain("Arithmetic: says 0.50 on average; she got 25% alone on paper: too optimistic by 25 points");
+    expect(lines).toContain("Closer to her paper so far: arithmetic (off by 25 points per call vs the Planner's 55)");
   });
 });

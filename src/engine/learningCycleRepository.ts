@@ -1,6 +1,6 @@
 import {journeyChoiceAvailable,unfinishedActivityClosesChoices} from '../shared/adventureBoardDefinition';
 import { schoolForecastPredictions, type SchoolForecast } from "./schoolForecast";
-import { READY_CHANCE, type PaperReadinessCall } from "./readyOnPaper";
+import { baselineChance, READY_CHANCE, type PaperReadinessCall } from "./readyOnPaper";
 import { isLibraryPicture } from "./pictureLibrary";
 import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
@@ -2133,7 +2133,11 @@ export function transitionLearningCycle(
       ...(event.decision.selfReview ? { selfReview: structuredClone(event.decision.selfReview) } : {}),
       ...(event.decision.expectations?.length ? { expectations: structuredClone(event.decision.expectations) } : {}),
       ...(event.decision.gameNotes?.length ? { gameNotes: structuredClone(event.decision.gameNotes) } : {}),
-      ...(event.decision.readyOnPaper?.length ? { readyOnPaper: structuredClone(event.decision.readyOnPaper) } : {}),
+      // Arithmetic's guess is locked beside each call that names its items, from her first tries before this decision.
+      ...(event.decision.readyOnPaper?.length ? { readyOnPaper: event.decision.readyOnPaper.map(call => {
+        const baseline = baselineChance(current, call.items ?? [], at);
+        return { ...structuredClone(call), ...(baseline ? { baseline } : {}) };
+      }) } : {}),
     } : {}),
   };
   next.decisionHistory.push(decision);

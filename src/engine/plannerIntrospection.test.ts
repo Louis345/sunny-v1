@@ -282,13 +282,19 @@ it("scores the Planner's per-word calls against her next answer on her own, and 
 it("saves the Planner's ready-on-paper calls, logs a ready one for the parent, and shows them back", async () => {
   const f = liveFixture();
   f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
-  f.decision.readyOnPaper = [{ concept: "Prefix words", chance: 0.85, why: "8 of 8 alone", proof: "Unit 3 spelling sheet" }, { concept: "Silent letters", chance: 0.4, why: "missed 2", proof: "same sheet" }];
+  const radar = getLearningCycle(childId, homeworkId, f.opts)!.nodes[0];
+  const prefixWords = Object.values(radar.evidenceContract.spellingItems!).slice(0, 2).map(item => item.wordId);
+  f.decision.readyOnPaper = [{ concept: "Prefix words", chance: 0.85, why: "8 of 8 alone", proof: "Unit 3 spelling sheet", items: prefixWords }, { concept: "Silent letters", chance: 0.4, why: "missed 2", proof: "same sheet" }];
   const logs: string[] = [];
   const spy = vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => { logs.push(args.join(" ")); });
   try { await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts); } finally { spy.mockRestore(); }
   expect(f.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema.properties.ready_on_paper).toBeTruthy();
   expect(getLearningCycle(childId, homeworkId, f.opts)!.decisionHistory.filter(row => row.eventType === "theory_decided").at(-1)).toMatchObject({
-    readyOnPaper: [{ concept: "Prefix words", chance: 0.85 }, { concept: "Silent letters", chance: 0.4 }] });
+    readyOnPaper: [{ concept: "Prefix words", chance: 0.85, items: prefixWords, baseline: { tries: expect.any(Number), chance: expect.any(Number) } }, { concept: "Silent letters", chance: 0.4 }] });
+  // Arithmetic's guess is locked only where the Planner named the items; it counts her first tries before the decision.
+  const saved = (getLearningCycle(childId, homeworkId, f.opts)!.decisionHistory.filter(row => row.eventType === "theory_decided").at(-1) as { readyOnPaper: Array<{ baseline?: { tries: number } }> }).readyOnPaper;
+  expect(saved[0].baseline!.tries).toBeGreaterThan(0);
+  expect(saved[1].baseline).toBeUndefined();
   expect(logs.find(line => line.includes("[ready-on-paper] [ready]"))).toContain("concepts=Prefix words");
   const cycle = await f.prepare();
   f.play(currentBoardInstance(cycle).nodeIds[0], new Date().toISOString());

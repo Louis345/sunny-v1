@@ -144,6 +144,18 @@ describe("code checks every history id the grammar no longer lists", () => {
     }
   });
 
+  it("ready_on_paper.items: her problems or words, checked by code like every history id", () => {
+    for (const facts of [history(small), history({ ...small, problems: 3 })]) {
+      const { call } = session(facts);
+      const real = facts.problems ? facts.problems[0].id : wordId(0);
+      const ok = { concept: "Rounding", chance: 0.85, why: "w", proof: "p" };
+      fixable(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], ready_on_paper: [{ ...ok, items: ["made-up-item"] }] })), "made-up-item");
+      const kit = spellingSuccessorToolkit(facts), state = kit.initialState(), tool = kit.tools.find(row => row.name === "decide")!;
+      expect(tool.run(state, tool.schema.parse(decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], ready_on_paper: [{ ...ok, items: [real] }] })) as never)).toMatchObject({ ok: true });
+      expect((state as { decision?: { readyOnPaper?: Array<{ items?: string[] }> } }).decision?.readyOnPaper?.[0].items).toEqual([real]);
+    }
+  });
+
   it("math: expect_on_her_own.item, add_step problems and build_from, add_problem based_on", () => {
     const { call, facts } = session(history({ ...large, problems: 30 }));
     const real = facts.problems![29].id;
