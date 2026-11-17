@@ -1278,20 +1278,39 @@ export async function advanceCanonicalCycleFromEvidence(
       }
     }
   }
-  try {
-    return await decideOnce(input, opts);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const retryable = Boolean((error as { status?: number }).status)
-      || /^(learning_cycle_revision_conflict|provider_request_rejected|learning_cycle_missing)/.test(message);
-    const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
-    if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
-      const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
-      transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
-      console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
+  // At most two attempts: the first, and one automatic retry after a dropped connection (BUGS.md S3).
+  for (let attempt = 1; ; attempt += 1) {
+    if (attempt > 2) throw new Error("planner_automatic_retry_limit");
+    try {
+      return await decideOnce(input, opts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const retryable = Boolean((error as { status?: number }).status)
+        || /^(learning_cycle_revision_conflict|provider_request_rejected|learning_cycle_missing)/.test(message);
+      const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
+      if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
+        const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
+        const blocked = transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
+        console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
+        if (attempt === 1 && reason.startsWith("provider_outcome_uncertain") && DROPPED_CONNECTION.test(reason) && !retriedSinceLastDecision(blocked)) {
+          authorizeCanonicalPlannerRetry({ childId: blocked.childId, homeworkId: blocked.homeworkId, blockedDecisionId: blocked.decisionHistory.at(-1)!.decisionId,
+            reason: "Automatic: one retry after a dropped connection; the lost request may already have been billed (owner, 2026-11-17)" }, opts);
+          console.log(` 🎮 [canonical-progression] [retry] [automatic] homework=${blocked.homeworkId} attempt=2`);
+          continue;
+        }
+      }
+      throw error;
     }
-    throw error;
   }
+}
+
+/** A lost connection or deadline, not any other failure (2026-11-04: "Request was aborted.", "read ETIMEDOUT"). */
+const DROPPED_CONNECTION = /aborted|timed? ?out|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EPIPE|socket hang up|fetch failed|network|connection (?:error|lost|closed)/i;
+
+/** A retry (automatic or by a person) already followed this board's last decision: never another automatic one. */
+function retriedSinceLastDecision(cycle: LearningCycleRecordV2): boolean {
+  const since = cycle.decisionHistory.slice(cycle.decisionHistory.map(row => row.eventType).lastIndexOf("theory_decided") + 1);
+  return since.some(row => row.eventType === "planner_retry_authorized");
 }
 
 async function decideOnce(

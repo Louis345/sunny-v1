@@ -146,6 +146,30 @@ it('replays the frozen question after a restart even though the chart changed me
  expect(getLearningCycle(childId,homeworkId,{rootDir:f.rootDir})!.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
 });
 
+// BUGS.md S3 (owner decision 2026-11-17): one dropped connection must not leave her with no next board when no
+// person is there to approve the retry (the kids now start Sunny alone, and at the library). Sunny approves the same
+// one retry itself, once per decision; a second drop stays blocked for a person. Why the logs did not save her: they
+// showed the block, but nobody was watching. Why the lab missed it: every lab retry was approved by a test, not code.
+it('retries a dropped next-board question once by itself, and a second drop stays blocked',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ let calls=0;
+ const dropOnce=(...args:unknown[])=>{calls+=1; if(calls===1) throw new Error('Request was aborted.'); return (f.stream as (...a:unknown[])=>unknown)(...args);};
+ const decided=await runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:dropOnce}} as never},opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ const history=decided.decisionHistory.map(row=>row.eventType);
+ expect(history.filter(type=>type==='block')).toHaveLength(1);
+ expect(history.filter(type=>type==='planner_retry_authorized')).toHaveLength(1);
+ expect(decided.decisionHistory.find(row=>row.eventType==='planner_retry_authorized')!.reason).toMatch(/automatic/i);
+
+ const g=fixture(),gopts={rootDir:g.rootDir};
+ const alwaysDrops=vi.fn(()=>{throw new Error('Request was aborted.');});
+ await expect(runtime.advanceCanonicalCycleFromEvidence({...g.request,client:{messages:{stream:alwaysDrops}} as never},gopts)).rejects.toThrow();
+ const blocked=getLearningCycle(childId,homeworkId,gopts)!;
+ expect(blocked.lifecycle).toBe('blocked');
+ expect(blocked.decisionHistory.filter(row=>row.eventType==='planner_retry_authorized')).toHaveLength(1);
+ expect(alwaysDrops).toHaveBeenCalledTimes(2);
+});
+
 // 2026-11-04, human-caught: Saori changed Wi-Fi while Reina's next-board question was in flight. The
 // request aborted, the cycle blocked as provider_outcome_uncertain (correct: Sunny cannot know whether it
 // was billed), but the operator retry refused that cause, so her loop stopped at board 3 with no way back.
