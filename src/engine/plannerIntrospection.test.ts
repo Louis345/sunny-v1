@@ -421,5 +421,6 @@ it("counts a scorecard after each session and shows the recent ones to the next-
   expect(alerts).toContain("5 answers given in games but 4 saved");
   const prompt = promptOf(f.requests.at(-1));
   expect(prompt).toContain("Her session scorecards (counted by code after each session, oldest first):");
-  expect(prompt).toMatch(/on her own 1 of 2 right; with help 0; help asked 2 times; bugs she reported 1; games: Radar Run first answer after 2\.0 min/);
+  // The fixture played Radar Run before this session, so these answers are replays: retries, not new first tries (BUGS.md S11).
+  expect(prompt).toMatch(/on her own 1 of 2 right; 2 retries after a first try; with help 0; help asked 2 times; bugs she reported 1; games: Radar Run first answer after 2\.0 min/);
 }, 120000);
