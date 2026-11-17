@@ -40,6 +40,20 @@ Saori build: `2f31a3ca`. After each session, run `npm run sunny:rate -- --child 
 | G22 | The builder sees each game's track record | no | yes |
 | G23 | A loved game comes back with new content | never | once this week |
 
+## Companion presence: is Elli less annoying? (added 2026-11-16, fix S14)
+
+Ila: "Elli is annoying… she keeps saying the same over and over." After her session, run on Saori `npm run sunny:companion:audit -- --date YYYY-MM-DD --from HH:MM --to HH:MM` (kiosk time, the session's start and end). Targets were set before the fix shipped. The baseline is Ila's spelling session on 11/16, 5:29–5:54 PM, rebuilt from speech chunks (approximate). New sessions log every reply exactly.
+
+| # | Line | Last time (Ila 11/16) | Target |
+|---|---|---|---|
+| C1 | Times she cut the companion off while it spoke | 8 (3.2 per 10 min) | half: 1.6 per 10 min or less |
+| C2 | Typical reply length | 39 words; 10 of 15 over 30 | 20 words or less; at most 1 in 5 over 30 |
+| C3 | Replies repeating one of the last three | 4 of 15 | 1 or fewer per session |
+| C4 | Time to first sound after she stops (guard: must not get worse) | median 2.7 s, slowest 10% 3.8 s | median 2.7 s or less |
+| C5 | Ila's own word, asked after the session: "Was Elli annoying?" | "Annoying… says the same over and over" | not annoying |
+
+**Verdict:** the fix worked if C1–C3 meet their targets in two sessions, C4 does not get worse, and Ila doesn't call Elli annoying.
+
 ## Learning (watched, not graded)
 
 | Child | What | Last time |

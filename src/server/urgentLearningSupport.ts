@@ -1,3 +1,4 @@
+import { replyOverlap } from "../engine/companionPresenceAudit";
 import { childPaceFacts, itemAttemptFacts } from "./itemAttemptFacts";
 import { sunnyHealthFacts } from "../engine/sunnyHealth";
 import { noteCompanionHelpOnItem } from "./companionItemHelp";
@@ -288,7 +289,8 @@ export function buildActivityCompanionContext(input: {
         instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
         ...(cycle ? {lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null} : {recordedHistoryAvailable:false}) }),
       "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
-      ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it. Until her answer for this item is submitted, you may say the word again or encourage her."]),
+      ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it.",
+        "Ways to help on a check word, before her answer is submitted: say the word again; say it in a short sentence, the way a teacher does on a spelling test; tell her a guess is great and that you will fix it together right after she sends it (she loves that part); cheer her on. She already knows letters wait until after her try, so the rule itself needs saying once at most."]),
     ].join("\n");
   }
   // The school test as her goal plus facts (owner, 2026-11-08): Elli judges how much help fits.
@@ -297,7 +299,8 @@ export function buildActivityCompanionContext(input: {
     : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
   // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
   const health = sunnyHealthFacts(input.childId);
-  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  const recent = recentRepliesFact(input.childId);
+  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
@@ -332,6 +335,26 @@ function tutorPlanLinesFor(childId: string, decisionId: string | undefined, line
   entry.pending = lines.filter((line): line is string => Boolean(line?.trim()));
   const said = entry.said;
   return (line: string) => said.has(line) ? ` (You already said this to her: "${said.get(line)}")` : "";
+}
+
+/**
+ * What the companion said to her in the last few minutes, shown back to it as facts (Ila, 2026-11-16: "Elli is annoying,
+ * she keeps saying the same over and over"). Per child, in memory; each reply is scored against the last three.
+ */
+const recentReplies = new Map<string, Array<{ at: number; text: string }>>();
+const RECENT_MS = 5 * 60_000;
+export function noteCompanionReply(childId: string, reply: string, now = Date.now()): { words: number; repeat: number } {
+  const text = reply.trim();
+  const kept = (recentReplies.get(childId) ?? []).filter(row => now - row.at < RECENT_MS);
+  const repeat = Math.max(0, ...kept.slice(-3).map(row => replyOverlap(text, row.text)));
+  if (text) recentReplies.set(childId, [...kept, { at: now, text }].slice(-3));
+  return { words: (text.match(/[\p{L}\p{N}'-]+/gu) ?? []).length, repeat: Math.round(repeat * 100) / 100 };
+}
+function recentRepliesFact(childId: string, now = Date.now()): string {
+  const rows = (recentReplies.get(childId) ?? []).filter(row => now - row.at < RECENT_MS);
+  if (!rows.length) return "";
+  return ["[What you said to her in the last few minutes, oldest first]", ...rows.map(row => `- "${row.text.slice(0, 220)}"`),
+    "She hears the same idea said again as nagging: something new, or less, lands better."].join("\n");
 }
 
 export function noteCompanionReplyForTutorPlan(childId: string, reply: string): void {

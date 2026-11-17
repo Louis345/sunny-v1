@@ -3,7 +3,7 @@
 import { SIDE_TALK_TOOL, sideTalkAiTool, sideTalkLine } from "./companionSideTalk";
 import { sideTalkKey as companionSideTalkKey } from "./companionChildFacts";
 import { redactProtectedSpellingText, redactProtectedSpellingValue } from "./currentBoardSnapshot";
-import { noteCompanionReplyForTutorPlan } from "./urgentLearningSupport";
+import { noteCompanionReply, noteCompanionReplyForTutorPlan } from "./urgentLearningSupport";
 import { randomUUID } from "node:crypto";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import { runAgent } from "../agents/elli/run";
@@ -680,7 +680,11 @@ export async function runCompanionResponseForSession(
         // A game-invited reply can give letters too (audit 2026-11-13 c); only her own turn is her help request.
         if (source === "user") session.recordCompanionHelpTurn?.(userMessage, fullResponse);
         else session.recordCompanionReplySupport?.(fullResponse);
-        if (session.chartChildId) noteCompanionReplyForTutorPlan(String(session.chartChildId), fullResponse);
+        if (session.chartChildId) {
+          noteCompanionReplyForTutorPlan(String(session.chartChildId), fullResponse);
+          const said = noteCompanionReply(String(session.chartChildId), fullResponse);
+          console.log(` 🎮 [companion] [reply] [said] child=${session.chartChildId} words=${said.words} repeat=${said.repeat}`);
+        }
       }
 
       if (await finalizePendingSessionEnd(session)) {
