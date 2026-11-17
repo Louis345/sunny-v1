@@ -608,6 +608,25 @@ describe("canonical learning cycle runtime", () => {
     expect(replay.nodes.find(row => row.nodeId === "facts")!.state).toBe("completed");
   });
 
+  // BUGS.md S11 (seen in Saori's log 2026-11-15, AI-caught): a rounding stop was played again and problems 6 and 9
+  // were answered a second time, each logged try=1. Why the logs did not flag it: each game counts its own tries, so a
+  // replay starts at 1. Why the lab missed it: lab replays only checked that the first run was kept, not how the
+  // counters read the replay. A problem she already answered is never a new first try on her own, single answer or not.
+  it("a replayed problem's first answer is a retry, never a new first try on her own", async () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "launch-1", nodeId: "facts", result: { completed: false, earlyExit: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir });
+    const replay = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "launch-2", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir })!;
+    const { isFirstTryOnHerOwn } = await import("./sessionTimeline");
+    const rows = replay.observations.filter(row => row.itemId === "2x5");
+    expect(rows).toHaveLength(2);
+    expect(rows.map(row => isFirstTryOnHerOwn(row))).toEqual([true, false]);
+    expect(rows[1].confounds).toEqual(expect.arrayContaining(["retry"]));
+    expect(rows[1].confounds).not.toContain("first_try");
+  });
+
   // BUGS.md "Measurement audit 2026-11-13" (d), AI-caught: a game that reported no per-item results was saved as one
   // answer on an invented item (the stop itself, right when its accuracy was at least half). Why the logs missed it:
   // the completion line looked normal. Why the lab missed it: lab games always report items. No item claim is made.

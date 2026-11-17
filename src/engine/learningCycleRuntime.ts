@@ -389,7 +389,9 @@ function observationsForCompletion(input: {
   const hintsUnknown = node.implementationType === "generated-game" && !node.libraryGame && node.artifactBinding?.creativeProvenance?.reportsHints !== true;
   return rows.flatMap((triedRow, index) => triesOf(triedRow).map(({ attemptedValue, hinted }, tryIndex, all) => {
     const row = { ...triedRow, attemptedValue };
-    const tryFacts = all.length > 1 || ("tries" in triedRow && Array.isArray(triedRow.tries)) ? [tryIndex === 0 ? "first_try" : "retry", `attempt:${tryIndex + 1}`] : [];
+    // A problem she answered before (a replay) is never a new first try (BUGS.md S11).
+    const replayed = previouslyExposedItemIds.has(row.target);
+    const tryFacts = all.length > 1 || replayed || ("tries" in triedRow && Array.isArray(triedRow.tries)) ? [tryIndex === 0 && !replayed ? "first_try" : "retry", `attempt:${tryIndex + 1}`] : [];
     const item = node.evidenceContract.itemContracts?.[row.target];
     const measurementRole = item?.lineage.measurementRole ?? itemRoles?.[row.target] ?? "practice";
     const assistedInstruction = serverAssistedInstruction;
