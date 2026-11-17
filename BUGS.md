@@ -69,7 +69,7 @@ Why the human caught it: until today no screen let anyone put an unapproved item
 Matilda's portrait outfit; map pictures; the board offered after "Stop for now"; a fork board that never finished; lost retries in built games; partial-list school tests; per-word school forecasts; a repeated try counted as a first try; earned call ring and answer; hints in built games marked as help.
 
 ### Parked by the owner (ideas, not bugs; after the merge)
-Rename or nickname a companion; more loot and reward variety; sound-it-out recording; restoring the built-game line; talk to the Planner; lifelike FaceTime; math introspection; how each child thinks; the Planner's play facts; "One Planner"; weather sky; chess (a separate Fable task); phone alerts; Ila's diagnoses (waiting for the owner); the 13-minute board build.
+Rename or nickname a companion; more loot and reward variety; sound-it-out recording; restoring the built-game line; talk to the Planner; lifelike FaceTime; math introspection; how each child thinks; the Planner's play facts; "One Planner"; weather sky; chess (a separate Fable task); phone alerts; Ila's diagnoses (waiting for the owner); the 13-minute board build; "how sure were you?" before feedback (owner 2026-11-17: a Planner-chosen tool, code keeps it honest and scores each child's self-judgment; first try: companion asks "sure or guessing?" aloud on check words only, measure for two weeks, drop if it predicts nothing).
 
 ## 2026-11-12 — Found in the dressing room and FaceTime triage (open)
 
