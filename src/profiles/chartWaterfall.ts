@@ -305,10 +305,21 @@ export function writeWaterfallHomework(
   const links = resolveWaterfallLinks(childId, profile.chartLinks, opts);
   const next = buildWaterfallHomeworkFile(childId, profile, opts);
   // A save changes only the subjects it names (2026-11-16: a spelling save erased Ila's math lane).
-  const saved = readJson<WaterfallHomeworkFile>(links.currentHomework)?.activeByDomain ?? {};
+  const savedFile = readJson<WaterfallHomeworkFile>(links.currentHomework);
+  const saved = savedFile?.activeByDomain ?? {};
   const kept = Object.keys(saved).filter(domain => !(domain in next.activeByDomain));
   if (kept.length) console.log(` 🎮 [homework-lanes] [save] [kept] child=${childId} subjects=${kept.join(",")}`);
-  writeJson(links.currentHomework, { ...next, activeByDomain: { ...saved, ...next.activeByDomain } });
+  // A parent-confirmed test date stays on its homework until the parent changes it (BUGS.md S15).
+  const confirmed = new Map([savedFile?.current, ...Object.values(saved)].flatMap(row => row?.homeworkId && row.testDateConfirmed && row.testDate ? [[row.homeworkId, row] as const] : []));
+  type Row = WaterfallHomeworkFile["current"];
+  const keepDate = <T extends Row>(row: T): T => {
+    const date = row?.homeworkId && !row.testDateConfirmed ? confirmed.get(row.homeworkId) : undefined;
+    if (!row || !date) return row;
+    console.log(` 🎮 [homework-lanes] [save] [test-date-kept] child=${childId} homework=${date.homeworkId} testDate=${date.testDate}`);
+    return { ...row, testDate: date.testDate, testDateSource: date.testDateSource, testDateConfirmed: true };
+  };
+  const lanes = Object.fromEntries(Object.entries(next.activeByDomain).map(([domain, row]) => [domain, keepDate(row)]));
+  writeJson(links.currentHomework, { ...next, current: keepDate(next.current), activeByDomain: { ...saved, ...lanes } });
 }
 
 export function writeWaterfallContentCatalog(
