@@ -68,6 +68,17 @@ describe("authoritative spelling recall contracts", () => {
     });
   });
 
+  // BUGS.md S24 (Ila, 2026-11-18, the night before her test): she typed "caterpiller" and it was saved as
+  // instrument_ambiguous, so a clear miss on a test word vanished from her record. The pronunciation lexicon lists
+  // "caterpiller" (a variant/brand form), so the long word looked like a homophone. Why the human caught it: the
+  // results screen had no mark for caterpillar. Why logs missed it: ambiguity is a normal, quiet outcome. Why the lab
+  // missed it: only short real homophones (sea/see, know/no) were tested. Rule: lexicon sound-alikes count only
+  // for short words (at most two syllables); a long word spelled differently is a miss.
+  it("scores a sound-alike misspelling of a long word as a miss, not ambiguity", () => {
+    const [item] = buildSpellingRecallItems({ ...input, words: ["caterpillar"] });
+    expect(scoreSpellingRecall(item, "caterpiller")).toEqual({ correct: false, score: 0 });
+  });
+
   it("uses the pronunciation lexicon beyond a hand-written homophone list", () => {
     const [item] = buildSpellingRecallItems({ ...input, words: ["sea"] });
     expect(scoreSpellingRecall(item, "see")).toEqual({
