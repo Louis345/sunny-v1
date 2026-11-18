@@ -149,6 +149,10 @@ describe("a finished board", () => {
     const blocked = (states: string[], domain = "spelling") => ({
       activeSessionPlan: { domain, adventureBoard: { nodes: states.map((state, index) => ({ id: `n${index}`, state })) } },
       childChart: { learningCycle: { lifecycle: "blocked" } } }) as never;
+    const building = (states: string[]) => ({ activeSessionPlan: { domain: "spelling", adventureBoard: { nodes: states.map((state, index) => ({ id: `n${index}`, state })) } },
+      childChart: { learningCycle: { lifecycle: "baseline_generating" } } }) as never;
+    expect(isBoardFinishedPacket(building(["completed", "completed"]))).toBe(true);
+    expect(isBoardFinishedPacket(building(["completed", "locked"]))).toBe(false);
     for (const domain of ["spelling", "math"]) {
       expect(isBoardFinishedPacket(blocked(["completed", "completed", "completed"], domain)), domain).toBe(true);
       expect(isBoardFinishedPacket(blocked(["completed", "ready"], domain)), domain).toBe(false);

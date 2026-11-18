@@ -181,8 +181,9 @@ export function isBoardFinishedPacket(packet: ChildExperiencePacket | null): boo
   const cycle = packet?.childChart?.learningCycle;
   if (!["spelling", "math"].includes(packet?.activeSessionPlan?.domain ?? "") || !cycle) return false;
   if (["baseline_evaluating", "quest_evaluating", "boss_evaluating", "quest_generating", "boss_generating"].includes(cycle.lifecycle)) return true;
-  // A blocked next-board decision after she finished every activity is still a finished board (BUGS.md S20).
-  const nodes = cycle.lifecycle === "blocked" ? packet?.activeSessionPlan?.adventureBoard?.nodes ?? [] : [];
+  // A board whose every activity is done is finished while anything comes next: blocked (S20) or the next board's
+  // games still building (baseline_generating, 2026-11-18: Ila saw her done board 5 while board 6 built).
+  const nodes = ["blocked", "baseline_generating"].includes(cycle.lifecycle) ? packet?.activeSessionPlan?.adventureBoard?.nodes ?? [] : [];
   return nodes.length > 0 && nodes.every(node => node.state === "completed");
 }
 
