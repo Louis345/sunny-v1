@@ -238,6 +238,12 @@ export function scoreSpellingRecall(
   // Letters left when a word ended (G8, 2026-11-10): an incomplete try, never right or wrong.
   if (disposition.incomplete) return { observedErrorType: "incomplete_response" };
   if (!value.trim()) return { observedErrorType: "response_not_captured" };
+  // Spelled aloud, letter by letter, is the word; any other multi-word capture is not a clean spelling (BUGS.md S32).
+  const tokens = value.trim().split(/\s+/);
+  if (tokens.length > 1 && !item.response.acceptedForms.some(form => /\s/.test(form.trim()))) {
+    if (!tokens.every(token => /^[a-z]$/i.test(token))) return { observedErrorType: "instrument_ambiguous" };
+    value = tokens.join("");
+  }
   // A Japanese-input keyboard turns her letters into kana; score the letters she typed, never the kana (2026-11-10).
   const typed = readTypedSpelling(value, item.response.acceptedForms, item.response.caseSensitive);
   if (typed.status === "ime_unscorable" || typed.status === "ime_ambiguous") return { observedErrorType: `keyboard_${typed.status}` };

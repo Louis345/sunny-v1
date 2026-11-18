@@ -596,8 +596,8 @@ const WORD_RADAR_CONFIG_DEFAULTS = {
     recallMode: "hidden_word_recall",
     inputMode: "whole-word",
     speakStyle: "option-b",
-    showTimer: true,
-    timerSeconds: 8,
+    // No clock unless the Planner sets one (BUGS.md S31).
+    showTimer: false,
     hideWordDuringResponse: true,
     requiresCapturedResponse: true,
   },

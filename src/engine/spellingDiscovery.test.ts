@@ -79,6 +79,18 @@ describe("authoritative spelling recall contracts", () => {
     expect(scoreSpellingRecall(item, "caterpiller")).toEqual({ correct: false, score: 0 });
   });
 
+  // BUGS.md S32 (Ila, 2026-11-18): in memory mode she spells aloud. "c a t e r p i l l a r" was scored wrong, and so
+  // were "Circa Circus" and "Some are summer" (the speech system added words) and a sentence of chatter. Why the human
+  // caught it: right spellings marked wrong. Why logs missed it: wrong is a normal result. Why the lab missed it: only
+  // typed answers were tested. Rule: spoken letters are joined and scored; any other multi-word capture is unclear.
+  it("scores spoken letters as the word, and a multi-word capture as unclear, never wrong", () => {
+    const [item] = buildSpellingRecallItems({ ...input, words: ["caterpillar"] });
+    expect(scoreSpellingRecall(item, "c a t e r p i l l a r")).toEqual({ correct: true, score: 1 });
+    expect(scoreSpellingRecall(item, "c a t e r p i l e r")).toEqual({ correct: false, score: 0 });
+    expect(scoreSpellingRecall(item, "Circa caterpillar")).toEqual({ observedErrorType: "instrument_ambiguous" });
+    expect(scoreSpellingRecall(item, "I'm not doing it. Let me see. c a t")).toEqual({ observedErrorType: "instrument_ambiguous" });
+  });
+
   it("uses the pronunciation lexicon beyond a hand-written homophone list", () => {
     const [item] = buildSpellingRecallItems({ ...input, words: ["sea"] });
     expect(scoreSpellingRecall(item, "see")).toEqual({
