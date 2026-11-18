@@ -122,6 +122,20 @@ describe("a finished board", () => {
     }
     expect(isBoardFinishedPacket(null)).toBe(false);
   });
+  // BUGS.md S20 (Ila, 2026-11-17/18): her finished spelling board 3 showed with every activity checked because the
+  // next-board decision was blocked (S16), and "blocked" was not a finished-board state. Why the human caught it: she
+  // saw a done board and thought she was finished. Why logs missed it: the screen report said "board", a normal screen.
+  // Why the lab missed it: the 11/12 rule listed deciding/building states only. Rule: a board whose every activity is
+  // done shows the waiting screen while its successor is blocked too; a board blocked mid-play does not.
+  it("counts a blocked cycle whose board is all done as finished, and a half-played one as not", () => {
+    const blocked = (states: string[], domain = "spelling") => ({
+      activeSessionPlan: { domain, adventureBoard: { nodes: states.map((state, index) => ({ id: `n${index}`, state })) } },
+      childChart: { learningCycle: { lifecycle: "blocked" } } }) as never;
+    for (const domain of ["spelling", "math"]) {
+      expect(isBoardFinishedPacket(blocked(["completed", "completed", "completed"], domain)), domain).toBe(true);
+      expect(isBoardFinishedPacket(blocked(["completed", "ready"], domain)), domain).toBe(false);
+    }
+  });
   it("opens for a finished math board until the next one is published", () => {
     const input = { packet: packet("quest_generating", "math"), directDiscoveryMode: false, handoff: null, held: false, preview: false, boardFinished: true };
     expect(resolvePreparationSurface(input)).toBe("chapter");

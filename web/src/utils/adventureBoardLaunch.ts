@@ -178,8 +178,12 @@ export function hasPendingLearningGeneration(packet: ChildExperiencePacket | nul
  * 2026-11-12: Reina saw her finished math board as if it were current while the next one was being built).
  */
 export function isBoardFinishedPacket(packet: ChildExperiencePacket | null): boolean {
-  return ["spelling", "math"].includes(packet?.activeSessionPlan?.domain ?? "")
-    && ["baseline_evaluating", "quest_evaluating", "boss_evaluating", "quest_generating", "boss_generating"].includes(packet?.childChart?.learningCycle?.lifecycle ?? "");
+  const cycle = packet?.childChart?.learningCycle;
+  if (!["spelling", "math"].includes(packet?.activeSessionPlan?.domain ?? "") || !cycle) return false;
+  if (["baseline_evaluating", "quest_evaluating", "boss_evaluating", "quest_generating", "boss_generating"].includes(cycle.lifecycle)) return true;
+  // A blocked next-board decision after she finished every activity is still a finished board (BUGS.md S20).
+  const nodes = cycle.lifecycle === "blocked" ? packet?.activeSessionPlan?.adventureBoard?.nodes ?? [] : [];
+  return nodes.length > 0 && nodes.every(node => node.state === "completed");
 }
 
 /** A Teaching Board opens as one complete chapter; Probe siblings may unlock independently. */
