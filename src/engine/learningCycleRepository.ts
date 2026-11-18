@@ -508,6 +508,8 @@ export function isItemIntakeMathCycle(cycle: Pick<LearningCycleRecordV2, "domain
 export const CUT_OFF_STOP_REASON = "successor_node_failed:provider_outcome_uncertain:";
 /** A stop whose finished game lost the bind race to her own session (Ila, 2026-11-11); its saved build replays free. */
 export const LOST_BIND_STOP_REASON = "successor_node_failed:learning_cycle_revision_conflict:";
+/** A build the provider refused (for example an empty credit balance) was never billed: one owner-approved rebuild (S29). */
+export const REFUSED_STOP_REASON = "successor_node_failed:provider_request_rejected:";
 const paidRetryReasonPrefix = (nodeId: string) => `One paid rebuild approved for cut-off stop ${nodeId}:`;
 
 /** Blocks an operator may retry: a truncated answer, a decision blocked by the since-fixed
@@ -2055,7 +2057,7 @@ export function transitionLearningCycle(
     // A person approves one paid rebuild of a stop whose build was cut off (owner, 2026-11-11). The approval is
     // recorded before any purchase; the stop stays Not ready until the rebuild binds, and it can never be approved twice.
     const node = nodeOrThrow(next, event.nodeId);
-    if (!(node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) || node.notReadyReason?.startsWith(LOST_BIND_STOP_REASON)) || node.artifactBinding || !next.boards
+    if (!(node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) || node.notReadyReason?.startsWith(LOST_BIND_STOP_REASON) || node.notReadyReason?.startsWith(REFUSED_STOP_REASON)) || node.artifactBinding || !next.boards
       || !currentBoardInstance(next).nodeIds.includes(node.nodeId) || !event.reason.trim()
       || current.decisionHistory.some(row => row.eventType === "not_ready_paid_retry_authorized" && row.reason.startsWith(paidRetryReasonPrefix(node.nodeId)))) {
       throw new Error(`cut_off_stop_retry_not_eligible:${node.nodeId}`);

@@ -21,7 +21,7 @@ import {
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import {
   CUT_OFF_STOP_REASON,
-  LOST_BIND_STOP_REASON,
+  LOST_BIND_STOP_REASON, REFUSED_STOP_REASON,
   getLearningCycle,
   savePaintedNodeArtwork,
   transitionLearningCycle,
@@ -587,12 +587,14 @@ export async function retryCutOffStop(
   const cutOffStatus = cutOffReceipt && fs.existsSync(cutOffReceipt) ? (JSON.parse(fs.readFileSync(cutOffReceipt, "utf8")) as { status?: string }).status : undefined;
   // A finished game that lost the bind race keeps its saved build: the builder replays it, with no new purchase.
   const lostBind = Boolean(node?.notReadyReason?.startsWith(LOST_BIND_STOP_REASON));
+  // A refused build was never billed; its rejected receipt is set aside like a cut-off one (S29).
+  const refused = Boolean(node?.notReadyReason?.startsWith(REFUSED_STOP_REASON));
   const refusal = !node ? "no_such_node"
     : !cycle.boards || !currentBoardInstance(cycle).nodeIds.includes(node.nodeId) ? "not_on_current_board"
-    : !node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) && !lostBind ? `not_ready_reason_is_not_provider_outcome_uncertain:${node.notReadyReason ?? "ready"}`
+    : !node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) && !lostBind && !refused ? `not_ready_reason_is_not_provider_outcome_uncertain:${node.notReadyReason ?? "ready"}`
     : node.artifactBinding ? "already_bound"
     : node.implementationType !== "generated-game" || node.reusedFrom || node.libraryGame || !node.generationPrompt ? `not_a_built_game:${node.implementationType ?? "none"}`
-    : !lostBind && !["in_flight", "outcome_uncertain"].includes(cutOffStatus ?? "") ? `cut_off_receipt_not_uncertain:${cutOffStatus ?? "missing"}:${cutOffReceipt}`
+    : !lostBind && !refused && !["in_flight", "outcome_uncertain"].includes(cutOffStatus ?? "") ? `cut_off_receipt_not_uncertain:${cutOffStatus ?? "missing"}:${cutOffReceipt}`
     : !input.reason.trim() ? "reason_required" : "";
   if (refusal) {
     log("retry-cut-off-stop", "refused", `reason=${refusal}`);
