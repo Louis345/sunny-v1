@@ -870,6 +870,14 @@ export async function runMathProviderStage<T>(input: {
   const priorFile = stage?.requestHash ? path.join(receipts,`${stage.requestHash}.json`) : receiptFile;
   const prior = readReceipt(priorFile);
   if (stage && !prior) throw new Error(`provider_receipt_invalid:${priorFile}`);
+  // The provider refused this exact request before and the stage moved on to a fallback: replay the same refusal, so
+  // the caller takes the same fallback after a restart instead of blocking (BUGS.md S16). No provider call.
+  const refused = priorFile !== receiptFile && prior?.status === "received" ? readReceipt(receiptFile) : undefined;
+  const refusal = refused?.status === "rejected" ? refused.attempts?.at(-1) : undefined;
+  if (refusal?.error) {
+    console.log(` 🎮 [adaptive-math] [provider-request] [rejection-replayed] stage=${input.stage}`);
+    throw Object.assign(new Error(refusal.error), refusal.code ? { status: refusal.code } : {});
+  }
   if (prior?.status === "received" && priorFile !== receiptFile) throw new Error(`provider_stage_request_changed:${input.stage}`);
   if (["in_flight", "outcome_uncertain"].includes(prior?.status ?? "") && (!input.retryUncertain || priorFile!==receiptFile)) throw new Error(`provider_outcome_uncertain:${priorFile}`);
   const saved = readReceipt(receiptFile);
