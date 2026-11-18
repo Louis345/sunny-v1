@@ -88,14 +88,14 @@ export function useAppAdventurePreparation(input: {
   const wordsRef = useRef<{ scope: string; words: string[] }>({ scope: "", words: [] });
   const words = subject === "math" ? [] : preparationWords(input.packet);
   if (words.length && wordsRef.current.scope !== scope) wordsRef.current = { scope, words };
-  const results: Array<{ display: string; firstTry?: boolean; correct?: boolean }> | undefined = mode !== "chapter" ? undefined
+  const results: Array<{ display: string; firstTry?: boolean; correct?: boolean; typed?: string }> | undefined = mode !== "chapter" ? undefined
     : input.finishedBoardId ? input.packet?.spellingBoardResults : input.packet?.spellingEvaluationResults;
   const resultsKey = JSON.stringify(subject === "math" ? mathResults : results);
   const items = useMemo(() => subject === "math"
     ? (mathResults ?? []).map(result => ({ face: result.display, spoken: result.spoken, correct: result.correct, improved: result.firstTry === false && result.correct === true, ...(result.helped ? { helped: true } : {}), ...(result.own ? { own: true } : {}) }))
     : (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
       const result = results?.find(item => item.display === face);
-      return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true, ...(result?.firstTry === true ? { own: true } : {}) };
+      return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true, ...(result?.firstTry === true ? { own: true } : {}), ...(result?.correct === false && result.typed ? { typed: result.typed } : {}) };
     }), [scope, subject, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Her on-her-own count against the board before (the report card's progress line), math only for now.

@@ -8,9 +8,9 @@ import { readChoiceEvents } from "../engine/choiceEvents";
 export type ChildExperiencePacket = {
   /** Stops left before this board ends and earns the FaceTime call (owner, 2026-11-07). Display only. */
   boardProgress?: { stopsLeft: number };
-  spellingEvaluationResults?: Array<{ display: string; correct?: boolean }>;
+  spellingEvaluationResults?: Array<{ display: string; correct?: boolean; typed?: string }>;
   /** Her first try at each word, and her latest try without help; a word with no such try has no `correct`. */
-  spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean }>;
+  spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean; typed?: string }>;
   /** Per math board: each problem she answered, shown as her answer and read aloud as the problem (owner 2026-11-12). */
   /** helped: her final answer came with a hint or Elli's help (shown honestly; never counted as on her own). */
   mathBoardResults?: Record<string, Array<{ display: string; spoken: string; firstTry?: boolean; correct?: boolean; helped?: true; own?: true }>>;
@@ -244,7 +244,7 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
     ? chart.learningCycle.nodes.filter(node => node.role === "evaluation").flatMap(node =>
       Object.values(node.evidenceContract.spellingItems ?? {}).map(item => {
         const observation = chart.learningCycle!.observations.find(row => row.itemId === item.id && row.sourceId === `evaluation:${node.nodeId}`);
-        return { display: item.word, ...(typeof observation?.result.correct === "boolean" ? { correct: observation.result.correct } : {}) };
+        return { display: item.word, ...(typeof observation?.result.correct === "boolean" ? { correct: observation.result.correct } : {}), ...missedSpelling(observation) };
       }))
     : undefined;
   const spellingBoardResults = spellingEvaluationResults?.length ? chart.learningCycle!.nodes.filter(node => node.role === "evaluation").flatMap(node =>
@@ -253,7 +253,7 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       const construct = first?.constructLinks?.[0]?.constructId;
       const latest = construct ? chart.learningCycle!.observations.filter(row => !row.sourceId.startsWith("evaluation:")
         && row.assistance?.status === "unassisted" && row.constructLinks?.some(link => link.constructId === construct)).at(-1) : undefined;
-      return { display: item.word, ...(typeof first?.result.correct === "boolean" ? { firstTry: first.result.correct } : {}), ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}) };
+      return { display: item.word, ...(typeof first?.result.correct === "boolean" ? { firstTry: first.result.correct } : {}), ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}), ...missedSpelling(latest) };
     })) : undefined;
   // The screen shows her final answer, right or still wrong, and says when she had help (2026-11-15: a fixed answer
   // showed as a cross and a helped one as blank). Her learning record is unchanged: help is never "on her own".
@@ -312,4 +312,10 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       ),
     ),
   };
+}
+
+/** What she typed for a word she missed, so the screen shows her spelling with the cross (BUGS.md S23). */
+function missedSpelling(observation: { childResponse?: unknown; result: { correct?: boolean } } | undefined): { typed?: string } {
+  return observation?.result.correct === false && typeof observation.childResponse === "string" && observation.childResponse.trim()
+    ? { typed: observation.childResponse.trim() } : {};
 }

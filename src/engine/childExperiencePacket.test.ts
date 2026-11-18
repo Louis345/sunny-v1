@@ -57,6 +57,25 @@ describe("buildChildExperiencePacket", () => {
       { display: "sunfish", firstTry: true },
     ]);
   });
+  // BUGS.md S23 (owner, 2026-11-18): Ila typed "nerver" and the results screen showed "nerve ✕", the right word with a
+  // cross, which read as a correct spelling marked wrong and gave false confidence the night before her test. Why the
+  // human caught it: the word on screen was spelled right. Why logs missed it: her record was correct. Why the lab
+  // missed it: these tests checked right/wrong only, never what the screen shows for a miss. Rule: a missed word
+  // carries what she typed, so the screen shows her spelling with the cross.
+  it("carries what she typed for a word she missed, from the same answer that marks it wrong", () => {
+    const link = [{ constructId: "word.n" }];
+    const cycle = { homeworkId: "hw", revision: 3, lifecycle: "baseline_evaluating", domain: "spelling", boards: [{ boardId: "hw:board:4", kind: "successor" }],
+      nodes: [{ nodeId: "eval", role: "evaluation", evidenceContract: { spellingItems: {
+        n: { id: "n", word: "nerve", response: { acceptedForms: ["nerve"] } }, s: { id: "s", word: "stir", response: { acceptedForms: ["stir"] } } } } }],
+      observations: [
+        { itemId: "n", sourceId: "evaluation:eval", constructLinks: link, childResponse: "nirv", result: { correct: false }, assistance: { status: "unassisted" } },
+        { itemId: "s", sourceId: "evaluation:eval", constructLinks: [{ constructId: "word.s" }], childResponse: "stir", result: { correct: true }, assistance: { status: "unassisted" } },
+        { itemId: "n4", sourceId: "activity:check:recall", constructLinks: link, childResponse: "nerver", result: { correct: false }, assistance: { status: "unassisted" } },
+      ] };
+    const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: cycle, activeSessionPlan: { planId: "p", nodePlan: [], adventureBoard: { nodes: [] } } } as never);
+    expect(packet.spellingBoardResults).toEqual([{ display: "nerve", firstTry: false, correct: false, typed: "nerver" }, { display: "stir", firstTry: true }]);
+    expect(packet.spellingEvaluationResults).toEqual([{ display: "nerve", correct: false, typed: "nirv" }, { display: "stir", correct: true }]);
+  });
   // Owner 2026-11-12: the waiting screen shows math too, "their progress, what they worked on". Per board: each
   // problem she answered, shown as her answer, read aloud as the problem; a helped answer is never counted right.
   it("lists each math board's problems as her answers, first try against her latest try without help", () => {

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PreparationState, PreparationStop } from "./adventurePreparationMachine";
 import "./AdventurePreparationScreen.css";
 
-export type PreparationItem = { face: string; spoken: string; correct?: boolean; improved?: boolean; helped?: boolean; own?: boolean };
+export type PreparationItem = { face: string; spoken: string; correct?: boolean; improved?: boolean; helped?: boolean; own?: boolean; /** Her spelling of a missed word, shown with the cross (S23). */ typed?: string };
 
 /** Each report-card group's picture: on her own, fixed it, with help, still growing, practised. */
 const GROUP_ICON: Record<ReportGroup, string> = { own: "✓", fixed: "✨", helped: "🤝", growing: "🌱", practised: "•" };
@@ -131,7 +131,7 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
                     className={`ap-card${reviewing && i === currentReview ? " ap-now" : ""}${reviewing && i > currentReview && currentReview >= 0 ? " ap-wait" : ""}${tapped === i ? " ap-tapped" : ""}`}
                     style={{ animationDelay: `${i * 120}ms` }} onClick={() => hear(i)}
                   >
-                    {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.correct && item.helped && <span className="ap-helped" data-helped aria-hidden="true">🤝</span>}{item.face}<SpeakerIcon />
+                    {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.correct && item.helped && <span className="ap-helped" data-helped aria-hidden="true">🤝</span>}{item.typed ?? item.face}<SpeakerIcon />
                     {item.improved && <span className="ap-new">New!</span>}
                     {reviewed.includes(i) && <i className="ap-seen" aria-hidden="true" />}
                   </button>
@@ -170,7 +170,7 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
                   <span className="ap-lead" aria-hidden="true"><SpeakerIcon /></span>
                   {REPORT_GROUPS.flatMap(group => reportCardGroups(items)[group]).map(({ index: i, ...item }) => (
                     <button key={`${item.face}:${i}`} type="button" data-group={reportGroupOf(item)} aria-label={`Hear ${item.face}${resultName(item)}`} data-result={item.correct === undefined ? undefined : item.correct ? "correct" : "incorrect"} className={`ap-card${tapped === i ? " ap-tapped" : ""}`} onClick={() => hear(i)}>
-                      {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.correct && item.helped && <span className="ap-helped" data-helped aria-hidden="true">🤝</span>}{item.face}
+                      {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.correct && item.helped && <span className="ap-helped" data-helped aria-hidden="true">🤝</span>}{item.typed ?? item.face}
                       {item.improved && <span className="ap-new">New!</span>}
                     </button>
                   ))}

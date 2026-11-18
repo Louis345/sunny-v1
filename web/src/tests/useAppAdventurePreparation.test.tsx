@@ -121,6 +121,15 @@ describe("useAppAdventurePreparation", () => {
       expect(result.current.waiting?.detail ?? "").toContain("New since her first try: mailbox.");
     });
 
+    // BUGS.md S23: a missed word shows what she typed with the cross, never the right spelling with a cross.
+    it("shows her own spelling on a missed word, and still reads the right word aloud", () => {
+      const { result } = open({ packet: { ...finished, spellingBoardResults: [{ display: "mailbox", firstTry: false, correct: true }, { display: "moonlight", firstTry: false, correct: false, typed: "monelite" }] } as never });
+      render(<>{result.current.screen}</>);
+      const missed = screen.getByRole("button", { name: /Hear moonlight/ });
+      expect(missed).toHaveTextContent("monelite");
+      expect(missed).not.toHaveTextContent("moonlight");
+    });
+
     it("opens again after the Discovery screen was already used on this homework", async () => {
       const { result, rerender } = renderHook(({ finishedBoardId }) => useAppAdventurePreparation({
         surface: "chapter", packet: finished as never, childId: "lab", homeworkId: "hw", finishedBoardId, status: status("successor_preparing", []),
