@@ -103,7 +103,7 @@ import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
 import { DiscoveryCompletionChapter } from "./components/DiscoveryCompletionChapter";
 import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
-import { resolvePreparationSurface, useAppAdventurePreparation, boardReadyRaiseHand } from "./components/AdventurePreparation/useAppAdventurePreparation";
+import { resolvePreparationSurface, useAppAdventurePreparation, boardReadyRaiseHand, hasUnbuiltActivity } from "./components/AdventurePreparation/useAppAdventurePreparation";
 import { isPublishedStatus } from "./components/AdventurePreparation/preparationStatusAdapter";
 import { kioskScreenReport } from "./utils/kioskScreenReport";
 import {
@@ -883,6 +883,7 @@ function App() {
     enabled: targetedMathGenerationPending && !parentPreviewActive && !homeworkSessionFinished,
     intervalMs: resolvePreparationSurface(preparationSurfaceInput) ? 10_000 : undefined,
     onStatusChanged: refreshPlannerBoardPacket,
+    keepPollingWhilePublished: hasUnbuiltActivity(plannerBoardPacket),
   });
   // Whether the board is ready is the server's publication fact, not a guess from portal locks.
   const preparationSurface = resolvePreparationSurface({ ...preparationSurfaceInput, published: isPublishedStatus(generationProgress.status) });

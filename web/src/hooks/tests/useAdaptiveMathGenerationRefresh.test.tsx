@@ -38,6 +38,21 @@ describe("useAdaptiveMathGenerationRefresh", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  // BUGS.md S28: a published board with an unbuilt activity waits behind the screen, so the watcher must keep checking
+  // until the rebuilt game appears, then refresh the board once (same status time, changed activity).
+  it("keeps checking a published board while an activity is still unbuilt, and refreshes when it is built", async () => {
+    const onStatusChanged = vi.fn();
+    const published = (status: string) => ({ ok: true, json: async () => ({ updatedAt: "t1", phase: "successor_published", nodes: [{ nodeId: "L", status }] }) });
+    const fetchMock = vi.fn().mockResolvedValueOnce(published("not_ready")).mockResolvedValueOnce(published("not_ready")).mockResolvedValue(published("ready"));
+    vi.stubGlobal("fetch", fetchMock);
+    renderHook(() => useAdaptiveMathGenerationRefresh({ childId: "ila", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged, keepPollingWhilePublished: true }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(onStatusChanged).toHaveBeenCalledTimes(2);
+  });
+
   it("stops the Probe Board watcher when every probe artifact is ready", async () => {
     const onStatusChanged = vi.fn();
     const fetchMock = vi.fn()

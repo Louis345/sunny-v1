@@ -27,6 +27,8 @@ export function useAdaptiveMathGenerationRefresh(input: {
   enabled: boolean;
   intervalMs?: number;
   onStatusChanged: (status: GenerationStatus) => unknown | Promise<unknown>;
+  /** A published board still has an unbuilt activity: keep checking until it is built (BUGS.md S28). */
+  keepPollingWhilePublished?: boolean;
 }) {
   const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}`;
   const [snapshot, setSnapshot] = useState<{
@@ -38,6 +40,8 @@ export function useAdaptiveMathGenerationRefresh(input: {
     checkedAt:number|null;
   }>({scope,status:null,error:null,paused:false,checking:false,checkedAt:null});
   const checkRef = useRef<(() => void) | null>(null);
+  const keepPolling = useRef(Boolean(input.keepPollingWhilePublished));
+  keepPolling.current = Boolean(input.keepPollingWhilePublished);
   const checkNow = useCallback(() => checkRef.current?.(), []);
   useEffect(() => {
     const childId = input.childId?.trim().toLowerCase() ?? "";
@@ -50,6 +54,7 @@ export function useAdaptiveMathGenerationRefresh(input: {
     // planning step (about 15 minutes) and still stop eventually.
     const maxUnchangedPolls = input.intervalMs ? Math.max(10, Math.ceil(UNCHANGED_POLL_WINDOW_MS / input.intervalMs)) : 10;
     let lastUpdatedAt: string | null = null;
+    let lastNodesKey: string | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let running = false;
     let controller: AbortController | null = null;
@@ -75,7 +80,9 @@ export function useAdaptiveMathGenerationRefresh(input: {
         const status = await response.json() as GenerationStatus;
         if (cancelled || requestId !== requestSequence) return;
         setSnapshot(prev=>({scope,status,error:null,paused:false,checking:prev.checking,checkedAt:prev.checkedAt}));
-        const statusChanged = status.updatedAt !== lastUpdatedAt;
+        const nodesKey = JSON.stringify(status.nodes ?? []);
+        const statusChanged = status.updatedAt !== lastUpdatedAt || nodesKey !== lastNodesKey;
+        lastNodesKey = nodesKey;
         if (statusChanged) {
           if (await input.onStatusChanged(status) === null) throw new Error("generation_board_refresh_unavailable");
         }
@@ -83,7 +90,7 @@ export function useAdaptiveMathGenerationRefresh(input: {
         if (lastUpdatedAt !== null && statusChanged) pollCount = 0;
         lastUpdatedAt = status.updatedAt;
         succeeded = true;
-        if (status.phase === "board_ready" || status.phase === "probe_ready" || status.phase === "successor_published") return;
+        if ((status.phase === "board_ready" || status.phase === "probe_ready" || status.phase === "successor_published") && !keepPolling.current) return;
       } catch (error: unknown) {
         if (cancelled || requestId !== requestSequence) return;
         console.warn(" 🎮 [adaptive-math-status] [poll] [unavailable]", error);

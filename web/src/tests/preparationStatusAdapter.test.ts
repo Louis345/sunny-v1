@@ -99,6 +99,24 @@ describe("truthful waiting screen", () => {
   });
 });
 
+// BUGS.md S28 (owner, 2026-11-18): Ila's board 5 was published with two games the credit outage refused, and the kiosk
+// showed a fork whose both paths were locked, then a Quest and a Mystery. Why the human caught it: the map made no
+// sense. Why logs missed it: "published" with Not ready portals was the designed state. Why the lab missed it: a
+// published board was always shown. Owner rule: a board shows only when every activity is built; otherwise the
+// waiting screen stays up while the build is retried.
+describe("a published board with an unbuilt activity", () => {
+  const board = (lock?: string) => ({ activeSessionPlan: { domain: "spelling", adventureBoard: { nodes: [
+    { id: "quest", state: "completed", action: { type: "launch-activity" } },
+    { id: "lanterns", state: lock ? "locked" : "available", action: { type: lock ? "show-locked-reason" : "launch-activity" }, ...(lock ? { lock: { reason: lock } } : {}) },
+  ] } }, childChart: { learningCycle: { lifecycle: "quest_ready" } } }) as never;
+  it("keeps the waiting screen up until every activity is built, then shows the board", () => {
+    const input = (packet: never) => ({ packet, directDiscoveryMode: false, handoff: null, held: true, preview: false, published: true });
+    expect(resolvePreparationSurface(input(board("artifact-not-ready")))).toBe("held");
+    expect(resolvePreparationSurface({ ...input(board()), held: false })).toBeNull();
+    expect(resolvePreparationSurface({ ...input(board("route-not-taken")), held: false })).toBeNull();
+  });
+});
+
 describe("a finished board", () => {
   const packet = (lifecycle: string, domain = "spelling") => ({ activeSessionPlan: { domain }, childChart: { learningCycle: { lifecycle } } }) as never;
   it("opens the same waiting screen until the next board is published", () => {

@@ -20,7 +20,7 @@ export function resolvePreparationSurface(input: {
   directDiscoveryMode: boolean;
   handoff: string | null | undefined;
   held: boolean;
-  /** The server reports the board published; a published board is never held behind the waiting screen. */
+  /** The server reports the board published; it still waits behind the screen while an activity is unbuilt (S28). */
   published?: boolean;
   /** She finished a board this session: the same screen shows what she did while the next one is made. */
   boardFinished?: boolean;
@@ -29,9 +29,17 @@ export function resolvePreparationSurface(input: {
   const domain = input.packet?.activeSessionPlan?.domain;
   if (input.preview || (domain !== "spelling" && domain !== "math")) return null;
   if (input.boardFinished) return input.published ? null : "chapter";
+  // A board shows only when every activity on it is built, published or not (owner, 2026-11-18, BUGS.md S28).
+  if (!input.directDiscoveryMode && hasUnbuiltActivity(input.packet)) return "held";
   if (domain !== "spelling") return input.held && !input.published ? "held" : null;
   if (input.directDiscoveryMode) return input.handoff === "targeted-planning" ? "chapter" : null;
   return input.held && !input.published ? "held" : null;
+}
+
+const UNBUILT_LOCKS = new Set(["generation-needs-attention", "artifact-generating", "artifact-not-ready"]);
+/** An activity on the board that is still being built, or whose build failed and is being retried. */
+export function hasUnbuiltActivity(packet: ChildExperiencePacket | null): boolean {
+  return (packet?.activeSessionPlan?.adventureBoard?.nodes ?? []).some(node => UNBUILT_LOCKS.has(node.lock?.reason ?? ""));
 }
 
 export function preparationWords(packet: ChildExperiencePacket | null): string[] {
