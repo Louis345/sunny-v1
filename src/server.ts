@@ -1,4 +1,7 @@
 import { loadSunnyRuntimeEnvironment } from "./scripts/sunnyMenu";
+import { installClaudeUsageLog } from "./server/claudeUsageLog";
+// Every Claude call logs its tokens (BUGS.md S25); installed before any part of Sunny can call.
+installClaudeUsageLog();
 import { replayHeldCompletions, runStartupCheck } from "./engine/sunnyHealth";
 import { readChildrenConfig } from "./profiles/childrenConfig";
 loadSunnyRuntimeEnvironment();
