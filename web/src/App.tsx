@@ -2308,6 +2308,7 @@ function App() {
             onNodeClick={handlePlannerBoardNodeClick}
             onChoiceClick={handlePlannerBoardChoiceClick}
             onChoiceVisibilityChange={handlePlannerBoardChoiceVisibilityChange}
+            holdCeremony={plannerBoardLaunch != null || preparation.screen != null}
             onUnlockCeremony={(event) => {
               console.log(" 🎮 [AdventureBoard] unlock_ceremony", event);
               // The server log is the only proof a ceremony played on the kiosk (BUGS.md S21).

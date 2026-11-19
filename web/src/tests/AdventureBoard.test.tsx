@@ -294,6 +294,29 @@ describe("AdventureBoard", () => {
     vi.useRealTimers();
   });
 
+  // Owner 2026-11-18: "I did not see any ceremony". Ila's Boss unlocked as her game finished; the ceremony started
+  // at 8:17:35 behind the game and the board came back at 8:17:43. Why the human caught it: nothing to see. Why logs
+  // missed it: [unlock-ceremony] [played] was logged. Why the lab missed it: the board was always on screen in tests.
+  // Rule: while an activity covers the board the ceremony is held, and it plays when the board is visible again.
+  it("holds the unlock ceremony while a game covers the board, then plays it on the board", () => {
+    const onUnlockCeremony = vi.fn();
+    const base: AdventureBoardJson = {
+      schemaVersion: 1, boardId: "held-ceremony", planId: "held-plan", childId: "held-child", domain: "spelling",
+      theme: { background: { type: "solid", value: "#10203d" }, palette: { path: "#fff", completed: "#2f9f6f", available: "#6d5dfc", locked: "#9aa3ad", current: "#f59e0b", preview: "#c6ced6", text: "#fff", panel: "#111827" } },
+      nodes: [
+        { id: "practice", kind: "activity", label: "Practice", state: "completed", position: { x: 0.3, y: 0.6 } },
+        { id: "boss", kind: "boss", label: "Boss", state: "locked", position: { x: 0.7, y: 0.4 }, lock: { reason: "evidence-gated", label: "Preparing" } },
+      ],
+      edges: [{ id: "to-boss", from: "practice", to: "boss", state: "locked" }],
+    };
+    const open = { ...base, nodes: base.nodes.map(node => node.id === "boss" ? { ...node, state: "available" as const, lock: undefined } : node) };
+    const { rerender } = render(<AdventureBoard board={base} onUnlockCeremony={onUnlockCeremony} />);
+    rerender(<AdventureBoard board={open} onUnlockCeremony={onUnlockCeremony} holdCeremony />);
+    expect(onUnlockCeremony).not.toHaveBeenCalled();
+    rerender(<AdventureBoard board={open} onUnlockCeremony={onUnlockCeremony} holdCeremony={false} />);
+    expect(onUnlockCeremony).toHaveBeenCalledWith(expect.objectContaining({ kind: "boss" }));
+  });
+
   it("shows a just-completed node as completed and keeps it replayable", () => {
     const onNodeClick = vi.fn();
     render(

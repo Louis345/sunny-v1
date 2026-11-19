@@ -21,6 +21,7 @@ export type AdventureBoardExperienceProps = {
   onChoiceVisibilityChange?: (choiceSet: AdventureChoiceSet, opened: boolean) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
   onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
+  holdCeremony?: boolean;
 };
 
 export function AdventureBoardExperience({
@@ -35,6 +36,7 @@ export function AdventureBoardExperience({
   onChoiceClick,
   onChoiceVisibilityChange,
   onUnlockCeremony,
+  holdCeremony,
 }: AdventureBoardExperienceProps): React.ReactElement | null {
   const board = packet.activeSessionPlan?.adventureBoard;
   if (!board) return null;
@@ -58,6 +60,7 @@ export function AdventureBoardExperience({
         onChoiceClick={onChoiceClick}
         onChoiceVisibilityChange={onChoiceVisibilityChange}
         onUnlockCeremony={onUnlockCeremony}
+        holdCeremony={holdCeremony}
       />
       {shouldRenderCompanion ? (
         <CompanionLayer

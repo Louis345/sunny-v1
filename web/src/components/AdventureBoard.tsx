@@ -44,6 +44,8 @@ type AdventureBoardProps = {
   onChoiceVisibilityChange?: (choiceSet: AdventureChoiceSet, opened: boolean) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
   onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
+  /** An activity covers the board: hold the unlock ceremony until she can see it (owner, 2026-11-18). */
+  holdCeremony?: boolean;
 };
 
 export type UnlockCeremonyEvent = {
@@ -193,6 +195,7 @@ export function AdventureBoard({
   onChoiceClick,
   onChoiceVisibilityChange,
   onUnlockCeremony,
+  holdCeremony = false,
 }: AdventureBoardProps): React.ReactElement {
   const previousNodeStates = useRef(new Map(board.nodes.map((node) => [node.id, node.state])));
   const boardRef = useRef<HTMLElement | null>(null);
@@ -206,6 +209,9 @@ export function AdventureBoard({
   useEffect(() => {
     // A Quest or Boss plays its ceremony when it opens, or the first time she ever sees it open (owner,
     // 2026-11-05: "they never see the quest and boss node" until it is ready, built ahead of time).
+    // Behind a game she cannot see it (11/18: the Boss ceremony played 7.5 s before she was back on the board).
+    // Hold it: the remembered states stay as they were, so it plays the moment the board is on screen.
+    if (holdCeremony) return;
     const revealed = readRevealedEncounters(board.childId);
     const newlyUnlocked = board.nodes.find((node) => {
       if (node.kind !== "quest" && node.kind !== "boss") return false;
@@ -238,7 +244,7 @@ export function AdventureBoard({
     rememberRevealedEncounter(board.childId, event.nodeId);
     onUnlockCeremony?.(event);
     console.log(` 🎮 [adventure-board] [unlock-ceremony] [started] kind=${event.kind} node=${event.nodeId}`);
-  }, [board.boardId, board.childId, board.nodes, board.edges, onUnlockCeremony]);
+  }, [board.boardId, board.childId, board.nodes, board.edges, onUnlockCeremony, holdCeremony]);
 
   // The running ceremony owns its timers, so a remount (StrictMode, a reconnect) re-arms them instead of
   // leaving the node underground forever.
