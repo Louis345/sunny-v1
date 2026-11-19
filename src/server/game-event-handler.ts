@@ -655,7 +655,12 @@ export function handleGameEventForSession(
           const spellingItem = node.evidenceContract.spellingItems[String(event.target)];
           const hinted = itemWasHinted(childId, launch.nodeId, [String(event.target), String(event.target).slice(launch.nodeId.length + 1), spellingItem.word]);
           if (hinted) console.log(` 🎮 [spelling] [hint] [helped] item=${request.itemId}`);
-          const support = hinted && live.support.status !== "assisted" ? { status: "assisted" as const, scaffolds: [...(live.support.scaffolds ?? []), "game_hint"] } : live.support;
+          // A Quest or Boss check answered with no hint and no companion help is her own answer, as on the word-radar
+          // path; "unknown" made her 11/18 Boss count as practice, so it could not check the Planner (BUGS.md S36).
+          const encounterCheck = (node.role === "quest" || node.role === "boss") && spellingItem.lineage.measurementRole === "fresh_checkpoint";
+          const support = hinted && live.support.status !== "assisted" ? { status: "assisted" as const, scaffolds: [...(live.support.scaffolds ?? []), "game_hint"] }
+            : encounterCheck && live.support.status === "unknown" ? { status: "unassisted" as const, scaffolds: [] as string[] } : live.support;
+          if (encounterCheck && support.status === "unassisted") console.log(` 🎮 [spelling] [encounter-check] [own-answer] item=${request.itemId}`);
           const legacy = {childId,homeworkId:launch.homeworkId,attempt:{...request,...(incomplete ? {incomplete} : {})},support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
           const committed = withOriginalSpellingChart(childId, db => commitOriginalSpellingAttempt(db,launch.homeworkId,request,()=>{
             if (!live.chartItemId) throw new Error("chart_live_presentation_required");
