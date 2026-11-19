@@ -49,6 +49,13 @@ export function noteItemHint(childId: string, nodeId: string, itemId: string, at
   console.log(` 🎮 [item-attempts] [hint] child=${childId} node=${nodeId} item=${itemId} before_try=${state.answers.length + 1}`);
 }
 
+/** Whether the game showed a hint on this word in this game, under any name it used: the item id, its short id or the
+ * word itself (games report the word). Every later answer on it is helped (BUGS.md S30). */
+export function itemWasHinted(childId: string, nodeId: string, names: string[]): boolean {
+  const game = items.get(gameKey(childId, nodeId));
+  return names.some(name => Boolean(name) && game?.get(name)?.hintBeforeTry !== undefined);
+}
+
 // A finished game's tries wait here for its completion to save them; the companion's live view starts clean.
 const finished = new Map<string, Map<string, ItemState>>();
 

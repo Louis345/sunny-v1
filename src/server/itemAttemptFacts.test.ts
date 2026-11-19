@@ -69,3 +69,14 @@ describe("attempt facts for the open problem", () => {
       .toEqual([{ attemptedValue: "34" }, { attemptedValue: "17", hinted: true }]);
   });
 });
+
+// BUGS.md S30 (owner, 2026-11-18, watching Ila rush): a spelling answer fixed seconds after a game hint was saved with
+// help "unknown", so the Planner read a copied hint as her own progress. Games report the hint by the word; the answer
+// arrives by item id. Rule: a hint under any of the word's names makes every later answer on it helped.
+import { itemWasHinted as hintedS30, noteItemHint as hintS30 } from "./itemAttemptFacts";
+it("knows a hinted word by its item id, short id or the word itself", () => {
+  hintS30("s30-lab", "node-a", "caterpillar");
+  expect(hintedS30("s30-lab", "node-a", ["node-a:spelling.word.x", "spelling.word.x", "caterpillar"])).toBe(true);
+  expect(hintedS30("s30-lab", "node-a", ["node-a:spelling.word.y", "spelling.word.y", "dangerous"])).toBe(false);
+  expect(hintedS30("s30-lab", "node-b", ["caterpillar"])).toBe(false);
+});

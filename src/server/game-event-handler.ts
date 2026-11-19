@@ -4,7 +4,7 @@
  */
 
 import { noteGamePace } from "./gamePace";
-import { finishItemAttempts, noteItemAnswer, noteItemHint, noteItemOpened, takeServerTries } from "./itemAttemptFacts";
+import { finishItemAttempts, itemWasHinted, noteItemAnswer, noteItemHint, noteItemOpened, takeServerTries } from "./itemAttemptFacts";
 import { takeCompanionHelpItemIds } from "./companionItemHelp";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { recordClockAttempt } from "../engine/clockTracker";
@@ -645,10 +645,15 @@ export function handleGameEventForSession(
           // Letters left when a built game's word ended are an incomplete try, never a misspelling (G8, 2026-11-10).
           const incomplete = event.incomplete === true;
           if (incomplete) console.log(` 🎮 [spelling] [incomplete-try] [recorded] item=${request.itemId}`);
-          const legacy = {childId,homeworkId:launch.homeworkId,attempt:{...request,...(incomplete ? {incomplete} : {})},support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
+          // A hint the game showed on this word makes every later answer on it helped (BUGS.md S30).
+          const spellingItem = node.evidenceContract.spellingItems[String(event.target)];
+          const hinted = itemWasHinted(childId, launch.nodeId, [String(event.target), String(event.target).slice(launch.nodeId.length + 1), spellingItem.word]);
+          if (hinted) console.log(` 🎮 [spelling] [hint] [helped] item=${request.itemId}`);
+          const support = hinted && live.support.status !== "assisted" ? { status: "assisted" as const, scaffolds: [...(live.support.scaffolds ?? []), "game_hint"] } : live.support;
+          const legacy = {childId,homeworkId:launch.homeworkId,attempt:{...request,...(incomplete ? {incomplete} : {})},support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
           const committed = withOriginalSpellingChart(childId, db => commitOriginalSpellingAttempt(db,launch.homeworkId,request,()=>{
             if (!live.chartItemId) throw new Error("chart_live_presentation_required");
-            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:keyboard.rawResponse,status:incomplete ? "unknown" : keyboard.unreadable ? "ambiguous" : "answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
+            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:keyboard.rawResponse,status:incomplete ? "unknown" : keyboard.unreadable ? "ambiguous" : "answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
           },recordSpellingDiscoveryAttempt)) ?? recordSpellingDiscoveryAttempt(legacy);
           const correct = committed.observations.find(row => row.observationId === request.attemptId)?.result.correct;
           // The private word bank cannot override the code-scored raw response.
