@@ -31,6 +31,12 @@ if (( idle < IDLE_MINUTES )) && [[ "${FORCE_BUSY:-}" != "1" ]]; then
 fi
 say "[idle] [ok] last server log write ${idle} min ago"
 
+# Standing rule (owner, 2026-11-18: "fix the backups issue permanently"): keep the newest 5 deploy backups and
+# delete older ones before every deploy. Only timestamped deploy backups; a backup taken before a record change
+# (rescore-*, ila-current-*, pre-*) is never touched.
+pruned=$(remote "cd ~/SunnyData/backups 2>/dev/null && old=\$(ls -d 20[0-9][0-9][01][0-9][0-3][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9] 2>/dev/null | sort -r | tail -n +6); [ -n \"\$old\" ] && rm -rf \$old && echo \$old")
+[[ -n "$pruned" ]] && say "[backup] [pruned] kept=5 removed=$(echo $pruned | wc -w | tr -d ' ') $(echo $pruned)"
+
 # Saori's disk filled on 2026-11-18 and Sunny crashed mid-session (BUGS.md S18): never deploy onto a nearly full disk.
 free_gb=$(remote "df -g ~ | awk 'NR==2 {print \$4}'")
 if (( ${free_gb:-0} < 10 )); then
@@ -45,14 +51,6 @@ ts=$(date +%Y%m%d-%H%M%S)
 remote "mkdir -p ~/SunnyData/backups/$ts && cp ~/SunnyData/*.db* ~/SunnyData/backups/$ts/ 2>/dev/null; tar czf ~/SunnyData/backups/$ts/context.tgz --exclude='*/provider-diagnostics' --exclude='*/canvas-verification' --exclude='*/superseded' src/context/ila src/context/reina && echo ok" | grep -q ok
 size=$(remote "du -sh ~/SunnyData/backups/$ts | cut -f1")
 say "[backup] [saved] ~/SunnyData/backups/$ts size=$size"
-# Deleting old backups is permanent, so it runs only with the owner's PRUNE_BACKUPS=1; otherwise it reports.
-old=$(remote "cd ~/SunnyData/backups && ls -d 20[0-9][0-9][01][0-9][0-3][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9] 2>/dev/null | sort -r | tail -n +11")
-if [[ -n "$old" && "${PRUNE_BACKUPS:-}" == "1" ]]; then
-  remote "cd ~/SunnyData/backups && rm -rf $(echo $old)"
-  say "[backup] [pruned] removed=$(echo "$old" | wc -l | tr -d ' ') kept=10"
-elif [[ -n "$old" ]]; then
-  say "[backup] [prune-available] $(echo "$old" | wc -l | tr -d ' ') deploy backups older than the newest 10; PRUNE_BACKUPS=1 removes them"
-fi
 
 remote "git fetch -q && git merge -q --ff-only $SHA && git log --oneline -1" | sed 's/^/ 🎮 [deploy] [checkout] /'
 
