@@ -1429,7 +1429,22 @@ async function decideOnce(
   }, opts);
   // Her folder keeps a readable journal of each decision; a failed write is logged inside and never blocks the board.
   writePlannerJournalEntry(saved, saved.decisionHistory.at(-1)!, opts);
+  dropCommittedRequestCopies(cycle, opts);
   return saved;
+}
+
+/** A committed decision is never replayed, so its full request copies go; its answers (receipts) stay (BUGS.md S39:
+ * 611 MB of request copies on the kiosk by 11/18, about 50 MB a day per child). */
+function dropCommittedRequestCopies(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions): void {
+  const dir = path.join(plannerCheckpoint(cycle, opts).draftDir, "provider-diagnostics");
+  try {
+    if (!fs.existsSync(dir)) return;
+    const files = fs.readdirSync(dir).length;
+    fs.rmSync(dir, { recursive: true, force: true });
+    console.log(` 🎮 [storage] [request-copies] [dropped] homework=${cycle.homeworkId} files=${files}`);
+  } catch (error) {
+    console.warn(` 🎮 [storage] [request-copies] [kept] homework=${cycle.homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /** Games Sunny built for her that she played, with her answers in each (owner, 2026-11-09): the Planner may build from one. */

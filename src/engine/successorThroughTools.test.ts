@@ -302,3 +302,15 @@ it("runs one next-board decision when two callers ask at once", async () => {
  expect(a.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(1);
  expect(a.decisionHistory.some(row=>row.eventType==='block')).toBe(false);
 });
+
+// BUGS.md S39 (owner, 2026-11-18: "imagine putting this on a friend's machine, it's a bomb"): every Planner turn kept a
+// full request copy forever (611 MB on the kiosk). A committed decision is never replayed, so its copies go and its
+// answers stay.
+it("drops a decision's request copies once it is committed, keeping its answers", async () => {
+ const f=fixture(true);const opts={rootDir:f.rootDir};
+ const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ const all=fs.readdirSync(f.rootDir,{recursive:true}).map(String);
+ expect(all.some(name=>name.includes('provider-receipts')&&name.endsWith('.json'))).toBe(true);
+ expect(all.some(name=>name.includes('provider-diagnostics'))).toBe(false);
+});
