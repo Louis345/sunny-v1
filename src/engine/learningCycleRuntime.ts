@@ -1020,9 +1020,12 @@ async function askPlanner(
     const evaluationIds=cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId);
     // Spelling Quest and Boss (owner, 2026-11-05): Quest is the primer once fresh evidence exists, Boss the final
     // check after a Quest; each stage is offered only the choices the contract allows it.
+    // Once she has passed a Quest on this homework the Boss stays on the menu (owner, 2026-11-18: after one "not yet"
+    // before her test the Boss vanished until a second Quest; full toolbox, the Planner decides).
+    const questPassed=cycle.nodes.some(node=>node.role==="quest"&&node.state==="completed");
     const actions:LearningProgressionAction[]=cycle.lifecycle==="quest_evaluating"?["generate_boss","generate_support","await_calibration"]
       :cycle.lifecycle==="boss_evaluating"?["await_calibration"]
-      :allowedProgressionActions.filter(action=>action!=="generate_boss"&&action!=="await_calibration");
+      :allowedProgressionActions.filter(action=>(action!=="generate_boss"||questPassed)&&action!=="await_calibration");
     console.log(` 🎮 [canonical-progression] [actions-offered] homework=${cycle.homeworkId} lifecycle=${cycle.lifecycle} actions=${actions.join(",")}`);
     // A dated owner note (owner, 2026-11-11): a fact in the question while it lasts, never a forced step. The Planner decides.
     const ownerNote=activeOwnerNote({childId:cycle.childId,subject:cycle.domain});

@@ -24,6 +24,12 @@ export const OWNER_NOTES: OwnerNote[] = [{
   expiresAfter: "2026-11-15",
   note: "Owner, 11/11, one time: reveal the Quest stop and the Boss stop this week with the new 3D games. Quest = {quest}, Boss = {boss}. Normal gating otherwise.",
   libraryGames: { ila: ["opus-ila", "fable-ila"], reina: ["opus-reina", "fable-reina"] },
+}, {
+  childIds: ["ila"],
+  from: "2026-11-18",
+  expiresAfter: "2026-11-19",
+  note: "Owner, 11/18: her spelling test is 11/19. A Boss before a test is her rite of passage and your check of your own predictions before the paper test; use it if her evidence supports it.",
+  libraryGames: { ila: ["opus-ila", "fable-ila"] },
 }];
 
 export type OfferedLibraryGame = { id: LibraryGameId; title: string; role: "quest" | "boss" };
