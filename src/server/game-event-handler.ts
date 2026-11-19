@@ -313,6 +313,12 @@ export function handleGameEventForSession(
 
   const type = event.type as string;
 
+  // The kiosk played a Quest or Boss unlock ceremony: proof in the server log (BUGS.md S21; owner never saw one).
+  if (type === "unlock_ceremony") {
+    console.log(` 🎮 [unlock-ceremony] [played] child=${s.chartChildId || s.childName || "unknown"} kind=${String(event.kind ?? "unknown")} node=${String(event.nodeId ?? "unknown")}`);
+    return;
+  }
+
   if (TRACEABLE_GAME_EVENT_TYPES.has(type)) {
     // Pace facts for her companion, in every game (2026-11-10).
     if (typeof event.nodeId === "string" && event.nodeId && (s.chartChildId || s.childName)) {

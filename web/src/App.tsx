@@ -2310,6 +2310,8 @@ function App() {
             onChoiceVisibilityChange={handlePlannerBoardChoiceVisibilityChange}
             onUnlockCeremony={(event) => {
               console.log(" 🎮 [AdventureBoard] unlock_ceremony", event);
+              // The server log is the only proof a ceremony played on the kiosk (BUGS.md S21).
+              sendMessage("game_event", { event: { type: "unlock_ceremony", payload: { kind: event.kind, nodeId: event.nodeId } } });
               if (!generatedMathSoundMuted) {
                 playUnlockCeremonySfx(event.kind);
               }
