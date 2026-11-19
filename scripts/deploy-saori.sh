@@ -34,7 +34,7 @@ say "[idle] [ok] last server log write ${idle} min ago"
 # Standing rule (owner, 2026-11-18: "fix the backups issue permanently"): keep the newest 5 deploy backups and
 # delete older ones before every deploy. Only timestamped deploy backups; a backup taken before a record change
 # (rescore-*, ila-current-*, pre-*) is never touched.
-pruned=$(remote "cd ~/SunnyData/backups 2>/dev/null && old=\$(ls -d 20[0-9][0-9][01][0-9][0-3][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9] 2>/dev/null | sort -r | tail -n +6); [ -n \"\$old\" ] && rm -rf \$old && echo \$old")
+pruned=$(remote "cd ~/SunnyData/backups 2>/dev/null && old=\$(ls -d 20[0-9][0-9][01][0-9][0-3][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9] 2>/dev/null | sort -r | tail -n +6); [ -n \"\$old\" ] && printf \"%s\\n\" \"\$old\" | xargs rm -rf && printf \"%s \" \$old")
 [[ -n "$pruned" ]] && say "[backup] [pruned] kept=5 removed=$(echo $pruned | wc -w | tr -d ' ') $(echo $pruned)"
 
 # Saori's disk filled on 2026-11-18 and Sunny crashed mid-session (BUGS.md S18): never deploy onto a nearly full disk.
