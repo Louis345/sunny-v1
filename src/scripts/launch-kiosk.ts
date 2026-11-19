@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { acceptVisibleMacKiosk, bringKioskToFront, countMacWindows, kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macShutdownBrowserTargets, kioskDebugArgs, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
+import { acceptVisibleMacKiosk, bringKioskToFront, countMacWindows, kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macShutdownBrowserTargets, kioskDebugArgs, KIOSK_DISK_CACHE_ARG, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
 import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
@@ -260,6 +260,8 @@ async function main() {
         let candidate: ChildProcess;
         const browserArgs = [
           ...kioskDebugArgs(process.env),
+          // The kiosk's browser cache stays bounded on any machine (BUGS.md S39): 500 MB.
+          KIOSK_DISK_CACHE_ARG,
           "--kiosk",
           "--no-first-run",
           "--no-default-browser-check",

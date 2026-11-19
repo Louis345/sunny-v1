@@ -116,6 +116,9 @@ export function macShutdownBrowserTargets(browserPid: number | undefined, table:
   return browserPid ? [browserPid] : findStaleSunnyKioskPids(table, profileDir);
 }
 
+/** The kiosk browser cache stays bounded on any machine (BUGS.md S39): 500 MB. */
+export const KIOSK_DISK_CACHE_ARG = "--disk-cache-size=524288000";
+
 /** Opt-in console access for the operator (owner 2026-11-09): a debugging port on this Mac only, never the network. */
 export function kioskDebugArgs(env: Partial<Record<string, string | undefined>>): string[] {
   const port = env.SUNNY_KIOSK_DEBUG_PORT?.trim();
