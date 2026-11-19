@@ -39,8 +39,9 @@ pruned=$(remote "cd ~/SunnyData/backups 2>/dev/null && old=\$(ls -d 20[0-9][0-9]
 
 # Saori's disk filled on 2026-11-18 and Sunny crashed mid-session (BUGS.md S18): never deploy onto a nearly full disk.
 free_gb=$(remote "df -g ~ | awk 'NR==2 {print \$4}'")
-if (( ${free_gb:-0} < 10 )); then
-  say "[disk] [low] Saori has ${free_gb} GB free (need 10). Nothing changed."
+min_gb=${MIN_FREE_GB:-10}
+if (( ${free_gb:-0} < min_gb )); then
+  say "[disk] [low] Saori has ${free_gb} GB free (need ${min_gb}). Nothing changed."
   exit 1
 fi
 say "[disk] [ok] ${free_gb} GB free"
