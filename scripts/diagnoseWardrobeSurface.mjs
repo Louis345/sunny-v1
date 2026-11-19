@@ -20,7 +20,7 @@ try {
   const page=await browser.newPage({viewport:{width:1600,height:1100}});
   await page.route('**/matilda-wardrobe-*.vrm',route=>route.fulfill({body:b,contentType:'model/gltf-binary'}));
   await page.goto('http://127.0.0.1:5197/?wardrobeLab=true&wardrobeCompatibilityLab=true&grokBackground=false');
-  await page.getByRole('button',{name:'Review Matilda prepared identity',exact:true}).click();
+  await page.getByRole('button',{name:'Review Pink body (Hikari) prepared identity',exact:true}).click();
   await page.getByLabel('Inspection view',{exact:true}).selectOption('face');
   await page.waitForFunction(()=>{const p=[...document.querySelectorAll('[data-wardrobe-state]')];return p.length===2&&p.every(e=>e.dataset.wardrobeState==='ready')},{},{timeout:25000});
   await page.waitForTimeout(500);await page.screenshot({path:new URL(`${mode}.png`,root).pathname});await page.close();
