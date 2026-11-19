@@ -77,7 +77,7 @@ describe("WardrobeCompatibilityLab", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Review Matilda prepared identity",
+        name: "Review Pink body (Hikari) prepared identity",
       }),
     );
 

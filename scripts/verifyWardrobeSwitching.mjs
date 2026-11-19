@@ -12,7 +12,8 @@ try {
   window.wardrobeExpected={companion:'elli',variant:'sleeveless-dress',accessory:'none'};
   document.addEventListener('click',event=>{
    const label=event.target.closest('button')?.getAttribute('aria-label')??'';
-   if(label.startsWith('Review '))window.wardrobeExpected.companion=label.split(' ')[1].toLowerCase();
+   // Asset id "matilda" is the pink-jacket body, labelled "Pink body (Hikari)" (BUGS.md I7); other labels are the id.
+   if(label.startsWith('Review ')){const name=label.slice('Review '.length).replace(/ prepared identity$/,'');window.wardrobeExpected.companion=name==='Pink body (Hikari)'?'matilda':name.split(' ')[0].toLowerCase();}
    if(label==='Preview Teal Ribbon Dress')window.wardrobeExpected.variant='teal-ribbon-dress';
   });
   document.addEventListener('change',event=>{if(event.target.getAttribute('aria-label')==='Inspection accessory')window.wardrobeExpected.accessory=event.target.value;});
@@ -31,7 +32,7 @@ try {
  await page.route('**/elli-wardrobe-*.vrm',async route=>{markElliRequested();await elliGate;await route.continue().catch(e=>logs.push(`Expected cancelled Elli route: ${e.message}`));});
  await page.goto('http://127.0.0.1:5197/?wardrobeLab=true&wardrobeCompatibilityLab=true&grokBackground=false');
  let requestTimer;try {await Promise.race([elliRequested,new Promise((_,reject)=>{requestTimer=setTimeout(()=>reject(new Error('Elli delayed request never started')),15000)})]);} finally {clearTimeout(requestTimer);}
- await page.getByRole('button',{name:'Review Matilda prepared identity',exact:true}).click();
+ await page.getByRole('button',{name:'Review Pink body (Hikari) prepared identity',exact:true}).click();
  await page.waitForTimeout(500);
  const dressed=page.locator('[data-wardrobe-selection*="matilda-wardrobe-"]');
  assert.equal(await dressed.count(),1,'The pending dressed pane must exist');
@@ -46,7 +47,7 @@ try {
  assert.ok((await page.locator('[data-wardrobe-revealed="true"]').evaluateAll(es=>es.map(e=>e.dataset.wardrobeSelection))).every(k=>JSON.parse(k)[0]==='matilda'));
  await page.getByRole('button',{name:'Review Elli prepared identity',exact:true}).click();await ready();
  await page.route('**/matilda-wardrobe-*.vrm',route=>route.abort('failed'));
- await page.getByRole('button',{name:'Review Matilda prepared identity',exact:true}).click();
+ await page.getByRole('button',{name:'Review Pink body (Hikari) prepared identity',exact:true}).click();
  await page.getByText('Matilda preview unavailable',{exact:true}).waitFor({timeout:25000});
  assert.equal(await page.locator('[data-wardrobe-state="failed"][data-wardrobe-revealed="false"]').count(),1);
  await page.screenshot({path:new URL('switch-failure.png',root).pathname});

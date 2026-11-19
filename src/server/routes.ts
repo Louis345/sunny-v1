@@ -318,6 +318,7 @@ import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalLa
 import { getActiveVoiceSessionManagerForChild, getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
+import { checkCompanionBodies } from "./companionBodyCheck";
 import {
   canonicalJourneyFrontier,
   canonicalStopsLeft,
@@ -832,7 +833,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
   const launchTargetedWorker = runtime.launchAdaptiveMathWorker ?? launchAdaptiveMathWorker;
   setupKioskHealthRoutes(app);
   setupOriginalSpellingParentRoutes(app, isValidRegistryChildId, undefined, runtime.forecastSpelling);
-  setImmediate(() => { resumeAdaptiveMathWorkers(); resumeSuccessorBoards(); });
+  setImmediate(() => {
+    resumeAdaptiveMathWorkers(); resumeSuccessorBoards();
+    // BUGS.md W7 (a): a missing approved companion body is logged at startup; it never blocks.
+    if (!process.env.VITEST) checkCompanionBodies();
+  });
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
     app.use("/themes", express.static(themesDir));
