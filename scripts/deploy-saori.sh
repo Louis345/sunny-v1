@@ -35,7 +35,7 @@ say "[idle] [ok] last server log write ${idle} min ago"
 # delete older ones before every deploy. Only timestamped deploy backups; a backup taken before a record change
 # (rescore-*, ila-current-*, pre-*) is never touched.
 pruned=$(remote "cd ~/SunnyData/backups 2>/dev/null && old=\$(ls -d 20[0-9][0-9][01][0-9][0-3][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9] 2>/dev/null | sort -r | tail -n +6); [ -n \"\$old\" ] && printf \"%s\\n\" \"\$old\" | xargs rm -rf && printf \"%s \" \$old")
-[[ -n "$pruned" ]] && say "[backup] [pruned] kept=5 removed=$(echo $pruned | wc -w | tr -d ' ') $(echo $pruned)"
+if [[ -n "$pruned" ]]; then say "[backup] [pruned] kept=5 removed=$(echo $pruned | wc -w | tr -d ' ') $(echo $pruned)"; fi
 
 # Saori's disk filled on 2026-11-18 and Sunny crashed mid-session (BUGS.md S18): never deploy onto a nearly full disk.
 free_gb=$(remote "df -g ~ | awk 'NR==2 {print \$4}'")
@@ -47,7 +47,7 @@ fi
 say "[disk] [ok] ${free_gb} GB free"
 
 # The backup is the girls' record, not rebuildable debug: request dumps, screenshot checks and set-aside builds stay
-# out (they were 770 MB of each 1 GB backup). Only the newest 10 deploy backups are kept.
+# out (they were 770 MB of each 1 GB backup).
 ts=$(date +%Y%m%d-%H%M%S)
 remote "mkdir -p ~/SunnyData/backups/$ts && cp ~/SunnyData/*.db* ~/SunnyData/backups/$ts/ 2>/dev/null; tar czf ~/SunnyData/backups/$ts/context.tgz --exclude='*/provider-diagnostics' --exclude='*/canvas-verification' --exclude='*/superseded' src/context/ila src/context/reina && echo ok" | grep -q ok
 size=$(remote "du -sh ~/SunnyData/backups/$ts | cut -f1")
