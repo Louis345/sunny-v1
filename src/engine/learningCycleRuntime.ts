@@ -1260,7 +1260,27 @@ type AdvanceInput = {
  * One evidence-cited Planner decision for a closed batch. A provider decision that fails validation,
  * or whose outcome is uncertain, blocks the cycle visibly instead of replaying or re-buying it forever.
  */
+/** Decisions in flight, one per homework: a second caller waits for the first (BUGS.md S38). */
+const decisionsInFlight = new Map<string, Promise<LearningCycleRecordV2>>();
+
 export async function advanceCanonicalCycleFromEvidence(
+  input: AdvanceInput,
+  opts: LearningCycleRepositoryOptions = {},
+): Promise<LearningCycleRecordV2> {
+  // Ila, 2026-11-18: her session end and the scorecard each started the after-Boss decision; the second rebuilt turn 1
+  // from changed facts and blocked her board (provider_stage_request_changed). One decision per homework at a time.
+  const key = `${opts.rootDir ?? ""}\u0000${input.childId}\u0000${input.homeworkId}`;
+  const running = decisionsInFlight.get(key);
+  if (running) {
+    console.log(` 🎮 [canonical-progression] [decision] [joined-in-flight] homework=${input.homeworkId}`);
+    return running;
+  }
+  const decision = advanceCanonicalCycleOnce(input, opts);
+  decisionsInFlight.set(key, decision);
+  try { return await decision; } finally { if (decisionsInFlight.get(key) === decision) decisionsInFlight.delete(key); }
+}
+
+async function advanceCanonicalCycleOnce(
   input: AdvanceInput,
   opts: LearningCycleRepositoryOptions = {},
 ): Promise<LearningCycleRecordV2> {

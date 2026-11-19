@@ -290,3 +290,15 @@ function frozenQuestion(rootDir:string):{facts:{record:{observations:unknown[]}}
  const file=fs.readdirSync(rootDir,{recursive:true}).map(String).find(name=>name.endsWith('tools.question.json'))!;
  return JSON.parse(fs.readFileSync(path.join(rootDir,file),'utf8'));
 }
+
+// BUGS.md S38 (Ila, 2026-11-18): her session end and the scorecard each started the after-Boss decision; the second
+// rebuilt turn 1 from changed facts and blocked her board. Why the human caught it: her board would have sat on the
+// waiting screen the morning of her test. Why logs missed it: two [actions-offered] lines a minute apart looked normal.
+// Why the lab missed it: every test asked once. Rule: one decision per homework at a time; a second caller joins it.
+it("runs one next-board decision when two callers ask at once", async () => {
+ const f=fixture(true);const opts={rootDir:f.rootDir};
+ const [a,b]=await Promise.all([runtime.advanceCanonicalCycleFromEvidence(f.request,opts),runtime.advanceCanonicalCycleFromEvidence(f.request,opts)]);
+ expect(a.revision).toBe(b.revision);
+ expect(a.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(1);
+ expect(a.decisionHistory.some(row=>row.eventType==='block')).toBe(false);
+});
