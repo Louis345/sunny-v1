@@ -65,7 +65,7 @@ export class OrbAudio {
       if (!this.context) return;
       this.volume *= sensory.soundVolume;
       this.music = this.context.createGain();
-      this.music.gain.value = (this.musicOn ? 0.5 : 0) * this.volume;
+      this.music.gain.value = (this.musicOn ? 0.9 : 0) * this.volume;
       // The music runs through a filter: closed it is a muffled heartbeat (the build), open it is the drop.
       this.filter = this.context.createBiquadFilter();
       this.filter.type = "lowpass";
@@ -139,7 +139,7 @@ export class OrbAudio {
   /** Music dips while a line is spoken, like the Fable game. */
   duck(on: boolean): void {
     if (!this.context || !this.music) return;
-    const level = this.musicOn ? (on ? 0.16 : 0.5) * this.volume : 0;
+    const level = this.musicOn ? (on ? 0.3 : 0.9) * this.volume : 0;
     this.music.gain.setTargetAtTime(level, this.context.currentTime, 0.25);
   }
 
@@ -148,7 +148,7 @@ export class OrbAudio {
     this.musicOn = on;
     console.log(` 🎮 [orb-audio] [music] [${on ? "on" : "off"}]`);
     if (!this.context || !this.music) return;
-    this.music.gain.setTargetAtTime(on ? 0.5 * this.volume : 0, this.context.currentTime, 0.15);
+    this.music.gain.setTargetAtTime(on ? 0.9 * this.volume : 0, this.context.currentTime, 0.15);
   }
 
   /** The build: muffle the music to its low end while a question is open. Open it again for the drop. */
@@ -157,7 +157,7 @@ export class OrbAudio {
     const now = this.context.currentTime;
     this.filter.frequency.cancelScheduledValues(now);
     this.filter.frequency.setValueAtTime(this.filter.frequency.value, now);
-    if (on) this.filter.frequency.exponentialRampToValueAtTime(1100, now + 0.6);
+    if (on) this.filter.frequency.exponentialRampToValueAtTime(2200, now + 0.6);
     else this.filter.frequency.exponentialRampToValueAtTime(20000, now + 0.05);
     console.log(` 🎮 [orb-audio] [music] [${on ? "muffled" : "drop"}]`);
   }

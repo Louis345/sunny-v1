@@ -63,7 +63,7 @@ export const CHAMPIONSHIP_PACK: OrbThemePack = {
     ringBell: "/games/cookoff/fable-reina/assets/sfx/ring-bell.mp3",
     levelUp: "/games/cookoff/fable-reina/assets/sfx/level-up.mp3",
   },
-  beds: [{ key: "crowdLoop", volume: 0.5 }, { key: "music", volume: 0.6 }],
+  beds: [{ key: "crowdLoop", volume: 0.5 }, { key: "music", volume: 0.9 }],
   // music-loop.mp3: about 95 beats a minute, first beat half a second in (measured 2026-11-11).
   beat: { bed: "music", bpm: 95, offset: 0.496 },
   cues: { ready: { text: "Ready? Go!" }, throw: "riser", impact: ["takedown", "boom"], shake: "tick", caught: ["ringBell", "crowdCheer", "legendary"], breakFree: "pop", correct: "correct", syllable: "taiko", perfect: "levelUp" },
@@ -135,7 +135,7 @@ export const YOKAI_NIGHT_PACK: OrbThemePack = {
     nightMusic: "/games/cookoff/opus-ila/assets/sfx/music.mp3",
     tap: "/games/cookoff/opus-ila/assets/sfx/tap.mp3",
   },
-  beds: [{ key: "nightMusic", volume: 0.7 }],
+  beds: [{ key: "nightMusic", volume: 1 }],
   // opus-ila music.mp3: 120 beats a minute, loops cleanly on 44 beats (measured 2026-11-11).
   beat: { bed: "nightMusic", bpm: 120, offset: 0.044 },
   cues: { ready: { text: "Ready? Go!" }, throw: "whoosh", impact: ["beam"], shake: "tick", caught: ["moonWake", "giggle"], breakFree: "softOops", correct: "arrive", syllable: "tap", perfect: "legendary" },
@@ -193,7 +193,7 @@ export const MEADOW_PACK: OrbThemePack = {
   id: "meadow",
   name: "Meadow",
   from: "Default: no pack chosen from her chart yet.",
-  beds: [{ key: "music", volume: 0.6 }],
+  beds: [{ key: "music", volume: 0.9 }],
   beat: { bed: "music", bpm: 95, offset: 0.496 },
   shakeLabels: ["Shake...", "Shake...", "Click!"],
   decorate: () => () => undefined,
