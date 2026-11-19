@@ -40,8 +40,8 @@ describe("companion showroom talk contract", () => {
       body: {
         ok: false,
         code: "companion_voice_temporarily_unavailable",
-        error:
-          "Your companion’s voice is taking a short break. Their choice still counts—please try again soon.",
+        // BUGS.md S27 (owner, 2026-11-18): the old line told neither child nor parent anything; minutes are now paused.
+        error: "Your companion is resting for a moment. Your call minutes are paused.",
         retryable: true,
       },
     });
