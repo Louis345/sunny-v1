@@ -285,11 +285,12 @@ export function resolveShowroomTalkRouteFailure(
       ok: false,
       code: "companion_voice_temporarily_unavailable",
       error:
-        "Your companion’s voice is taking a short break. Their choice still counts—please try again soon.",
+        "Your companion is resting for a moment. Your call minutes are paused.",
       retryable: true,
     },
   };
 }
+import { companionVoiceDown, noteCompanionVoiceFailed, noteCompanionVoiceOk } from "./companionVoiceHealth";
 import {
   createElevenLabsPcmSpeaker,
   writeCompanionTalkSseEvent,
@@ -1277,6 +1278,12 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const childId = String(req.body?.childId ?? "").trim().toLowerCase();
     const receiptId = typeof req.body?.receiptId === "string" ? req.body.receiptId.trim() : "";
     if (!childId || !receiptId) return res.status(400).json({ ok: false, error: "call_minute_request_invalid" });
+    // A minute is spent only while the companion can talk (BUGS.md S26): while replies fail, the minute is free.
+    if (companionVoiceDown()) {
+      const clock = callClockForChild(childId);
+      console.log(` 🎮 [rewards] [call-minute] [free] child=${childId} reason=companion_voice_down left=${clock.secondsLeft}s`);
+      return res.json({ ok: true, minutesLeft: clock.minutesLeft, secondsLeft: clock.secondsLeft, secondsGranted: 60, coins: clock.coins, free: true });
+    }
     return res.json(spendCallMinuteForChild(childId, receiptId));
   });
 
@@ -2628,6 +2635,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ? spokenText.slice(0, 220)
           : undefined;
 
+      noteCompanionVoiceOk(talk.childId);
       console.log(
         ` 🎮 [showroom-talk] completed child=${talk.childId} companion=${talk.companionId} room=${talk.showroomTheme} mode=${talk.mode ?? "showroom"} vision=${Boolean(talk.visualSnapshot)} companionCommands=${companionCommands.length} activityRequests=${activityRequests.length}`,
       );
@@ -2701,6 +2709,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       });
     } catch (err: unknown) {
       const failure = resolveShowroomTalkRouteFailure(err);
+      noteCompanionVoiceFailed(String(req.body?.childId ?? ""), err);
       console.error(
         ` 🔴 [showroom-talk] [degraded] code=${failure.body.code} status=${failure.status}`,
       );
@@ -3153,6 +3162,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             activityReaction: talk.activityReaction,
           },
         });
+        noteCompanionVoiceOk(talk.childId);
         console.log(
           ` 🎮 [companion-talk-stream] completed child=${talk.childId} companion=${talk.companionId} firstToken=${latencySpans.firstTokenMs ?? "n/a"}ms firstAudio=${latencySpans.firstAudioMs ?? "n/a"}ms total=${latencySpans.requestToResponseMs}ms`,
         );
@@ -3179,6 +3189,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(" 🔴 [companion-talk-stream] failed", message);
+        noteCompanionVoiceFailed(String(req.body?.childId ?? ""), err);
         speaker?.stop();
         sse("error", { ok: false, error: message });
       } finally {
