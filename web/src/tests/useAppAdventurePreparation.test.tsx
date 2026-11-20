@@ -361,6 +361,35 @@ describe("useAppAdventurePreparation", () => {
   // published at 21:13, but the stop card ignored it, so nothing opened. Why a human would catch it: a child sat in
   // front of a finished board. Why the logs missed it: the screen kept reporting "waiting" and nothing measured how
   // long. Why the lab missed it: stop was tested only on an already-ready board (declining it, below).
+  // BUGS.md S46 (owner + kiosk screenshot, 2026-11-20 02:03-02:20 UTC): board 9 was published and the screen said
+  // "Your map is ready", but the kiosk's copy of the board still marked a game as building, so Let's go did nothing
+  // for 17 minutes ("I press crazy"). Why the human caught it: she pressed and nothing happened. Why the logs missed
+  // it: the dead press logged only in the browser console. Why the lab missed it: Let's go was tested only with a
+  // board copy that already agreed with the server.
+  it("never ignores Let's go: a stale board copy is refreshed, and the board opens once it is current", () => {
+    const sendMessage = vi.fn(), onReveal = vi.fn(), onRefresh = vi.fn(), checkNow = vi.fn();
+    const building = status("successor_preparing", [["a", "ready"], ["b", "preparing"]]);
+    const published = status("successor_published", [["a", "ready"], ["b", "ready"]]);
+    const { result, rerender } = renderHook((props: { surface: PreparationSurface; status: GenerationStatus }) => useAppAdventurePreparation({
+      surface: props.surface, status: props.status, packet, childId: "ila", homeworkId: "hw", finished: false,
+      checkNow, onFinish: vi.fn(), onReveal, onRefresh, sendMessage,
+    }), { initialProps: { surface: "held" as PreparationSurface, status: building } });
+    rerender({ surface: null, status: published });
+    // The server says published; the kiosk's board copy still marks a game as building.
+    rerender({ surface: "held", status: published });
+    const view = render(<>{result.current.screen}</>);
+    fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
+    view.unmount();
+    expect(onRefresh).toHaveBeenCalledOnce();
+    expect(checkNow).toHaveBeenCalledOnce();
+    expect(sendMessage.mock.calls.map(call => (call[1] as { event: { payload: { button?: string } } }).event.payload.button)).toContain("lets_go_waiting");
+    expect(onReveal).not.toHaveBeenCalled();
+    rerender({ surface: null, status: published });
+    expect(onReveal).toHaveBeenCalledOnce();
+    rerender({ surface: null, status: published });
+    expect(onReveal).toHaveBeenCalledOnce();
+  });
+
   it("offers a board that is published after she tapped Stop while it was still being built", () => {
     const { result, rerender } = setup({ surface: "held", status: status("board_generating", [["a", "ready"], ["b", "preparing"]]) });
     const first = render(<>{result.current.screen}</>);

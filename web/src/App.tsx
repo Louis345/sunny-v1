@@ -898,6 +898,7 @@ function App() {
     homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, finishedBoardId: plannerBoardLaunch ? null : finishedBoardId, status: generationProgress.status,
     finished: homeworkSessionFinished, checkNow: generationProgress.checkNow, onFinish: finishHomeworkSession, sendMessage,
     onReveal: () => { if (finishedBoardId) { setFinishedBoardId(null); void refreshPlannerBoardPacket(); } },
+    onRefresh: () => { void refreshPlannerBoardPacket(); },
   });
   // While it is up, only the preparation UI and Elli's portrait show.
   const preparationScreenActive = preparation.screen != null;

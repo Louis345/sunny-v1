@@ -79,6 +79,8 @@ export function useAppAdventurePreparation(input: {
   onFinish: () => void;
   /** "Let's go!" on a next board: the published board has to be read before it can show. */
   onReveal?: () => void;
+  /** Reads the board again; Let's go on a stale board copy asks for it (BUGS.md S46). */
+  onRefresh?: () => void;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
 }): { screen: ReactNode | null; waiting: PreparationWaitingReport | null; readyAt: number | null } {
   const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}:${input.finishedBoardId ?? ""}`;
@@ -170,6 +172,18 @@ export function useAppAdventurePreparation(input: {
   }, [input.surface, published, snapshot !== null, total, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [revealedScope, setRevealedScope] = useState<string | null>(null);
+  // BUGS.md S46: Let's go pressed while the kiosk's board copy still says "building" is remembered, not ignored.
+  const [revealWanted, setRevealWanted] = useState<string | null>(null);
+  const reveal = useCallback(() => {
+    console.log(" 🎮 [adventure-preparation] [reveal] [opened]");
+    sendMessage("game_event", { event: { type: "preparation_exit", payload: { button: "lets_go" } } });
+    setRevealedScope(scope);
+    setRevealWanted(null);
+    input.onReveal?.();
+  }, [scope, sendMessage, input.onReveal]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (revealWanted === scope && revealedScope !== scope && !input.surface && state === "ready") reveal();
+  }, [revealWanted, revealedScope, scope, input.surface, state, reveal]);
   const ctx = snapshot?.context;
   const contextLine = ctx?.line ?? "";
   const contextReady = ctx?.ready ?? 0;
@@ -212,7 +226,14 @@ export function useAppAdventurePreparation(input: {
           onStop={() => { exit("stop_for_now"); send({ type: "STOP" }); }}
           onTryAgain={() => { send({ type: "RETRY" }); input.checkNow(); }}
           onBye={() => { exit(state === "stop" ? "bye_for_now" : "save_for_next_time"); input.onFinish(); }}
-          onLetsGo={() => { if(input.surface || state !== "ready") { console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-publication]"); return; } console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); exit("lets_go"); setRevealedScope(scope); input.onReveal?.(); }}
+          onLetsGo={() => {
+            if (!input.surface && state === "ready") { reveal(); return; }
+            console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-current-board]");
+            exit("lets_go_waiting");
+            setRevealWanted(scope);
+            input.checkNow();
+            input.onRefresh?.();
+          }}
         />
       </div>
     ),
