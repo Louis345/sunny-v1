@@ -273,7 +273,14 @@ describe("AdventureBoard", () => {
     expect(section).toHaveClass("adventure-board--ceremony-shake");
     expect(node()).toHaveClass("adventure-board__node--underground");
 
-    act(() => vi.advanceTimersByTime(800));
+    // Owner 2026-11-20: the board holds its breath while her companion notices ("oh my god, something's happening"),
+    // then the light and the node come. About three seconds of rumble before the reveal.
+    act(() => vi.advanceTimersByTime(2000));
+    expect(section).toHaveClass("adventure-board--ceremony-rumble");
+    expect(document.querySelector(".unlock-ceremony__pillar")).toBeNull();
+    expect(node()).toHaveClass("adventure-board__node--underground");
+
+    act(() => vi.advanceTimersByTime(1800));
     expect(document.querySelector(".unlock-ceremony__pillar")).not.toBeNull();
     expect(document.querySelector(".unlock-ceremony__flash")).not.toBeNull();
     expect(node()).toHaveClass("adventure-board__node--rising");
@@ -1499,7 +1506,7 @@ describe("AdventureBoardExperience", () => {
     const onNodeClick = vi.fn();
     const first = render(<AdventureBoard board={board} onNodeClick={onNodeClick} />);
     expect(screen.getByRole("status", { name: "Quest unlocked" })).toHaveTextContent("Lantern Trail");
-    act(() => vi.advanceTimersByTime(4600));
+    act(() => vi.advanceTimersByTime(7600 /* the ceremony with its rumble build-up (owner, 2026-11-20) */));
     expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Lantern Trail" }));
     expect(onNodeClick).toHaveBeenCalledWith(expect.objectContaining({ id: "quest" }));
@@ -1524,7 +1531,7 @@ describe("AdventureBoardExperience", () => {
       edges: [{ id: "to-quest", from: "start", to: "quest", state: "available" }],
     };
     render(<StrictMode><AdventureBoard board={board} onNodeClick={vi.fn()} /></StrictMode>);
-    act(() => vi.advanceTimersByTime(4600));
+    act(() => vi.advanceTimersByTime(7600 /* the ceremony with its rumble build-up (owner, 2026-11-20) */));
     expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lantern Trail" })).not.toHaveClass("adventure-board__node--underground");
     vi.useRealTimers();

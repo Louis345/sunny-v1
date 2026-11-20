@@ -28,6 +28,7 @@ import { AdventureChoiceModal } from "./AdventureChoiceModal";
 import {
   UNLOCK_CEREMONY_END_MS,
   UNLOCK_CEREMONY_STAGES,
+  ceremonyStageAt,
   UnlockCeremony,
   UnlockCeremonyDim,
   stageReached,
@@ -253,7 +254,7 @@ export function AdventureBoard({
     const timers: ReturnType<typeof setTimeout>[] = [];
     const later = (ms: number, run: () => void) => timers.push(setTimeout(run, ms));
     for (const { stage, at } of UNLOCK_CEREMONY_STAGES.slice(1)) later(at, () => setCeremonyStage(stage));
-    if (unlockCeremony.kind === "boss") later(2500, () => setCeremonyShakeAgain(true));
+    if (unlockCeremony.kind === "boss") later(ceremonyStageAt("rise") + 1250, () => setCeremonyShakeAgain(true));
     later(UNLOCK_CEREMONY_END_MS, () => {
       setUnlockCeremony(null);
       console.log(` 🎮 [adventure-board] [unlock-ceremony] [finished] kind=${unlockCeremony.kind} node=${unlockCeremony.nodeId}`);
@@ -341,6 +342,7 @@ export function AdventureBoard({
         unlockCeremony ? `adventure-board--ceremony-${unlockCeremony.kind}` : "",
         unlockCeremony && !stageReached(ceremonyStage, "open") ? "adventure-board--ceremony-dim" : "",
         unlockCeremony && stageReached(ceremonyStage, "shake") && !ceremonyShakeAgain ? "adventure-board--ceremony-shake" : "",
+        unlockCeremony && stageReached(ceremonyStage, "rumble") && !stageReached(ceremonyStage, "pillar") ? "adventure-board--ceremony-rumble" : "",
         unlockCeremony && ceremonyShakeAgain ? "adventure-board--ceremony-shake-again" : "",
       ].join(" ")}
       style={{

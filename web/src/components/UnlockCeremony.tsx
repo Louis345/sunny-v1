@@ -4,15 +4,8 @@ import "./UnlockCeremony.css";
 /** The approved Quest/Boss unlock ceremony (owner, 2026-11-03, experiments/unlock-ceremony): the board dims and
  * leans in, shakes, a light pillar drops, the node bursts out of the ground, coins draw the new path, then the
  * banner slams in. The board owns the timeline; this overlay only draws the effects for the current stage. */
-export const UNLOCK_CEREMONY_STAGES = [
-  { stage: "dim", at: 0 },
-  { stage: "shake", at: 450 },
-  { stage: "pillar", at: 900 },
-  { stage: "rise", at: 1250 },
-  { stage: "open", at: 1900 },
-  { stage: "banner", at: 2200 },
-] as const;
-export const UNLOCK_CEREMONY_END_MS = 4400;
+import { UNLOCK_CEREMONY_STAGES } from "./unlockCeremonyTimeline";
+export { UNLOCK_CEREMONY_BUILD_UP_MS, UNLOCK_CEREMONY_END_MS, UNLOCK_CEREMONY_STAGES, ceremonyStageAt } from "./unlockCeremonyTimeline";
 export type UnlockCeremonyStage = (typeof UNLOCK_CEREMONY_STAGES)[number]["stage"];
 
 export function stageReached(current: UnlockCeremonyStage, wanted: UnlockCeremonyStage): boolean {

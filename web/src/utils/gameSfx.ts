@@ -1,3 +1,4 @@
+import { ceremonyStageAt } from "../components/unlockCeremonyTimeline";
 import {
   DEFAULT_SENSORY_PROFILE,
   resolveSensoryProfile,
@@ -284,11 +285,14 @@ export function playUnlockCeremonySfx(kind: "quest" | "boss"): boolean {
   const boss = kind === "boss";
   const play = (name: string, rate = 1, volume = 0.85) =>
     playSfxFile(`/sfx/unlock/${name}.mp3`, { label: "unlock-ceremony", rate, volume });
+  // One timeline with the board: the rumble runs under her companion's reaction, then the reveal (owner, 2026-11-20).
+  const at = ceremonyStageAt;
   play("rumble", boss ? 0.8 : 1, boss ? 1 : 0.8);
-  setTimeout(() => play("riser"), 900);
-  setTimeout(() => { play("boom", boss ? 0.75 : 1); if (boss) play("boss"); }, 1250);
-  for (let index = 1; index <= 12; index += 1) setTimeout(() => play("coin", 0.9 + index * 0.05, 0.6), 1900 + index * 70);
-  if (!boss) setTimeout(() => play("fanfare"), 2200);
+  for (let time = at("rumble"); time < at("pillar") - 300; time += 1100) setTimeout(() => play("rumble", boss ? 0.75 : 0.9, 0.55), time);
+  setTimeout(() => play("riser"), at("pillar"));
+  setTimeout(() => { play("boom", boss ? 0.75 : 1); if (boss) play("boss"); }, at("rise"));
+  for (let index = 1; index <= 12; index += 1) setTimeout(() => play("coin", 0.9 + index * 0.05, 0.6), at("open") + index * 70);
+  if (!boss) setTimeout(() => play("fanfare"), at("banner"));
   console.log(" 🎮 [sfx] [unlock-ceremony] [played]", { kind });
   return true;
 }

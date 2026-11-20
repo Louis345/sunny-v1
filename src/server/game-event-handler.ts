@@ -315,7 +315,19 @@ export function handleGameEventForSession(
 
   // The kiosk played a Quest or Boss unlock ceremony: proof in the server log (BUGS.md S21; owner never saw one).
   if (type === "unlock_ceremony") {
-    console.log(` 🎮 [unlock-ceremony] [played] child=${s.chartChildId || s.childName || "unknown"} kind=${String(event.kind ?? "unknown")} node=${String(event.nodeId ?? "unknown")}`);
+    const kind = event.kind === "boss" ? "Boss" : "Quest";
+    const nodeId = String(event.nodeId ?? "unknown");
+    console.log(` 🎮 [unlock-ceremony] [played] child=${s.chartChildId || s.childName || "unknown"} kind=${kind.toLowerCase()} node=${nodeId}`);
+    // Her companion notices the moment live and reacts in her own words, once per node (owner, 2026-11-20).
+    const noticed = (s.unlockCeremoniesNoticed ??= new Set<string>()) as Set<string>;
+    if (noticed.has(nodeId) || typeof s.handleEndOfTurn !== "function") return;
+    noticed.add(nodeId);
+    const label = String(event.label ?? "").replace(/[^\p{L}\p{N} '’!?.,&-]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+    console.log(` 🎮 [unlock-ceremony] [companion-notified] kind=${kind.toLowerCase()} node=${nodeId}`);
+    void s.handleEndOfTurn(
+      `[board_event] Right now a ${kind} is opening on her board${label ? `: "${label}"` : ""}. The board went dark, it is rumbling, and in about three seconds a light will burst and the ${kind} will rise. React in one short, amazed line in your own words, as if you just felt something magical starting. Do not explain it, name problems, or open it for her.`,
+      true,
+    ).catch((err: unknown) => console.error("  🔴 [unlock-ceremony] [companion-notified] failed:", err));
     return;
   }
 
