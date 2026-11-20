@@ -228,6 +228,17 @@ describe("spelling next-board tools", () => {
       expect(add.schema.safeParse({ ...step("act-3", "Radar Again"), creature_encounter: "why" }).success).toBe(false);
     });
 
+    it("tells the Planner what the encounter really is: a reward that asks nothing new, throws from the step's right answers", () => {
+      // Owner 2026-11-20: the note promised re-spelling 'recorded as practice', which never happens (contract 55),
+      // so the Planner was placing encounters to buy practice it never got.
+      const kit = spellingSuccessorToolkit(facts({ creatureEncounters: true }));
+      const add = plannerToolDefinitions(kit.tools).find(tool => tool.name === "add_step")!;
+      const note = String((add.input_schema as any).properties.creature_encounter.description);
+      expect(note).not.toMatch(/spelling this step's words again|recorded as practice|charges the orb/i);
+      expect(note).toMatch(/asks no new questions/i);
+      expect(note).toMatch(/each word she got right on this step is one throw/i);
+    });
+
     it("lets the Planner mark one step with its reason, refuses a second, and carries it into the decision", () => {
       const { kit, state, call } = session(facts({ creatureEncounters: true }));
       call("decide", decision());
