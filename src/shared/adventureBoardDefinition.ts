@@ -231,11 +231,25 @@ function withCollapsedChoices(definition:AdventureJourneyDefinition, selections:
   return taken;
 }
 
+/** A fork she played past is decided: an untapped choice takes the first option whose games are all done
+ * (owner, 2026-11-20: she played both fork games from the board and the Quest behind the fork stayed locked). */
+function withPlayedChoices(definition:AdventureJourneyDefinition, selections:Readonly<Record<string,string>>, completed:readonly string[]):Record<string,string> {
+  const paths = new Map(definition.paths.map(path => [path.id,path.portalIds]));
+  const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  const taken = {...selections};
+  for (const choice of definition.choices) if (!taken[choice.id]) {
+    const played = choice.options.find(option => { const ids = (paths.get(option.pathId) ?? []).map(id => portals.get(id)?.activityNodeId).filter(Boolean);
+      return ids.length > 0 && ids.every(id => completed.includes(id!)); });
+    if (played) taken[choice.id] = played.id;
+  }
+  return taken;
+}
+
 /** Sole interpretation of selected order; completed instruments survive a route switch. */
 export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):{activityNodeId?:string;portalId?:string;choiceId?:string;complete:boolean} {
   const choices = new Map(definition.choices.map(choice => [choice.portalId,choice]));
   for (const [choiceId,optionId] of Object.entries(chosen)) if (!definition.choices.some(choice => choice.id === choiceId && choice.options.some(option => option.id === optionId))) throw new Error(`choice_option_missing:${choiceId}:${optionId}`);
-  const selections = withCollapsedChoices(definition,chosen,notReady);
+  const selections = withCollapsedChoices(definition,withPlayedChoices(definition,chosen,completed),notReady);
   const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
   if (!execution) throw new Error('journey_selection_incompatible');
   // A not-ready activity is never played, so the path passes over it.
@@ -257,7 +271,7 @@ export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Re
 /** Stops left on her path before the board is finished (owner, 2026-11-07: show how close the call is). Follows the
  * chosen route, or the first compatible route while a choice is open; a not-ready stop is passed over. */
 export function journeyStopsLeft(definition:AdventureJourneyDefinition, chosen:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):number {
-  const selections = withCollapsedChoices(definition,chosen,notReady);
+  const selections = withCollapsedChoices(definition,withPlayedChoices(definition,chosen,completed),notReady);
   const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
   if (!execution) return 0;
   const done = new Set([...completed,...notReady]);
