@@ -8,6 +8,7 @@ import type { CapturedMonsterConfig } from "../../../src/shared/capturedMonsterC
 import { eggReadyToHatch, proveEggItem, type CreatureEgg } from "../../../src/shared/creatureEncounters";
 import type { Season, SkyMood } from "../../../src/shared/skyClock";
 import { SKY, buildMeadow } from "./orbMeadowScenery";
+import { OrbAnnouncer } from "./orbAnnouncer";
 import { OrbAudio } from "./orbAudio";
 import { loadCompanion } from "./orbCompanion";
 import { MEADOW_PACK, type OrbThemePack } from "./orbThemePacks";
@@ -36,6 +37,8 @@ export interface EggHatch3DProps {
   timeOfDay: SkyMood;
   season: Season;
   companionVrmUrl?: string;
+  /** Whose recorded announcer bank to play; none means the game's own lines. */
+  announcerChildId?: string;
   onHatched?: () => void;
 }
 
@@ -101,7 +104,7 @@ function paintEgg(base: HTMLCanvasElement, glow: HTMLCanvasElement, hue: number,
   }
 }
 
-export function EggHatch3D({ creature, items, drilledOn, proven = [], today, theme = MEADOW_PACK, timeOfDay, season, companionVrmUrl, onHatched }: EggHatch3DProps) {
+export function EggHatch3D({ creature, items, drilledOn, proven = [], today, theme = MEADOW_PACK, timeOfDay, season, companionVrmUrl, announcerChildId, onHatched }: EggHatch3DProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [egg, setEgg] = useState<CreatureEgg>({ itemIds: items.map((item) => item.id), drilledOn, proven });
   const eggRef = useRef(egg);
@@ -112,6 +115,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
   const [banner, setBanner] = useState<string | null>(null);
   const [webgl, setWebgl] = useState(true);
   const audioRef = useRef<OrbAudio | null>(null);
+  const announcerRef = useRef<OrbAnnouncer | null>(null);
   const musicOnRef = useRef(readMusicPref());
   // The scene reads these each frame.
   const cracksRef = useRef(egg.proven.length);
@@ -128,7 +132,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
     if (today <= drilledOn) setBanner("The egg needs a day to rest. Come back tomorrow!");
     setChecking(open);
     setFeedback(null);
-    audioRef.current?.say("This one is just you. Ready? Go!");
+    if (!announcerRef.current?.call({ event: "eggIntro" })) audioRef.current?.say("This one is just you. Ready? Go!");
   };
 
   const answerCheck = (question: OrbQuestion, given: string) => {
@@ -142,12 +146,13 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
       audio?.play("takedown", { volume: 0.55, rate: 1.4 });
       audio?.play(theme.cues.correct, { volume: 0.6 });
       elliRef.current?.feel("happy");
+      announcerRef.current?.call({ event: "eggCrack" });
       setFeedback(null);
     } else {
       // A miss never hurts the egg. It just stays as it is, and the word goes back into practice.
       wobbleRef.current = 0.3;
       elliRef.current?.feel("relaxed");
-      if (result.reason === "not-yet") audio?.say("Not yet. We'll practice that one more.");
+      if (result.reason === "not-yet" && !announcerRef.current?.call({ event: "eggNotYet" })) audio?.say("Not yet. We'll practice that one more.");
       setFeedback(result.reason === "not-yet" ? "Not yet. More practice!" : null);
     }
     const rest = (checking ?? []).slice(1);
@@ -191,7 +196,13 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
     audioRef.current = audio;
     audio.setMusic(musicOnRef.current);
     audio.setBeat(theme.beat);
-    void audio.load().then(() => theme.beds.forEach((bed) => audio.loop(bed.key, bed.volume * 0.8)));
+    let disposed = false;
+    void audio.load().then(async () => {
+      theme.beds.forEach((bed) => audio.loop(bed.key, bed.volume * 0.8));
+      const announcer = await OrbAnnouncer.load(announcerChildId, audio);
+      if (disposed) return announcer?.dispose();
+      announcerRef.current = announcer;
+    }).catch((error) => console.warn(" 🎮 [egg] [audio] [load-failed]", error));
     const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 200);
     const cameraHome = new THREE.Vector3(0, 2.1, 6.4);
     const meadow = buildMeadow(scene, { timeOfDay, season });
@@ -446,7 +457,9 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
           audio.play("boom", { volume: 0.8 });
           audio.play("fanfare", { volume: 0.8, jitter: 0 });
           window.setTimeout(() => audio.play("legendary", { volume: 0.7, jitter: 0 }), 400);
-          theme.caughtLine.forEach((line, index) => window.setTimeout(() => audio.say(line.text, line.lang), 900 + index * 1100));
+          if (!announcerRef.current?.call({ event: "hatch", creatureId: creature.id })) {
+            theme.caughtLine.forEach((line, index) => window.setTimeout(() => audio.say(line.text, line.lang), 900 + index * 1100));
+          }
           pet.visible = true;
           petShadow.visible = true;
           elli.dance();
@@ -514,6 +527,9 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
       elli.dispose();
       elliRef.current = null;
       meadow.dispose();
+      disposed = true;
+      announcerRef.current?.dispose();
+      announcerRef.current = null;
       audio.dispose();
       audioRef.current = null;
       composer.dispose();
@@ -521,7 +537,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
       mount.removeChild(renderer.domElement);
       console.log(" 🎮 [egg] [scene] [disposed]");
     };
-  }, [creature, timeOfDay, season, companionVrmUrl, theme]);
+  }, [creature, timeOfDay, season, companionVrmUrl, theme, announcerChildId]);
 
   const total = egg.itemIds.length;
   return (
@@ -550,7 +566,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
         </button>
       ) : null}
       {checking && checking[0] ? (
-        <QuestionCard key={checking[0].id} question={checking[0]} feedback={feedback} hinted={false} hintable={false} beatChunks={false} title="CRACK THE EGG" submitLabel="Crack it!" audio={audioRef.current} onAnswer={answerCheck} />
+        <QuestionCard key={checking[0].id} question={checking[0]} feedback={feedback} hinted={false} hintable={false} beatChunks={false} title="CRACK THE EGG" submitLabel="Crack it!" audio={audioRef.current} sayWord={(word) => announcerRef.current?.sayWord(word) ?? false} onAnswer={answerCheck} />
       ) : null}
       {banner ? (
         <div data-testid="egg-banner" style={{ position: "absolute", bottom: 40, left: "50%", transform: "translateX(-50%)", padding: "10px 20px", borderRadius: 999, background: "rgba(15,23,42,.72)", color: "#ffe680", fontWeight: 900, fontSize: 18, pointerEvents: "none", whiteSpace: "nowrap" }}>

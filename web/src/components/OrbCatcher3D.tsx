@@ -8,6 +8,7 @@ import type { CapturedMonsterConfig } from "../../../src/shared/capturedMonsterC
 import { decideCatch, decideDrillCatch } from "../../../src/shared/creatureEncounters";
 import type { Season, SkyMood } from "../../../src/shared/skyClock";
 import { SKY, buildMeadow } from "./orbMeadowScenery";
+import { OrbAnnouncer } from "./orbAnnouncer";
 import { OrbAudio } from "./orbAudio";
 import { loadCompanion } from "./orbCompanion";
 import { MEADOW_PACK, type OrbThemePack } from "./orbThemePacks";
@@ -65,6 +66,8 @@ export interface OrbQuestion {
   prompt: string;
   answer: string;
   choices?: string[];
+  /** From the record: she missed this one on an earlier day (the announcer may call back to it). */
+  missedBefore?: boolean;
 }
 
 export interface OrbCatcher3DProps {
@@ -80,12 +83,14 @@ export interface OrbCatcher3DProps {
   timeOfDay: SkyMood;
   season: Season;
   companionVrmUrl?: string;
+  /** Whose recorded announcer bank to play (web/public/generated/announcer/<child>); none means the game's own lines. */
+  announcerChildId?: string;
   /** Demo control: fix the catch roll (0 always catches, 0.99 always breaks free). */
   roll?: () => number;
   onResult?: (outcome: "caught" | "escaped") => void;
 }
 
-export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, timeOfDay, season, companionVrmUrl, roll, onResult }: OrbCatcher3DProps) {
+export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, timeOfDay, season, companionVrmUrl, announcerChildId, roll, onResult }: OrbCatcher3DProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [throwsLeft, setThrowsLeft] = useState(throws);
   const [banner, setBanner] = useState<string | null>(drill ? "Answer to load your orb!" : "Pull the orb back and let go!");
@@ -96,6 +101,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
   const rollRef = useRef(roll);
   rollRef.current = roll;
   const audioRef = useRef<OrbAudio | null>(null);
+  const announcerRef = useRef<OrbAnnouncer | null>(null);
   const drillRef = useRef(drill);
   drillRef.current = drill;
   const roundRef = useRef(0);
@@ -137,7 +143,9 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       missedThisQuestion.current = true;
       setStreak(0);
       audio?.setStreak(0);
-      audio?.say(theme.wrongLine.text, theme.wrongLine.lang);
+      // With a bank the announcer owns the voice (and may stay quiet); without one, the game's line.
+      if (announcerRef.current) announcerRef.current.call({ event: "miss" });
+      else audio?.say(theme.wrongLine.text, theme.wrongLine.lang);
       setFeedback(theme.wrongLine.text);
       return;
     }
@@ -155,7 +163,10 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       audio?.play(theme.cues.perfect, { volume: 0.7, jitter: 0 });
       setPerfectFlash((value) => value + 1);
     }
-    audio?.say(theme.cues.ready.text, theme.cues.ready.lang);
+    const word = question.kind === "spelling" ? question.answer : undefined;
+    const event = onBeat ? "perfect" : nextStreak >= 3 && !question.missedBefore ? "streak" : "right";
+    const called = announcerRef.current?.call({ event, streak: nextStreak, word, missedBefore: question.missedBefore }) ?? false;
+    if (!called) audio?.say(theme.cues.ready.text, theme.cues.ready.lang);
     setFeedback(null);
     loadedRef.current = true;
     setNeedQuestion(false);
@@ -193,10 +204,15 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
     audioRef.current = audio;
     audio.setMusic(musicOnRef.current);
     audio.setBeat(theme.beat);
-    void audio.load().then(() => {
+    let disposed = false;
+    void audio.load().then(async () => {
       theme.beds.forEach((bed) => audio.loop(bed.key, bed.volume));
       if (drillRef.current && needQuestionRef.current) audio.muffle(true);
-    });
+      const announcer = await OrbAnnouncer.load(announcerChildId, audio);
+      if (disposed) return announcer?.dispose();
+      announcerRef.current = announcer;
+      announcer?.call({ event: "intro", creatureId: creature.id });
+    }).catch((error) => console.warn(" 🎮 [orb-3d] [audio] [load-failed]", error));
     const say = (line: { text: string; lang?: "en" | "ja" }) => audio.say(line.text, line.lang);
     const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
     const cameraHome = new THREE.Vector3(0, 2.1, 7.4);
@@ -297,8 +313,10 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
         elli.play("think");
         elli.feel("relaxed");
         if (open.kind === "spelling") {
-          audio.say("Listen.", "en");
-          audio.say(open.prompt, "en", 0.6);
+          if (!announcerRef.current?.sayWord(open.prompt)) {
+            audio.say("Listen.", "en");
+            audio.say(open.prompt, "en", 0.6);
+          }
         } else {
           audio.say("Let's knock one out.", "en");
         }
@@ -527,7 +545,9 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             burst(orb.position, auraColor, 2.4);
             flash.intensity = 25;
             theme.cues.caught.forEach((key, index) => window.setTimeout(() => audio.play(key, { volume: 0.8, jitter: 0 }), index * 250));
-            theme.caughtLine.forEach((line, index) => window.setTimeout(() => say(line), 500 + index * 1100));
+            if (!announcerRef.current?.call({ event: "catch", creatureId: creature.id })) {
+              theme.caughtLine.forEach((line, index) => window.setTimeout(() => say(line), 500 + index * 1100));
+            }
             setShakeLabel(null);
             setBanner(`Gotcha! ${creature.speciesName} joined your den!`);
             audio.muffle(false);
@@ -542,7 +562,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             cameraKick = 0.25;
             audio.play(theme.cues.breakFree, { volume: 0.7 });
             audio.tapeStop();
-            say(theme.breakFreeLine(roundRef.current));
+            if (!announcerRef.current?.call({ event: "breakFree" })) say(theme.breakFreeLine(roundRef.current));
             setShakeLabel(null);
             playAction("shrug", false);
             elli.feel("surprised");
@@ -583,6 +603,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
               setNeedQuestion(true);
               // The build: the music muffles to a heartbeat while she answers.
               window.setTimeout(() => audio.muffle(true), 700);
+              announcerRef.current?.call({ event: "round", round: roundRef.current + 1 });
             }
             orb.scale.setScalar(1);
             orb.rotation.set(0, 0, 0);
@@ -643,6 +664,9 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       renderer.domElement.removeEventListener("pointerup", onUp);
       renderer.domElement.removeEventListener("pointercancel", onUp);
       meadow.dispose();
+      disposed = true;
+      announcerRef.current?.dispose();
+      announcerRef.current = null;
       audio.dispose();
       audioRef.current = null;
       composer.dispose();
@@ -650,7 +674,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       mount.removeChild(renderer.domElement);
       console.log(" 🎮 [orb-3d] [scene] [disposed]");
     };
-  }, [creature, timeOfDay, season, companionVrmUrl, theme]);
+  }, [creature, timeOfDay, season, companionVrmUrl, theme, announcerChildId]);
 
   const rarityName = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" }[creature.rarity];
   return (
@@ -668,7 +692,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
         </div>
       ) : null}
       {drill && needQuestion && queue[0] ? (
-        <QuestionCard key={`${queue[0].id}:${round}:${feedback ?? ""}`} question={queue[0]} feedback={feedback} hinted={hintFor === queue[0].id} round={round + 1} streak={streak} syllableCue={theme.cues.syllable} audio={audioRef.current} onAnswer={answer} />
+        <QuestionCard key={`${queue[0].id}:${round}:${feedback ?? ""}`} question={queue[0]} feedback={feedback} hinted={hintFor === queue[0].id} round={round + 1} streak={streak} syllableCue={theme.cues.syllable} audio={audioRef.current} sayWord={(word) => announcerRef.current?.sayWord(word) ?? false} onAnswer={answer} />
       ) : null}
       {perfectFlash ? (
         <div key={perfectFlash} data-testid="orb-3d-perfect" style={{ position: "absolute", top: "42%", left: "50%", color: "#ffd84a", font: "950 64px Lexend, system-ui, sans-serif", textShadow: "0 0 24px #ffb800, 0 6px 20px rgba(0,0,0,.5)", pointerEvents: "none", animation: "orbPerfect 1.3s ease-out forwards", zIndex: 5 }}>
@@ -756,6 +780,7 @@ export function QuestionCard({
   streak = 0,
   syllableCue,
   audio,
+  sayWord,
   onAnswer,
 }: {
   question: OrbQuestion;
@@ -770,6 +795,8 @@ export function QuestionCard({
   streak?: number;
   syllableCue?: string;
   audio: OrbAudio | null;
+  /** The companion's recorded voice for the word; false falls back to the browser voice. */
+  sayWord?: (word: string) => boolean;
   onAnswer: (question: OrbQuestion, given: string) => void;
 }) {
   const [typed, setTyped] = useState("");
@@ -783,7 +810,10 @@ export function QuestionCard({
   const play = () => {
     timers.current.forEach((timer) => window.clearTimeout(timer));
     timers.current = [];
-    audio?.say(question.prompt);
+    const speak = () => {
+      if (!sayWord?.(question.prompt)) audio?.say(question.prompt);
+    };
+    speak();
     if (!chunks.length) return;
     setShown(0);
     setCovered(false);
@@ -796,7 +826,7 @@ export function QuestionCard({
       }, first + index * beatMs));
     });
     const end = first + chunks.length * beatMs + beatMs * 1.5;
-    timers.current.push(window.setTimeout(() => audio?.say(question.prompt), end - beatMs));
+    timers.current.push(window.setTimeout(speak, end - beatMs));
     timers.current.push(window.setTimeout(() => setCovered(true), end + beatMs));
     console.log(` 🎮 [orb-3d] [beat-word] [played] id=${question.id} chunks=${chunks.join("·")}`);
   };

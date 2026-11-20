@@ -10,6 +10,8 @@ import { companionForChild } from "../storybook/companionForChild";
 type Args = {
   creatureId: string;
   child: "ila" | "reina";
+  /** Play this week's recorded announcer bank (run src/scripts/buildAnnouncerBank.ts first); off = the game's own lines. */
+  announcer: boolean;
   theme: string;
   subject: "spelling" | "math";
   /** How many items she already proved on an earlier check. */
@@ -29,6 +31,7 @@ const meta: Meta<Args> = {
   argTypes: {
     creatureId: { control: "select", options: CREATURE_CATALOG.map((species) => species.id) },
     child: { control: "select", options: ["ila", "reina"] },
+    announcer: { control: "boolean" },
     theme: { control: "select", options: Object.keys(ORB_THEME_PACKS) },
     subject: { control: "select", options: ["spelling", "math"] },
     alreadyProven: { control: { type: "range", min: 0, max: 4, step: 1 } },
@@ -36,12 +39,13 @@ const meta: Meta<Args> = {
     timeOfDay: { control: "select", options: ["sunrise", "day", "golden", "twilight", "night"] },
     season: { control: "select", options: ["spring", "summer", "autumn", "halloween", "holiday", "winter"] },
   },
-  args: { creatureId: "lumipuff", child: "ila", theme: "meadow", subject: "spelling", alreadyProven: 0, checkDay: "tomorrow", timeOfDay: "day", season: "autumn" },
+  args: { creatureId: "lumipuff", announcer: true, child: "ila", theme: "meadow", subject: "spelling", alreadyProven: 0, checkDay: "tomorrow", timeOfDay: "day", season: "autumn" },
 };
 export default meta;
 type Story = StoryObj<Args>;
 
-const SPELLING: OrbQuestion[] = ["carnival", "dormant", "pardon", "charge"].map((word) => ({ id: `s:${word}`, kind: "spelling", prompt: word, answer: word }));
+// "pardon" stands in for a word the record shows she missed on an earlier day (the announcer calls back to it).
+const SPELLING: OrbQuestion[] = ["carnival", "dormant", "pardon", "charge"].map((word) => ({ id: `s:${word}`, kind: "spelling", prompt: word, answer: word, missedBefore: word === "pardon" }));
 const MATH: OrbQuestion[] = [
   { id: "m:7x8", kind: "math", prompt: "7 × 8", answer: "56", choices: ["54", "56", "64"] },
   { id: "m:36/4", kind: "math", prompt: "36 ÷ 4", answer: "9", choices: ["8", "9", "12"] },
@@ -57,7 +61,7 @@ function Stage(args: Args): ReactElement {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <EggHatch3D
-        key={`${round}:${creature.id}:${args.child}:${args.theme}:${args.subject}:${args.alreadyProven}:${args.checkDay}`}
+        key={`${round}:${creature.id}:${args.child}:${args.announcer}:${args.theme}:${args.subject}:${args.alreadyProven}:${args.checkDay}`}
         creature={creature}
         items={items}
         drilledOn="2026-11-11"
@@ -67,6 +71,7 @@ function Stage(args: Args): ReactElement {
         timeOfDay={args.timeOfDay}
         season={args.season}
         companionVrmUrl={companion.vrmUrl}
+        announcerChildId={args.announcer ? args.child : undefined}
         onHatched={() => console.info(" 🎮 [storybook:egg] [hatched]", round)}
       />
       <button type="button" onClick={() => setRound((value) => value + 1)} style={{ position: "fixed", bottom: 12, right: 12, zIndex: 9, opacity: 0.6 }}>

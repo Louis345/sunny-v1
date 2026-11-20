@@ -94,6 +94,37 @@ export class OrbAudio {
     console.log(` 🎮 [orb-audio] [load] [ready] sounds=${this.buffers.size}/${Object.keys(this.sounds).length}`);
   }
 
+  /** Load more clips after the start (the announcer's bank); same decode path as the theme sounds. */
+  async loadExtra(sounds: Record<string, string>): Promise<number> {
+    if (!this.context) return 0;
+    let loaded = 0;
+    await Promise.all(
+      Object.entries(sounds).map(async ([key, url]) => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`status ${response.status}`);
+          const buffer = await this.context!.decodeAudioData(await response.arrayBuffer());
+          if (!this.disposed) {
+            this.buffers.set(key, buffer);
+            loaded += 1;
+          }
+        } catch (error) {
+          console.warn(` 🎮 [orb-audio] [load-extra] [skipped] key=${key}`, error);
+        }
+      }),
+    );
+    return loaded;
+  }
+
+  /** Seconds a loaded clip lasts (0 when it is not loaded). */
+  duration(key: string): number {
+    return this.buffers.get(key)?.duration ?? 0;
+  }
+
+  has(key: string): boolean {
+    return this.buffers.has(key);
+  }
+
   /** Browsers start audio only after a tap; call this from the first pointer press. */
   resume(): void {
     if (this.context?.state === "suspended") void this.context.resume().catch(() => undefined);

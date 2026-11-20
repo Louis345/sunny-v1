@@ -14,6 +14,8 @@ type Args = {
   luck: "random" | "always catch" | "always break free";
   theme: string;
   child: "ila" | "reina";
+  /** Play this week's recorded announcer bank (run src/scripts/buildAnnouncerBank.ts first); off = the game's own lines. */
+  announcer: boolean;
   /** 0 = no drill (throws as before); otherwise the round the Planner wants the catch on. */
   plannedRounds: number;
   subject: "spelling" | "math";
@@ -33,15 +35,17 @@ const meta: Meta<Args> = {
     luck: { control: "select", options: ["random", "always catch", "always break free"] },
     theme: { control: "select", options: Object.keys(ORB_THEME_PACKS) },
     child: { control: "select", options: ["ila", "reina"] },
+    announcer: { control: "boolean" },
     plannedRounds: { control: { type: "range", min: 0, max: 8, step: 1 } },
     subject: { control: "select", options: ["spelling", "math"] },
   },
-  args: { creatureId: "lumipuff", throws: 3, timeOfDay: "day", season: "autumn", luck: "random", theme: "meadow", child: "ila", plannedRounds: 0, subject: "spelling" },
+  args: { creatureId: "lumipuff", announcer: true, throws: 3, timeOfDay: "day", season: "autumn", luck: "random", theme: "meadow", child: "ila", plannedRounds: 0, subject: "spelling" },
 };
 export default meta;
 type Story = StoryObj<Args>;
 
-const SPELLING: OrbQuestion[] = ["carnival", "dormant", "pardon", "charge"].map((word) => ({ id: `s:${word}`, kind: "spelling", prompt: word, answer: word }));
+// "pardon" stands in for a word the record shows she missed on an earlier day (the announcer calls back to it).
+const SPELLING: OrbQuestion[] = ["carnival", "dormant", "pardon", "charge"].map((word) => ({ id: `s:${word}`, kind: "spelling", prompt: word, answer: word, missedBefore: word === "pardon" }));
 const MATH: OrbQuestion[] = [
   { id: "m:7x8", kind: "math", prompt: "7 × 8", answer: "56", choices: ["54", "56", "64"] },
   { id: "m:36/4", kind: "math", prompt: "36 ÷ 4", answer: "9", choices: ["8", "9", "12"] },
@@ -62,7 +66,7 @@ function Stage(args: Args): ReactElement {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <OrbCatcher3D
-        key={`${round}:${creature.id}:${args.throws}:${args.theme}:${args.child}:${args.plannedRounds}:${args.subject}`}
+        key={`${round}:${creature.id}:${args.throws}:${args.theme}:${args.child}:${args.announcer}:${args.plannedRounds}:${args.subject}`}
         theme={theme}
         drill={drill}
         creature={creature}
@@ -70,6 +74,7 @@ function Stage(args: Args): ReactElement {
         timeOfDay={args.timeOfDay}
         season={args.season}
         companionVrmUrl={companion.vrmUrl}
+        announcerChildId={args.announcer ? args.child : undefined}
         roll={roll}
         onResult={(outcome) => {
           console.info(" 🎮 [storybook:orb-3d] [result]", outcome);
