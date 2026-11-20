@@ -996,7 +996,8 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("You are in a video call");
     expect(prompt).toContain("Do not claim you can see");
     expect(prompt).toContain("fresh camera snapshot");
-    expect(prompt).toContain("ask the child to tap Look");
+    // BUGS.md S34 (2026-11-19): the Look button is for the child's things; her own clothes come from facts or lookAtMyself.
+    expect(prompt).toContain("ask her to tap Look only for those");
     expect(prompt).toContain("The child was holding a blue marker.");
   });
 

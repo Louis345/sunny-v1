@@ -69,6 +69,7 @@ import {
   type WardrobeSelection,
 } from "../lib/wardrobeStore";
 import { type ServerWallet } from "../lib/wardrobeWallet";
+import { callCompanionLook, createSelfLookGuard, noteTryOn, portraitSnapshot, type PortraitSnapshot } from "../lib/callSelfLook";
 import { fittedCallLook, loadCallStartLook } from "../lib/callStartLook";
 import { callCompanionIndex, callPortraitLook } from "../utils/callCompanion";
 import {
@@ -2537,6 +2538,7 @@ function CompanionSlot({
   onVrmAttached,
   onModelFailed,
   onHeadScreenAnchorChange,
+  onCaptureReady,
 }: {
   entry: CompanionManifestEntry;
   slot: SlotName;
@@ -2565,6 +2567,8 @@ function CompanionSlot({
   /** The model itself could not load or render; the caller can draw another model (the call portrait's own body). */
   onModelFailed?: (modelUrl: string) => void;
   onHeadScreenAnchorChange?: (anchor: { x: number; y: number } | null) => void;
+  /** BUGS.md S34: hands the call a way to take her picture; returns the unregister. */
+  onCaptureReady?: (capture: () => PortraitSnapshot | null) => () => void;
 }) {
   const onModelFailedRef = useRef(onModelFailed);
   onModelFailedRef.current = onModelFailed;
@@ -2579,6 +2583,19 @@ function CompanionSlot({
   const rendererRef = useRef<CompanionRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const onCaptureReadyRef = useRef(onCaptureReady);
+  onCaptureReadyRef.current = onCaptureReady;
+  useEffect(() => {
+    // BUGS.md S34: her picture is drawn fresh and read in the same task, so the canvas is not blank.
+    return onCaptureReadyRef.current?.(() => {
+      const renderer = rendererRef.current;
+      const scene = sceneRef.current;
+      const camera = cameraRef.current;
+      if (!renderer || !scene || !camera) return null;
+      renderer.render(scene, camera);
+      return portraitSnapshot(renderer.domElement);
+    });
+  }, []);
   const wardrobeHeadRef = useRef<THREE.Object3D | null>(null);
   const headProjectionRef = useRef(new THREE.Vector3());
   const lastHeadAnchorRef = useRef<{ x: number; y: number } | null>(null);
@@ -3866,6 +3883,17 @@ export function CompanionShowroom({
   const videoCallConversationModeRef = useRef<CompanionConversationMode>("social");
   const videoCallRepeatAfterModeRef = useRef(false);
   const videoChatMotorRef = useRef<CompanionMotor | null>(null);
+  // BUGS.md S34 (2026-11-19): what she wears is told every turn; she may ask once per question to see herself.
+  const selfCapturesRef = useRef<Array<() => PortraitSnapshot | null>>([]);
+  const recentTryOnsRef = useRef<string[]>([]);
+  const selfLookGuardRef = useRef(createSelfLookGuard());
+  const pendingSelfLookRef = useRef<{ question: string; requestedAt: number } | null>(null);
+  const callLookRef = useRef<{ outfitId: string; accessoryId: string; materialVariant: XwearMaterialVariant | null }>({ outfitId: "none", accessoryId: "none", materialVariant: null });
+  const submitTalkRef = useRef<((question: string, options: { source: ShowroomTalkMode; selfLookSnapshot: PortraitSnapshot }) => Promise<void>) | null>(null);
+  const registerSelfCapture = useCallback((capture: () => PortraitSnapshot | null) => {
+    selfCapturesRef.current = [...selfCapturesRef.current, capture];
+    return () => { selfCapturesRef.current = selfCapturesRef.current.filter((item) => item !== capture); };
+  }, []);
   const videoChatContinuousListenRef = useRef(false);
   const wardrobeShoppingContextRef = useRef<WardrobeShoppingContext | null>(null);
   const videoChatNoSpeechRetryCountRef = useRef(0);
@@ -4040,6 +4068,7 @@ export function CompanionShowroom({
   const callLook = callPortraitLook({ shopEnabled: Boolean(earnedCallWallet), current, dressable: wardrobeStoreEntry,
     dressableFailed: Boolean(wardrobeStoreEntry && failedPortraitModels.includes(wardrobeStoreEntry.companionConfig?.vrmUrl ?? wardrobeStoreEntry.vrmUrl)),
     outfitId: effectiveWardrobeOutfitId, accessoryId: effectiveWardrobeAccessoryId, materialVariant: effectiveWardrobeOutfitMaterialVariant });
+  callLookRef.current = callLook;
   const introText = current ? getText(current.id) : "";
   const showroomVideoTraceLink = useMemo(
     () =>
@@ -5077,6 +5106,8 @@ export function CompanionShowroom({
         visualReason?: string;
         turnId?: string;
         shoppingContextOverride?: WardrobeShoppingContext;
+        /** BUGS.md S34: her own picture, sent after she asked to look at herself. */
+        selfLookSnapshot?: PortraitSnapshot;
         callClockEvent?: CallClockMoment;
       },
     ) => {
@@ -5120,14 +5151,14 @@ export function CompanionShowroom({
       const wantsVisualSnapshot =
         talkMode === "video_call" &&
         (options?.forceVisualSnapshot || shouldAttachVideoSnapshotForQuestion(question));
-      const visualSnapshot = wantsVisualSnapshot
+      const visualSnapshot = options?.selfLookSnapshot ?? (wantsVisualSnapshot
         ? captureShowroomVideoSnapshot(
             options?.visualReason ??
               (options?.forceVisualSnapshot
                 ? "look_button"
                 : "child_asked_visual_question"),
           )
-        : null;
+        : null);
       const conversationIntent =
         talkMode === "video_call"
           ? resolveCompanionConversationMode({
@@ -5228,6 +5259,9 @@ export function CompanionShowroom({
               activeActivity: activeActivityForTalk,
             }),
           ...(visualSnapshot && { visualSnapshot }),
+          ...(talkMode === "video_call" && {
+            companionLook: callCompanionLook(callLookRef.current, recentTryOnsRef.current),
+          }),
           ...(talkMode === "video_call" &&
             showroomVideoLastVisualSummary && {
               lastVisualSummary: showroomVideoLastVisualSummary,
@@ -5268,6 +5302,10 @@ export function CompanionShowroom({
               (typeof data.text === "string" && data.text.trim()) ||
               `${current.name} is thinking.`;
             lastVideoCallResponseRef.current = responseText;
+            if (data.selfLook && talkMode === "video_call" && !options?.selfLookSnapshot && selfLookGuardRef.current.allow(traceTurnId ?? question)) {
+              pendingSelfLookRef.current = { question, requestedAt: talkStartMs };
+              console.log(` 🎮 [self-look] [requested] companion=${current.id} afterMs=${Math.round(performance.now() - talkStartMs)}`);
+            }
             const companionCommands = (data.companionCommands ?? []) as CompanionCommand[];
             const activityRequests = (data.activityRequests ??
               []) as ShowroomCompanionActivityRequest[];
@@ -5439,6 +5477,7 @@ export function CompanionShowroom({
               audioBase64?: string;
 	              audioContentType?: string;
 		              visualSummary?: string;
+		              selfLook?: boolean;
 		              companionCommands?: CompanionCommand[];
 		              activityRequests?: ShowroomCompanionActivityRequest[];
 		              phaseCommands?: {
@@ -5455,6 +5494,10 @@ export function CompanionShowroom({
         );
         const responseText = data.text?.trim() || `${current.name} is thinking.`;
         lastVideoCallResponseRef.current = responseText;
+        if (data.selfLook && talkMode === "video_call" && !options?.selfLookSnapshot && selfLookGuardRef.current.allow(traceTurnId ?? question)) {
+          pendingSelfLookRef.current = { question, requestedAt: talkStartMs };
+          console.log(` 🎮 [self-look] [requested] companion=${current.id} afterMs=${Math.round(performance.now() - talkStartMs)}`);
+        }
         if (talkMode === "video_call") {
           emitShowroomVideoCallTrace({
             eventName: "talk_response_received",
@@ -5684,6 +5727,22 @@ export function CompanionShowroom({
       voiceSelections,
     ],
   );
+  submitTalkRef.current = submitShowroomTalkQuestion;
+
+  useEffect(() => {
+    // BUGS.md S34: once her "let me look" turn has ended, take her picture and ask again with it.
+    const pending = pendingSelfLookRef.current;
+    if (showroomTalkPhase !== "idle" || !pending || !current) return;
+    pendingSelfLookRef.current = null;
+    const snapshot = selfCapturesRef.current.at(-1)?.() ?? null;
+    if (!snapshot) {
+      console.warn(` 🎮 [self-look] [capture] [unavailable] companion=${current.id}`);
+      return;
+    }
+    console.log(` 🎮 [self-look] [captured] companion=${current.id} waitedMs=${Math.round(performance.now() - pending.requestedAt)} size=${snapshot.width}x${snapshot.height}`);
+    submitTalkRef.current?.(pending.question, { source: "video_call", selfLookSnapshot: snapshot })
+      .catch((error: unknown) => console.error(" 🎮 [self-look] [follow-up] [failed]", error));
+  }, [current, showroomTalkPhase]);
 
   const startShowroomTalkListening = useCallback((options?: {
     source?: ShowroomTalkMode;
@@ -6368,6 +6427,9 @@ export function CompanionShowroom({
     resetShowroomTalk();
     setShowroomVideoChatOpen(false);
     setWardrobeStoreReturnTarget(null);
+    recentTryOnsRef.current = [];
+    selfLookGuardRef.current.reset();
+    pendingSelfLookRef.current = null;
     setWardrobeShoppingContext(null);
     wardrobeShoppingContextRef.current = null;
     setShowroomVideoCallPhase("idle");
@@ -6624,6 +6686,7 @@ export function CompanionShowroom({
   const handleWardrobeShoppingContextChange = useCallback(
     (context: WardrobeShoppingContext) => {
       wardrobeShoppingContextRef.current = context;
+      if (context.mode === "try_on" && context.selectedItem) recentTryOnsRef.current = noteTryOn(recentTryOnsRef.current, context.selectedItem.name);
       setWardrobeShoppingContext(context);
     },
     [],
@@ -7634,6 +7697,7 @@ export function CompanionShowroom({
                 wardrobeOutfitId={effectiveWardrobeOutfitId}
                 wardrobeOutfitMaterialVariant={effectiveWardrobeOutfitMaterialVariant}
                 onMotorReady={handleVideoChatMotorReady}
+                onCaptureReady={registerSelfCapture}
                 onLoadSettled={handleWardrobePreviewLoadSettled}
                 onHeadScreenAnchorChange={setCompanionHeadAnchor}
               />
@@ -8111,6 +8175,7 @@ export function CompanionShowroom({
 	            wardrobeOutfitId={callLook.outfitId as WardrobeOutfitId}
 	            wardrobeOutfitMaterialVariant={callLook.materialVariant}
 	            onMotorReady={handleVideoChatMotorReady}
+	            onCaptureReady={registerSelfCapture}
 	            onModelFailed={handlePortraitModelFailed}
 	            onLoadSettled={noopShowroomSlotSettled}
 	          />

@@ -213,7 +213,60 @@ export type ResolvedShowroomTalkRequest = {
   shoppingContext?: ShowroomShoppingContext;
   shoppingEvent?: ShowroomShoppingEvent;
   callClockEvent?: ShowroomCallClockEvent;
+  companionLook?: ShowroomCompanionLook;
 };
+
+/**
+ * What the call draws the companion wearing, by store name ("" = her own clothes / no accessory), and the last
+ * outfits the child tried on her, newest last (BUGS.md S34, 2026-11-19). Code-owned truth: she cannot see herself.
+ */
+export type ShowroomCompanionLook = { outfit: string; accessory: string; recentTryOns: string[] };
+const MAX_RECENT_TRY_ONS = 3;
+
+function resolveCompanionLook(value: unknown): ShowroomCompanionLook | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const name = (item: unknown) => (typeof item === "string" ? item.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) : "");
+  const tried = Array.isArray(raw.recentTryOns) ? raw.recentTryOns.map(name).filter(Boolean) : [];
+  return { outfit: name(raw.outfit), accessory: name(raw.accessory), recentTryOns: tried.slice(-MAX_RECENT_TRY_ONS) };
+}
+
+export const LOOK_AT_MYSELF_TOOL = "lookAtMyself";
+export const SELF_LOOK_SNAPSHOT_REASON = "self_look";
+
+/**
+ * The companion's own way to see itself on the call (S34). Offered on FaceTime turns only, and never on the turn that
+ * already carries her picture, so one question can cause at most one look.
+ */
+export function getShowroomSelfLookTools(input: { mode?: ShowroomTalkMode; visualSnapshot?: ShowroomVisualSnapshot }) {
+  if (input.mode !== "video_call" || input.visualSnapshot?.reason === SELF_LOOK_SNAPSHOT_REASON) return [];
+  return [{
+    name: LOOK_AT_MYSELF_TOOL,
+    description:
+      "See a picture of yourself as the child sees you on the call right now. Use it when the facts about your outfit are not enough, such as how colours look together or what a dress looks like on you. Say only a few words like \"let me look\" with it; the picture comes right after.",
+    input_schema: {
+      type: "object" as const,
+      properties: { reason: { type: "string", description: "Why you want to look, in a few words." } },
+      additionalProperties: false,
+    },
+  }];
+}
+
+/** The answer to a look request inside a tool follow-up: her picture comes on the next turn. */
+export function selfLookToolResults(content: ReadonlyArray<{ type: string; name?: string; id?: string }>) {
+  return content
+    .filter(block => block.type === "tool_use" && block.name === LOOK_AT_MYSELF_TOOL && typeof block.id === "string")
+    .map(block => ({
+      type: "tool_result" as const,
+      tool_use_id: block.id as string,
+      content: JSON.stringify({ type: "self_look_result", accepted: true, instruction: "Your picture comes right after this. Say only a few words like \"let me look\", or nothing." }),
+    }));
+}
+
+/** True when the reply asks for a look at herself. */
+export function selfLookRequested<B extends { type: string }>(content: readonly B[]): boolean {
+  return content.some(block => block.type === "tool_use" && (block as { name?: unknown }).name === LOOK_AT_MYSELF_TOOL);
+}
 
 export type ShowroomTalkCompletedEvent = {
   type: "companion_talk_completed";
@@ -853,6 +906,7 @@ export function resolveShowroomTalkRequest(
   }
   const callTraceId = resolveTraceIdentifier(raw.callTraceId ?? raw.traceId);
   const turnId = resolveTraceIdentifier(raw.turnId);
+  const companionLook = resolveCompanionLook(raw.companionLook);
 
   return {
     ok: true,
@@ -876,6 +930,7 @@ export function resolveShowroomTalkRequest(
       ...(mode === "video_call" && { mode }),
       ...(mode === "video_call" && visualSnapshot && { visualSnapshot }),
       ...(mode === "video_call" && lastVisualSummary && { lastVisualSummary }),
+      ...(mode === "video_call" && companionLook && { companionLook }),
     },
   };
 }
@@ -887,6 +942,9 @@ export function buildShowroomTalkSystemPrompt(input: {
   personality: string;
   mode?: ShowroomTalkMode;
   hasFreshVisualSnapshot?: boolean;
+  /** "self_look" when the picture is the companion's own portrait (S34). */
+  visualSnapshotReason?: string;
+  companionLook?: ShowroomCompanionLook;
   lastVisualSummary?: string;
   callSource?: CompanionCallSource;
   relationshipState?: CompanionRelationshipState;
@@ -1136,11 +1194,24 @@ export function buildShowroomTalkSystemPrompt(input: {
     lines.push(
       "You are in a video call with the child; your 3D companion portrait is visible in the corner.",
       "Do not claim you can see the child, their face, their room, or an object unless this request includes a fresh camera snapshot.",
-      input.hasFreshVisualSnapshot
-        ? "A fresh camera snapshot is included for this turn. Use it only when it helps answer the child."
-        : "No fresh camera snapshot is included. If the child asks a visual question, ask the child to tap Look so you can take a quick look.",
+      input.hasFreshVisualSnapshot && input.visualSnapshotReason === SELF_LOOK_SNAPSHOT_REASON
+        ? "The picture in this turn is you: your own portrait on the call, exactly as the child sees you. It is not the child's camera. Answer her question about how you look from it, warmly and specifically."
+        : input.hasFreshVisualSnapshot
+          ? "A fresh camera snapshot is included for this turn. Use it only when it helps answer the child."
+          : "No fresh camera snapshot is included. The Look button is only for something of the child's (her face, her room, something she holds up); ask her to tap Look only for those.",
       "Never mention screenshots, image data, tokens, or implementation details to the child.",
     );
+    if (input.companionLook) {
+      // BUGS.md S34 (2026-11-19): she cannot see herself, so code tells her; the child dresses her and asks.
+      const look = input.companionLook;
+      lines.push(
+        `You are wearing right now: ${look.outfit ? JSON.stringify(look.outfit) : "your own clothes"}, ${look.accessory ? `accessory ${JSON.stringify(look.accessory)}` : "no accessory"}. This is true even without a picture; answer questions about your clothes from it.`,
+        ...(look.recentTryOns.length
+          ? [`Outfits the child just tried on you, oldest to newest: ${look.recentTryOns.map(name => JSON.stringify(name)).join(", ")}. "This one or that one" means these.`]
+          : []),
+        `To actually see yourself (colours, how it looks on you), call ${LOOK_AT_MYSELF_TOOL}; never send the child to the Look button for your own clothes.`,
+      );
+    }
     if (input.lastVisualSummary) {
       lines.push(`Previous visual context summary: ${input.lastVisualSummary}`);
     }

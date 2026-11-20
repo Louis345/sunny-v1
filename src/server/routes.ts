@@ -260,6 +260,10 @@ import {
   getShowroomCompanionActivityTools,
   getShowroomCompanionActTools,
   getShowroomRelationshipTools,
+  getShowroomSelfLookTools,
+  SELF_LOOK_SNAPSHOT_REASON,
+  selfLookRequested,
+  selfLookToolResults,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
   shouldSynthesizeShowroomSpeech,
@@ -2259,6 +2263,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         personality: primaryPersonality,
         mode: talk.mode,
         hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
+        visualSnapshotReason: talk.visualSnapshot?.reason,
+        companionLook: talk.companionLook,
         lastVisualSummary: talk.lastVisualSummary,
         callSource: talk.callSource,
         relationshipState: talk.relationshipState,
@@ -2281,6 +2287,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         ...getShowroomCompanionActTools(),
         ...getShowroomCompanionActivityTools(),
         ...getShowroomRelationshipTools(),
+        ...getShowroomSelfLookTools({ mode: talk.mode, visualSnapshot: talk.visualSnapshot }),
       ];
       // The system prompt is static across a call (persona + room + memory);
       // caching it cuts Claude's time-to-first-token on every later turn.
@@ -2426,7 +2433,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
               }),
             };
           });
-        const toolResults = [...companionToolResults, ...activityToolResults, ...relationshipToolResults];
+        const toolResults = [...companionToolResults, ...activityToolResults, ...relationshipToolResults, ...selfLookToolResults(msg.content)];
         const toolFollowupStartedAt = Date.now();
         const afterTool = await client.messages.create({
           model: talkModel,
@@ -2640,6 +2647,10 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ? spokenText.slice(0, 220)
           : undefined;
 
+      // BUGS.md S34: one line per look, so its time and cost (the [claude-usage] lines beside it) can be read.
+      const selfLook = selfLookRequested(msg.content);
+      if (selfLook) console.log(` 🎮 [self-look] [requested] child=${talk.childId} companion=${talk.companionId}`);
+      if (talk.visualSnapshot?.reason === SELF_LOOK_SNAPSHOT_REASON) console.log(` 🎮 [self-look] [answered] child=${talk.childId} companion=${talk.companionId} claudeMs=${latencySpans.claudeMs ?? "n/a"} totalMs=${latencySpans.requestToResponseMs ?? "n/a"}`);
       noteCompanionVoiceOk(talk.childId);
       console.log(
         ` 🎮 [showroom-talk] completed child=${talk.childId} companion=${talk.companionId} room=${talk.showroomTheme} mode=${talk.mode ?? "showroom"} vision=${Boolean(talk.visualSnapshot)} companionCommands=${companionCommands.length} activityRequests=${activityRequests.length}`,
@@ -2698,6 +2709,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         activityRequests,
         latencySpans,
         ...(visualSummary && { visualSummary }),
+        ...(selfLook && { selfLook: true }),
         event,
         phaseCommands: {
           speaking: createShowroomTalkPhaseCommand({
@@ -2906,6 +2918,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           personality: primaryPersonality,
           mode: talk.mode,
           hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
+          visualSnapshotReason: talk.visualSnapshot?.reason,
+          companionLook: talk.companionLook,
           lastVisualSummary: talk.lastVisualSummary,
           callSource: talk.callSource,
           relationshipState: talk.relationshipState,
@@ -2926,6 +2940,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ...getShowroomCompanionActTools(),
           ...getShowroomCompanionActivityTools(),
           ...getShowroomRelationshipTools(),
+          ...getShowroomSelfLookTools({ mode: talk.mode, visualSnapshot: talk.visualSnapshot }),
         ];
         // Static per call; caching cuts time-to-first-token on later turns.
         const cachedSystem: Anthropic.TextBlockParam[] = [
@@ -3043,6 +3058,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
               }),
             })),
             ...relationshipToolResults,
+            ...selfLookToolResults(msg.content),
           ];
           const toolFollowupStartedAt = Date.now();
           const afterTool = await client.messages.create({
@@ -3167,6 +3183,10 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             activityReaction: talk.activityReaction,
           },
         });
+        // BUGS.md S34: one line per look, so its time and cost (the [claude-usage] lines beside it) can be read.
+        const selfLook = selfLookRequested(msg.content);
+        if (selfLook) console.log(` 🎮 [self-look] [requested] child=${talk.childId} companion=${talk.companionId}`);
+        if (talk.visualSnapshot?.reason === SELF_LOOK_SNAPSHOT_REASON) console.log(` 🎮 [self-look] [answered] child=${talk.childId} companion=${talk.companionId} claudeMs=${latencySpans.claudeMs ?? "n/a"} totalMs=${latencySpans.requestToResponseMs ?? "n/a"}`);
         noteCompanionVoiceOk(talk.childId);
         console.log(
           ` 🎮 [companion-talk-stream] completed child=${talk.childId} companion=${talk.companionId} firstToken=${latencySpans.firstTokenMs ?? "n/a"}ms firstAudio=${latencySpans.firstAudioMs ?? "n/a"}ms total=${latencySpans.requestToResponseMs}ms`,
@@ -3178,6 +3198,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           activityRequests,
           latencySpans,
           ...(visualSummary && { visualSummary }),
+          ...(selfLook && { selfLook: true }),
           phaseCommands: {
             speaking: createShowroomTalkPhaseCommand({
               childId: talk.childId,
