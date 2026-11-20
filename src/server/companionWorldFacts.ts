@@ -1,4 +1,5 @@
 import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+import { birthdayLine } from "../profiles/birthdayLine";
 import { readCanonicalCycles, returnedWorkCalibrationId, returnedWorkHelpLabel } from "../engine/longitudinalLearning";
 import { getChildChart } from "../profiles/childChart";
 import type { LiveWeather } from "../shared/liveWeather";
@@ -38,7 +39,6 @@ export type CompanionWorldInput = {
 
 const SCHOOL_NEWS_DAYS = 21;
 const MAX_SCHOOL_RESULTS = 3;
-const BIRTHDAY_AHEAD_DAYS = 7;
 
 const SKY_WORDS: Record<SkyMood, string> = {
   sunrise: "early morning, the sun is coming up",
@@ -72,21 +72,6 @@ function whenTalked(at: string, today: string): string {
   if (ago <= 0) return "earlier today";
   if (ago === 1) return `yesterday (${spokenDay(day)})`;
   return `${ago} days ago (${spokenDay(day)})`;
-}
-
-function birthdayLine(birthDate: string | undefined, today: string): string | null {
-  if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null;
-  const year = Number(today.slice(0, 4));
-  for (const candidateYear of [year, year + 1]) {
-    const day = `${candidateYear}${birthDate.slice(4)}`;
-    const until = daysBetween(today, day);
-    if (until < 0) continue;
-    if (until > BIRTHDAY_AHEAD_DAYS) return null;
-    const turns = candidateYear - Number(birthDate.slice(0, 4));
-    if (until === 0) return `Today is her birthday: she is ${turns} today.`;
-    return `Her birthday is ${until === 1 ? "tomorrow" : `in ${until} days`} (${spokenDay(day)}); she turns ${turns}.`;
-  }
-  return null;
 }
 
 /** Every graded test returned for her, with when it reached Sunny (the upload), newest first. */

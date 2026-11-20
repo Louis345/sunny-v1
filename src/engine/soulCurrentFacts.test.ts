@@ -40,3 +40,14 @@ it("names a fact with no date as possibly old instead of passing it off as curre
   expect(text).toContain("Age: 8");
   expect(text).toMatch(/not dated/i);
 });
+
+// Owner 2026-11-20: "Tomorrow's their birthday, so when they do Sunny, the companion should know it's their birthday".
+// FaceTime already had the birthday line (11/15); the homework-session companion only saw "Age: 9 (born 2017-11-21)"
+// and had to do date math to notice. Why the human caught it: only family knows the day matters. Why logs missed it:
+// nothing logs what a prompt leaves implicit. Why the lab missed it: no test set "today" to her birthday.
+it("says plainly when today is her birthday, and when it is coming", () => {
+  const rootDir = child({ grade: 3, gradeSchoolYear: 2026, birthDate: "2017-11-21" });
+  expect(readSoulWithCurrentFacts("soulkid", { rootDir, today: new Date("2026-11-21T15:00:00Z") })).toContain("Today is her birthday: she is 9 today.");
+  expect(readSoulWithCurrentFacts("soulkid", { rootDir, today: new Date("2026-11-20T15:00:00Z") })).toMatch(/Her birthday is tomorrow .*she turns 9/);
+  expect(readSoulWithCurrentFacts("soulkid", { rootDir, today: new Date("2026-12-10T15:00:00Z") })).not.toMatch(/birthday is|Today is her birthday/);
+});

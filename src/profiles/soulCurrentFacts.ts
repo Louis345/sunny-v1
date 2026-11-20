@@ -5,6 +5,7 @@ import path from "node:path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { currentDemographics } from "./currentDemographics";
+import { birthdayLine } from "./birthdayLine";
 
 /**
  * Her soul.md is a dated narrative (Ila's was written from an old evaluation: "Grade: 2nd"). Every AI that reads it gets
@@ -26,6 +27,7 @@ export function currentFactsBlock(childId: string, opts: { rootDir?: string; tod
     typeof facts.age === "number" ? `- Age: ${facts.age}${facts.birthDate ? ` (born ${facts.birthDate})` : ""}${undated.has("age") ? " (not dated; may be out of date)" : ""}` : "",
     typeof facts.grade === "number" ? `- Grade: ${facts.grade}${undated.has("grade") ? " (not dated; may be out of date)" : year}` : "",
     facts.school ? `- School: ${facts.school}` : "",
+    (() => { const line = birthdayLine(facts.birthDate, familyDay(today)); return line ? `- ${line}` : ""; })(),
   ].filter(Boolean);
   if (!lines.length) return "";
   return [`## Current facts (as of ${familyDay(today)}; these replace any age, grade, school or teacher written in the profile below, which was written earlier)`, ...lines].join("\n");
