@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useMemo, useState, type ReactElement } from "react";
 import { CREATURE_CATALOG } from "../../../src/shared/capturedMonsterCatalog";
-import type { Season, SkyMood } from "../../../src/shared/skyClock";
+import { skyMoodNow, type Season, type SkyMood } from "../../../src/shared/skyClock";
 import { OrbCatcher3D, type OrbQuestion } from "../components/OrbCatcher3D";
 import { ORB_THEME_PACKS } from "../components/orbThemePacks";
 import { companionForChild } from "../storybook/companionForChild";
@@ -9,7 +9,8 @@ import { companionForChild } from "../storybook/companionForChild";
 type Args = {
   creatureId: string;
   throws: number;
-  timeOfDay: SkyMood;
+  /** "now" follows the real clock: daylight in the day, dusk at sunset, night at night. */
+  timeOfDay: SkyMood | "now";
   season: Season;
   luck: "random" | "always catch" | "always break free";
   theme: string;
@@ -30,7 +31,7 @@ const meta: Meta<Args> = {
   argTypes: {
     creatureId: { control: "select", options: CREATURE_CATALOG.map((species) => species.id) },
     throws: { control: { type: "range", min: 1, max: 6, step: 1 } },
-    timeOfDay: { control: "select", options: ["sunrise", "day", "golden", "twilight", "night"] },
+    timeOfDay: { control: "select", options: ["now", "sunrise", "day", "golden", "twilight", "night"] },
     season: { control: "select", options: ["spring", "summer", "autumn", "halloween", "holiday", "winter"] },
     luck: { control: "select", options: ["random", "always catch", "always break free"] },
     theme: { control: "select", options: Object.keys(ORB_THEME_PACKS) },
@@ -71,7 +72,7 @@ function Stage(args: Args): ReactElement {
         drill={drill}
         creature={creature}
         throws={args.throws}
-        timeOfDay={args.timeOfDay}
+        timeOfDay={args.timeOfDay === "now" ? skyMoodNow() : args.timeOfDay}
         season={args.season}
         companionVrmUrl={companion.vrmUrl}
         announcerChildId={args.announcer ? args.child : undefined}
@@ -91,11 +92,11 @@ export const Snow: Story = { name: "Winter snow", args: { timeOfDay: "golden", s
 
 export const ReinaChampionshipDrill: Story = {
   name: "Reina: Championship drill (math, catch planned for round 4)",
-  args: { child: "reina", theme: "championship", plannedRounds: 4, subject: "math", creatureId: "emberleaf", timeOfDay: "golden", season: "autumn" },
+  args: { child: "reina", theme: "championship", plannedRounds: 4, subject: "math", creatureId: "emberleaf", timeOfDay: "now", season: "autumn" },
   render: (args) => <Stage {...args} />,
 };
 export const IlaYokaiNightDrill: Story = {
   name: "Ila: Yokai Night drill (spelling, catch planned for round 3)",
-  args: { child: "ila", theme: "yokai-night", plannedRounds: 3, subject: "spelling", creatureId: "glowmoth", timeOfDay: "night", season: "autumn" },
+  args: { child: "ila", theme: "yokai-night", plannedRounds: 3, subject: "spelling", creatureId: "glowmoth", timeOfDay: "now", season: "autumn" },
   render: (args) => <Stage {...args} />,
 };

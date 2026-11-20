@@ -126,6 +126,9 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
   const goldenRef = useRef(false);
   const [perfectFlash, setPerfectFlash] = useState(0);
   const musicOnRef = useRef(readMusicPref());
+  // The card waits to speak until the recorded voice is ready (or known to be missing), so the first word
+  // is never the browser's voice racing the announcer.
+  const [voiceReady, setVoiceReady] = useState(!announcerChildId);
 
   const answer = (question: OrbQuestion, given: string) => {
     const audio = audioRef.current;
@@ -166,7 +169,11 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
     const word = question.kind === "spelling" ? question.answer : undefined;
     const event = onBeat ? "perfect" : nextStreak >= 3 && !question.missedBefore ? "streak" : "right";
     const called = announcerRef.current?.call({ event, streak: nextStreak, word, missedBefore: question.missedBefore }) ?? false;
-    if (!called) audio?.say(theme.cues.ready.text, theme.cues.ready.lang);
+    // The announcer owns the voice when there is a bank: its own Ready? Go!, never the browser's on top.
+    if (!called) {
+      if (announcerRef.current) announcerRef.current.cue("ready");
+      else audio?.say(theme.cues.ready.text, theme.cues.ready.lang);
+    }
     setFeedback(null);
     loadedRef.current = true;
     setNeedQuestion(false);
@@ -212,7 +219,11 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       if (disposed) return announcer?.dispose();
       announcerRef.current = announcer;
       announcer?.call({ event: "intro", creatureId: creature.id });
-    }).catch((error) => console.warn(" 🎮 [orb-3d] [audio] [load-failed]", error));
+      setVoiceReady(true);
+    }).catch((error) => {
+      console.warn(" 🎮 [orb-3d] [audio] [load-failed]", error);
+      setVoiceReady(true);
+    });
     const say = (line: { text: string; lang?: "en" | "ja" }) => audio.say(line.text, line.lang);
     const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
     const cameraHome = new THREE.Vector3(0, 2.1, 7.4);
@@ -312,12 +323,13 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       if (open) {
         elli.play("think");
         elli.feel("relaxed");
+        const announcer = announcerRef.current;
         if (open.kind === "spelling") {
-          if (!announcerRef.current?.sayWord(open.prompt)) {
+          if (!announcer?.sayWord(open.prompt) && !announcer) {
             audio.say("Listen.", "en");
             audio.say(open.prompt, "en", 0.6);
           }
-        } else {
+        } else if (!announcer) {
           audio.say("Let's knock one out.", "en");
         }
         setHintFor(open.id);
@@ -545,7 +557,8 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             burst(orb.position, auraColor, 2.4);
             flash.intensity = 25;
             theme.cues.caught.forEach((key, index) => window.setTimeout(() => audio.play(key, { volume: 0.8, jitter: 0 }), index * 250));
-            if (!announcerRef.current?.call({ event: "catch", creatureId: creature.id })) {
+            if (announcerRef.current) announcerRef.current.call({ event: "catch", creatureId: creature.id });
+            else {
               theme.caughtLine.forEach((line, index) => window.setTimeout(() => say(line), 500 + index * 1100));
             }
             setShakeLabel(null);
@@ -562,7 +575,8 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             cameraKick = 0.25;
             audio.play(theme.cues.breakFree, { volume: 0.7 });
             audio.tapeStop();
-            if (!announcerRef.current?.call({ event: "breakFree" })) say(theme.breakFreeLine(roundRef.current));
+            if (announcerRef.current) announcerRef.current.call({ event: "breakFree" });
+            else say(theme.breakFreeLine(roundRef.current));
             setShakeLabel(null);
             playAction("shrug", false);
             elli.feel("surprised");
@@ -692,7 +706,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
         </div>
       ) : null}
       {drill && needQuestion && queue[0] ? (
-        <QuestionCard key={`${queue[0].id}:${round}:${feedback ?? ""}`} question={queue[0]} feedback={feedback} hinted={hintFor === queue[0].id} round={round + 1} streak={streak} syllableCue={theme.cues.syllable} audio={audioRef.current} sayWord={(word) => announcerRef.current?.sayWord(word) ?? false} onAnswer={answer} />
+        <QuestionCard key={`${queue[0].id}:${round}:${feedback ?? ""}`} question={queue[0]} feedback={feedback} hinted={hintFor === queue[0].id} round={round + 1} streak={streak} syllableCue={theme.cues.syllable} audio={audioRef.current} voiceReady={voiceReady} sayWord={(word) => announcerRef.current?.sayWord(word) ?? false} onAnswer={answer} />
       ) : null}
       {perfectFlash ? (
         <div key={perfectFlash} data-testid="orb-3d-perfect" style={{ position: "absolute", top: "42%", left: "50%", color: "#ffd84a", font: "950 64px Lexend, system-ui, sans-serif", textShadow: "0 0 24px #ffb800, 0 6px 20px rgba(0,0,0,.5)", pointerEvents: "none", animation: "orbPerfect 1.3s ease-out forwards", zIndex: 5 }}>
@@ -781,6 +795,7 @@ export function QuestionCard({
   syllableCue,
   audio,
   sayWord,
+  voiceReady = true,
   onAnswer,
 }: {
   question: OrbQuestion;
@@ -796,7 +811,10 @@ export function QuestionCard({
   syllableCue?: string;
   audio: OrbAudio | null;
   /** The companion's recorded voice for the word; false falls back to the browser voice. */
-  sayWord?: (word: string) => boolean;
+  /** Returns ms until the word has been said, or false (no clip: the browser voice says it). */
+  sayWord?: (word: string) => number | false;
+  /** Hold the first word until the recorded voice has loaded. */
+  voiceReady?: boolean;
   onAnswer: (question: OrbQuestion, given: string) => void;
 }) {
   const [typed, setTyped] = useState("");
@@ -810,15 +828,19 @@ export function QuestionCard({
   const play = () => {
     timers.current.forEach((timer) => window.clearTimeout(timer));
     timers.current = [];
-    const speak = () => {
-      if (!sayWord?.(question.prompt)) audio?.say(question.prompt);
+    const speak = (): number => {
+      const recorded = sayWord?.(question.prompt) ?? false;
+      if (recorded !== false) return recorded;
+      audio?.say(question.prompt);
+      return 0;
     };
-    speak();
+    const wordDoneMs = speak();
     if (!chunks.length) return;
     setShown(0);
     setCovered(false);
     const beatMs = (audio?.beat()?.seconds ?? 0.55) * 1000;
-    const first = (audio?.msToNextBeat() ?? 0) + beatMs * 2;
+    // The chunks start on a beat after she has heard the whole word (it may wait behind the announcer).
+    const first = wordDoneMs + (audio?.msToNextBeat() ?? 0) + beatMs * (wordDoneMs ? 1 : 2);
     chunks.forEach((_, index) => {
       timers.current.push(window.setTimeout(() => {
         setShown(index + 1);
@@ -831,11 +853,11 @@ export function QuestionCard({
     console.log(` 🎮 [orb-3d] [beat-word] [played] id=${question.id} chunks=${chunks.join("·")}`);
   };
   useEffect(() => {
-    if (question.kind === "spelling") play();
+    if (question.kind === "spelling" && voiceReady) play();
     return () => timers.current.forEach((timer) => window.clearTimeout(timer));
-    // Plays once when the card opens; she can tap to hear it again.
+    // Plays once when the card opens (once the voice is ready); she can tap to hear it again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question.id]);
+  }, [question.id, voiceReady]);
 
   // The card breathes with the music: one CSS variable, written every frame (no re-render).
   useEffect(() => {

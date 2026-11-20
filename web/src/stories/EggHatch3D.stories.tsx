@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useMemo, useState, type ReactElement } from "react";
 import { CREATURE_CATALOG } from "../../../src/shared/capturedMonsterCatalog";
-import type { Season, SkyMood } from "../../../src/shared/skyClock";
+import { skyMoodNow, type Season, type SkyMood } from "../../../src/shared/skyClock";
 import { EggHatch3D } from "../components/EggHatch3D";
 import type { OrbQuestion } from "../components/OrbCatcher3D";
 import { ORB_THEME_PACKS } from "../components/orbThemePacks";
@@ -18,7 +18,8 @@ type Args = {
   alreadyProven: number;
   /** "tomorrow" is a later day (counts); "same day" shows the egg refusing same-day proof. */
   checkDay: "tomorrow" | "same day";
-  timeOfDay: SkyMood;
+  /** "now" follows the real clock: daylight in the day, dusk at sunset, night at night. */
+  timeOfDay: SkyMood | "now";
   season: Season;
 };
 
@@ -36,7 +37,7 @@ const meta: Meta<Args> = {
     subject: { control: "select", options: ["spelling", "math"] },
     alreadyProven: { control: { type: "range", min: 0, max: 4, step: 1 } },
     checkDay: { control: "select", options: ["tomorrow", "same day"] },
-    timeOfDay: { control: "select", options: ["sunrise", "day", "golden", "twilight", "night"] },
+    timeOfDay: { control: "select", options: ["now", "sunrise", "day", "golden", "twilight", "night"] },
     season: { control: "select", options: ["spring", "summer", "autumn", "halloween", "holiday", "winter"] },
   },
   args: { creatureId: "lumipuff", announcer: true, child: "ila", theme: "meadow", subject: "spelling", alreadyProven: 0, checkDay: "tomorrow", timeOfDay: "day", season: "autumn" },
@@ -68,7 +69,7 @@ function Stage(args: Args): ReactElement {
         proven={items.slice(0, args.alreadyProven).map((item) => item.id)}
         today={args.checkDay === "tomorrow" ? "2026-11-12" : "2026-11-11"}
         theme={ORB_THEME_PACKS[args.theme] ?? ORB_THEME_PACKS.meadow}
-        timeOfDay={args.timeOfDay}
+        timeOfDay={args.timeOfDay === "now" ? skyMoodNow() : args.timeOfDay}
         season={args.season}
         companionVrmUrl={companion.vrmUrl}
         announcerChildId={args.announcer ? args.child : undefined}
@@ -82,7 +83,7 @@ function Stage(args: Args): ReactElement {
 }
 
 export const Playground: Story = { render: (args) => <Stage {...args} /> };
-export const IlaYokaiEgg: Story = { render: (args) => <Stage {...args} />, args: { child: "ila", theme: "yokai-night", subject: "spelling", creatureId: "glowmoth", timeOfDay: "night", alreadyProven: 1 } };
-export const ReinaChampionshipEgg: Story = { render: (args) => <Stage {...args} />, args: { child: "reina", theme: "championship", subject: "math", creatureId: "emberleaf", timeOfDay: "golden", alreadyProven: 2 } };
-export const OneWordFromHatching: Story = { render: (args) => <Stage {...args} />, args: { child: "ila", theme: "yokai-night", subject: "spelling", creatureId: "glowmoth", timeOfDay: "twilight", alreadyProven: 3 } };
+export const IlaYokaiEgg: Story = { render: (args) => <Stage {...args} />, args: { child: "ila", theme: "yokai-night", subject: "spelling", creatureId: "glowmoth", timeOfDay: "now", alreadyProven: 1 } };
+export const ReinaChampionshipEgg: Story = { render: (args) => <Stage {...args} />, args: { child: "reina", theme: "championship", subject: "math", creatureId: "emberleaf", timeOfDay: "now", alreadyProven: 2 } };
+export const OneWordFromHatching: Story = { render: (args) => <Stage {...args} />, args: { child: "ila", theme: "yokai-night", subject: "spelling", creatureId: "glowmoth", timeOfDay: "now", alreadyProven: 3 } };
 export const SameDayDoesNotCount: Story = { render: (args) => <Stage {...args} />, args: { checkDay: "same day", alreadyProven: 1 } };

@@ -212,6 +212,8 @@ async function main(): Promise<void> {
     keep({ id: `callback-${callback.word}`, event: "callback", text: callback.text, lang: "en", word: callback.word, file: `clips/callback-${callback.word}.mp3` });
   }
   keep({ id: "slot-name", event: "slot", slot: "name", text: `[excited] ${setup.sayName}!`, lang: "en", file: "clips/slot-name.mp3" });
+  // The game's own cue in the same voice, so the announcer owns every spoken line (no browser voice on top).
+  keep({ id: "slot-ready", event: "slot", slot: "ready", text: "[excited] Ready? Go!", lang: "en", file: "clips/slot-ready.mp3" });
   for (let n = 3; n <= 10; n += 1) {
     keep({ id: `slot-streak-${n}`, event: "slot", slot: `streak:${n}`, text: `[excited] ${written.streakTemplate.replace("{n}", NUMBER_WORDS[n])}`, lang: "en", file: `clips/slot-streak-${n}.mp3` });
   }

@@ -14,6 +14,8 @@ const KEY = (id: string) => `ann:${id}`;
 /** Wait for the downbeat only when it is close; a long wait would make the call feel late. */
 const MAX_BEAT_WAIT_MS = 450;
 const GAP_S = 0.08;
+/** A clip asked for again within this long after it ends is a repeat, not a request. */
+const REPEAT_GUARD_MS = 800;
 
 /**
  * Plays the week's recorded announcer bank: the shared picker chooses the clips, this lands them on
@@ -23,6 +25,10 @@ const GAP_S = 0.08;
 export class OrbAnnouncer {
   private memory: AnnouncerMemory = { recent: [], lastSpokeAt: -Infinity, now: 0 };
   private timers: number[] = [];
+  /** When the voice is free again (the clock of now()). */
+  private busyUntil = -Infinity;
+  /** When each clip last finished (or will finish, when queued). */
+  private lastEnds = new Map<string, number>();
 
   private readonly bank: AnnouncerBank;
   private readonly audio: AnnouncerAudio;
@@ -60,26 +66,58 @@ export class OrbAnnouncer {
     const keys = picked.clips.map(KEY).filter((key) => this.audio.has(key));
     if (!keys.length) return false;
     this.memory = picked.memory;
-    const wait = this.audio.msToNextBeat();
-    let at = wait <= MAX_BEAT_WAIT_MS ? wait : 0;
-    this.audio.duck(true);
-    keys.forEach((key) => {
-      this.timers.push(window.setTimeout(() => this.audio.play(key, { volume: 1, jitter: 0 }), at));
-      at += (this.audio.duration(key) + GAP_S) * 1000;
-    });
-    this.timers.push(window.setTimeout(() => this.audio.duck(false), at));
-    console.log(` 🎮 [announcer] [call] [${moment.event}] clips=${picked.clips.join("+")} inMs=${Math.round(wait <= MAX_BEAT_WAIT_MS ? wait : 0)}`);
+    this.enqueue(keys, `call:${moment.event}`, true);
     return true;
   }
 
-  /** The companion says the practice word (her recorded voice). False when this week has no clip for it. */
-  sayWord(word: string): boolean {
+  /**
+   * The companion says the practice word (her recorded voice). Returns how many ms until she has finished
+   * saying it (the card times the chunks from then), or false when this week has no clip for it.
+   */
+  sayWord(word: string): number | false {
     const key = KEY(`slot-word-${word.toLowerCase()}`);
     if (!this.audio.has(key)) return false;
-    this.audio.duck(true);
-    this.audio.play(key, { volume: 1, jitter: 0 });
-    this.timers.push(window.setTimeout(() => this.audio.duck(false), this.audio.duration(key) * 1000 + 100));
+    this.enqueue([key], `word:${word.toLowerCase()}`, false);
+    return Math.max(0, (this.lastEnds.get(key) ?? this.now()) - this.now());
+  }
+
+  /** One of the game's own cues in the announcer's voice ("ready" = Ready? Go!). False when the bank lacks it. */
+  cue(name: string): boolean {
+    const key = KEY(`slot-${name}`);
+    if (!this.audio.has(key)) return false;
+    this.enqueue([key], `cue:${name}`, true);
     return true;
+  }
+
+  /**
+   * The one voice: every line waits for the line before it to finish, so nothing talks over anything.
+   * The same clip asked for again while it is queued, playing, or just finished is dropped (double taps,
+   * a card that mounts twice).
+   */
+  private enqueue(keys: string[], label: string, onBeat: boolean): void {
+    const now = this.now();
+    const fresh = keys.filter((key) => {
+      const last = this.lastEnds.get(key);
+      return last === undefined || now > last + REPEAT_GUARD_MS;
+    });
+    if (fresh.length < keys.length) console.log(` 🎮 [announcer] [repeat] [dropped] ${label}`);
+    if (!fresh.length) return;
+    const wait = onBeat ? this.audio.msToNextBeat() : 0;
+    let at = Math.max(now + (wait <= MAX_BEAT_WAIT_MS ? wait : 0), this.busyUntil);
+    const first = at;
+    fresh.forEach((key, index) => {
+      this.timers.push(window.setTimeout(() => {
+        if (index === 0) this.audio.duck(true);
+        this.audio.play(key, { volume: 1, jitter: 0 });
+      }, at - now));
+      at += (this.audio.duration(key) + GAP_S) * 1000;
+      this.lastEnds.set(key, at);
+    });
+    this.busyUntil = at;
+    this.timers.push(window.setTimeout(() => {
+      if (this.now() >= this.busyUntil - 1) this.audio.duck(false);
+    }, at - now));
+    console.log(` 🎮 [announcer] [say] [${label}] clips=${fresh.map((key) => key.slice(4)).join("+")} inMs=${Math.round(first - now)}`);
   }
 
   dispose(): void {

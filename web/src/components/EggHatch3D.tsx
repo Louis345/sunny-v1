@@ -132,7 +132,11 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
     if (today <= drilledOn) setBanner("The egg needs a day to rest. Come back tomorrow!");
     setChecking(open);
     setFeedback(null);
-    if (!announcerRef.current?.call({ event: "eggIntro" })) audioRef.current?.say("This one is just you. Ready? Go!");
+    const announcer = announcerRef.current;
+    if (announcer) {
+      announcer.call({ event: "eggIntro" });
+      announcer.cue("ready");
+    } else audioRef.current?.say("This one is just you. Ready? Go!");
   };
 
   const answerCheck = (question: OrbQuestion, given: string) => {
@@ -152,7 +156,10 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
       // A miss never hurts the egg. It just stays as it is, and the word goes back into practice.
       wobbleRef.current = 0.3;
       elliRef.current?.feel("relaxed");
-      if (result.reason === "not-yet" && !announcerRef.current?.call({ event: "eggNotYet" })) audio?.say("Not yet. We'll practice that one more.");
+      if (result.reason === "not-yet") {
+        if (announcerRef.current) announcerRef.current.call({ event: "eggNotYet" });
+        else audio?.say("Not yet. We'll practice that one more.");
+      }
       setFeedback(result.reason === "not-yet" ? "Not yet. More practice!" : null);
     }
     const rest = (checking ?? []).slice(1);
@@ -457,7 +464,8 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
           audio.play("boom", { volume: 0.8 });
           audio.play("fanfare", { volume: 0.8, jitter: 0 });
           window.setTimeout(() => audio.play("legendary", { volume: 0.7, jitter: 0 }), 400);
-          if (!announcerRef.current?.call({ event: "hatch", creatureId: creature.id })) {
+          if (announcerRef.current) announcerRef.current.call({ event: "hatch", creatureId: creature.id });
+          else {
             theme.caughtLine.forEach((line, index) => window.setTimeout(() => audio.say(line.text, line.lang), 900 + index * 1100));
           }
           pet.visible = true;
