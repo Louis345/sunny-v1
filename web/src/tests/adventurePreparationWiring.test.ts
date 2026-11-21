@@ -31,9 +31,9 @@ it("keeps the small on-board overlay unchanged", () => {
 // screen rendered, not what else stayed on top of it.
 describe("only the preparation UI and Elli's portrait while it is up", () => {
   const app = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
-  it("hides the bookbag, economy and level-path controls", () => {
+  it("hides the bookbag, economy and level-path controls, keeping only the earned call (owner, 2026-11-08)", () => {
     expect(app).toContain("const preparationScreenActive = preparation.screen != null;");
-    expect(app).toMatch(/<CompanionEconomyControls\s+visible=\{[^}]*!preparationScreenActive/);
+    expect(app).toContain("callOnly={preparationScreenActive}");
     expect(app).toMatch(/showTrigger=\{[^}]*!preparationScreenActive/s);
   });
   it("shows Elli as her portrait, without a second speech bubble", () => {

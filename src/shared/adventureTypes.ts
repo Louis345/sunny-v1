@@ -248,6 +248,8 @@ export interface NodeConfig {
   /** Word Radar drills when `type === "word-radar"`. */
   spellingAssessment?: boolean;
   spellingItemBindings?: Array<{ itemId: string; word: string }>;
+  /** Any subject's items a built game opens with window.openItem. */
+  itemBindings?: Array<{ itemId: string; display: string }>;
   wordRadarItems?: Array<{
     itemId?: string;
     display: string;

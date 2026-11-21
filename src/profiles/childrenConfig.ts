@@ -5,7 +5,10 @@ import type { ChildProfileGames } from "../shared/childProfile";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 
 export type ChildProfileEntry = {
+  /** How the voice says her name (all speech paths, via pronounceForTts). */
   ttsName?: string;
+  /** Older spoken spellings that must also be said as ttsName (e.g. games generated with a previous ttsName). */
+  ttsAliases?: string[];
   /** Same-origin path for picker card image only (optional). */
   avatarImagePath?: string | null;
   /** Word Radar UI — from profile API (optional). */

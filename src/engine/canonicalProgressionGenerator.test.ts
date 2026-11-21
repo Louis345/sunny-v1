@@ -3,7 +3,7 @@ import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
 import { buildSpellingRecallItems } from "./learningCycleIngest";
 import { runDirectBrowserSmokeCheck, buildAdaptiveProgressionCreatorPrompt } from "./directMathExperience";
@@ -22,7 +22,14 @@ import { generateCanonicalProgressionArtifact, repairNotReadyActivities, repairN
 import { canonicalJourneyLaunchable } from "./learningCycleRepository";
 import { currentBoardInstance } from "./learningBoardInstances";
 
-function root(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-")); }
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+function root(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-"));
+  tempRoots.push(dir);
+  return dir;
+}
 
 beforeEach(() => {
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
@@ -648,6 +655,25 @@ describe("repairing a Not ready activity in place", () => {
     }, { rootDir });
     return { blocked, generateHtml, questId };
   }
+
+  // BUGS.md S29 (Ila, 2026-11-18): two practice games on her test-eve board were refused while the Anthropic credit
+  // was empty (provider_request_rejected), and no command could rebuild them, so her board stayed half-built. A refused
+  // request was never billed, so one owner-approved rebuild is allowed, the same as a cut-off build.
+  it("lets the owner approve one rebuild of a stop the provider refused", async () => {
+    const rootDir = root();
+    try {
+      const created = createLearningCycle(baseInput(), { rootDir });
+      const questId = decideQuest(rootDir, created.revision).nodes.find(node => node.role === "quest")!.nodeId;
+      const generateHtml = vi.fn(async () => { throw Object.assign(new Error("Your credit balance is too low"), { status: 400 }); });
+      await generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml }, { rootDir }).catch(() => undefined);
+      const failed = getLearningCycle("reina", "hw-progression", { rootDir })!;
+      const refused = transitionLearningCycle("reina", "hw-progression", failed.revision, { type: "artifact_generation_attention_required", nodeId: questId,
+        reason: "successor_node_failed:provider_request_rejected:/lab/provider-receipts/" + "a".repeat(64) + ".json: 400 credit", notReady: true }, { rootDir });
+      const approved = transitionLearningCycle("reina", "hw-progression", refused.revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "Owner: rebuild after credit was added" }, { rootDir });
+      expect(approved.nodes.find(node => node.nodeId === questId)?.notReadyReason).toMatch(/^paid_retry_in_progress/);
+      expect(() => transitionLearningCycle("reina", "hw-progression", approved.revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "again" }, { rootDir })).toThrow(/not_eligible/);
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
 
   it("binds the first saved attempt that passes the text check, with no provider call and nothing else changed", async () => {
     const rootDir = root();

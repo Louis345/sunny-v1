@@ -1,3 +1,4 @@
+import { currentDemographics } from "./currentDemographics";
 import {createHash} from "node:crypto";
 import type {WordRadarNodeConfig} from "../shared/adventureTypes";
 import { readTypedChildChart } from '../chart/buildChart';
@@ -14,6 +15,7 @@ import { sm2Facts } from "../algorithms/sm2Facts";
 import type { ChildProfileEntry, ChildrenConfigFile } from "./childrenConfig";
 import { companionConfigFromPreset } from "./childrenConfig";
 import type { CompanionConfig } from "../shared/companionTypes";
+import { resolveSensoryProfile, type SensoryProfile } from "../shared/sensoryProfile";
 import { COMPANION_DEFAULTS, mergeCompanionPresetWithLearningProfile } from "../shared/companionTypes";
 import { resolveAttentionModel, type ResolvedAttentionModel } from "../engine/attentionModel";
 import { companionCareToView } from "../engine/companionCareEngine";
@@ -52,6 +54,7 @@ import {
 } from "../engine/learningCycleRepository";
 import { buildLongitudinalLearningHistory, readBoardDesignHistory, type LongitudinalLearningHistory } from "../engine/longitudinalLearning";
 import { readChildSignals } from "../engine/childSignals";
+import { currentFactsBlock } from "./soulCurrentFacts";
 
 export type ChildProfileManifest = {
   childId: string;
@@ -67,6 +70,7 @@ export type ChildProfileManifest = {
   economy?: {
     coinBalance?: number;
   };
+  sensory?: Partial<SensoryProfile>;
   links?: Partial<ChildChartLinks>;
 };
 
@@ -179,6 +183,8 @@ export type ChildChart = {
   economy: {
     coinBalance: number;
   };
+  /** How loud, bright and lively games should be for this child (neutral defaults when unset). */
+  sensory: SensoryProfile;
   childContext: string;
   childMeta?: ChildProfileEntry;
   companion: {
@@ -234,7 +240,8 @@ function readChildVoice(childId: string, rootDir: string, profile: LearningProfi
   try {
     const soul = fs.readFileSync(path.join(contextDir(rootDir, childId), "soul.md"), "utf8");
     const kept = soul.split(/^(?=## )/m).filter(section => ABOUT_HER_SECTIONS.test(section.match(/^## (.+)$/m)?.[1]?.trim() ?? ""));
-    aboutHer = kept.join("\n").trim().slice(0, 6000) || null;
+    const about = kept.join("\n").trim().slice(0, 6000);
+    aboutHer = about ? [currentFactsBlock(childId, { rootDir }), about].filter(Boolean).join("\n\n") : null;
   } catch {
     // A child without a soul file is planned from her chart alone.
   }
@@ -421,10 +428,11 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
   const wordBank = readWordBankFromLink(childId, links);
   const factBank = readFactBankFromLink(childId, links);
   const dueFactSummary = sm2Facts(factBank);
-  const demographics: LearningProfile["demographics"] = {
+  // Her facts as of today: age from her birthday, grade from the school year it was confirmed for (2026-11-10).
+  const demographics: LearningProfile["demographics"] = currentDemographics({
     ...learningProfile.demographics,
     ...(manifest.demographics ?? {}),
-  };
+  });
   const adventureMapProfile = resolveAdventureMapProfile(learningProfile.adventureMapProfile);
   const displayName = manifest.identity?.displayName ?? capitalize(childId);
   const ttsName = manifest.identity?.ttsName ?? childMeta?.ttsName ?? displayName;
@@ -511,7 +519,8 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
   // But the label alone is insufficient: every selected projection must agree.
   const mixedPlan = [legacySelectedActiveSessionPlan, selectedActiveSessionPlan, learningProfile.activeSessionPlan].some(plan =>
     plan && (plan.domain !== homeworkSelectedDomain || plan.activeHomeworkId !== selectedHomeworkId));
-  const mixedHomework = [selectedPendingHomework, learningProfile.pendingHomework].some(homework =>
+  // The profile file's own copy is never read as her homework (homework/current.json owns it), but it still counts as a disagreement here.
+  const mixedHomework = [selectedPendingHomework, learningProfile.pendingHomework, rawLearningProfile.pendingHomework].some(homework =>
     homework && (inferHomeworkDomainFromPending(homework) !== homeworkSelectedDomain || (homework.homeworkId ?? homework.weekOf) !== selectedHomeworkId));
   if (!homeworkSelectedDomain || homeworkSelectedDomain === "math" || mixedPlan || mixedHomework) {
     assertChildPublicationCommitted(childId, { rootDir });
@@ -603,6 +612,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
     economy: {
       coinBalance,
     },
+    sensory: resolveSensoryProfile(manifest.sensory),
     childContext: readChildContext(rootDir, childId),
     childMeta,
     companion,
@@ -613,6 +623,8 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
 
   return {
     ...chartBase,
+    // One coin balance (PR #59, 3.2): the companion plan's coins are the truth every reader sees.
+    economy: { coinBalance: Math.max(0, Math.floor(companionCareLoaded.plan.economy.coins)) },
     companionCare: {
       plan: companionCareLoaded.plan,
       view: companionCareToView(companionCareLoaded.plan, companion.displayName),

@@ -5,6 +5,42 @@ import { resolve } from "node:path";
 import { CompanionVideoCallOverlay } from "../components/CompanionVideoCallOverlay";
 
 describe("CompanionVideoCallOverlay", () => {
+  it("can offer shopping as an optional destination without replacing the call", () => {
+    const onGoShopping = vi.fn();
+
+    render(
+      <CompanionVideoCallOverlay
+        open
+        companionName="Elli"
+        phase="live"
+        cameraState="live"
+        talkPhase="idle"
+        responseText=""
+        error={null}
+        question=""
+        statusCopy={{
+          heading: "Video Chat with Elli",
+          status: "Camera live",
+          helperText: "Elli is here.",
+        }}
+        primaryBackground="linear-gradient(135deg, #7c5cff, #5b3ee0)"
+        portrait={<div data-testid="portrait-slot">VRM portrait</div>}
+        onGoShopping={onGoShopping}
+        onAskVoice={vi.fn()}
+        onQuestionChange={vi.fn()}
+        onSubmitQuestion={vi.fn()}
+        onLook={vi.fn()}
+        onStartCamera={vi.fn()}
+        onStopCamera={vi.fn()}
+        onEnd={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("dialog", { name: "Video Chat with Elli" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Go Shopping" }));
+    expect(onGoShopping).toHaveBeenCalledTimes(1);
+  });
+
   it("renders the reusable video-call shell from props", () => {
     const onAskVoice = vi.fn();
     const onQuestionChange = vi.fn();

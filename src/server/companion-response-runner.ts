@@ -1,6 +1,9 @@
 /** Companion LLM turn — extracted from SessionManager.runCompanionResponse. */
 // @ts-nocheck
+import { SIDE_TALK_TOOL, sideTalkAiTool, sideTalkLine } from "./companionSideTalk";
+import { sideTalkKey as companionSideTalkKey } from "./companionChildFacts";
 import { redactProtectedSpellingText, redactProtectedSpellingValue } from "./currentBoardSnapshot";
+import { noteCompanionReply, noteCompanionReplyForTutorPlan } from "./urgentLearningSupport";
 import { randomUUID } from "node:crypto";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import { runAgent } from "../agents/elli/run";
@@ -200,11 +203,14 @@ export async function runCompanionResponseForSession(
         typeof session.buildCurrentBoardContextForTurn === "function"
           ? session.buildCurrentBoardContextForTurn(source === "user" ? userMessage : undefined)
           : "";
-      const messageWithContext = [userMessage, boardCtx, canvasCtx]
+      // Her own side-conversation clock, shared with her FaceTime calls (owner 2026-11-15).
+      const sideTalkKey = companionSideTalkKey(session.chartChildId ?? "", session.companion?.name ?? "");
+      const messageWithContext = [userMessage, boardCtx, canvasCtx, sideTalkLine(sideTalkKey)]
         .filter(Boolean)
         .join("\n\n");
 
       const finalTools = session.buildAgentToolkit();
+      finalTools[SIDE_TALK_TOOL] = sideTalkAiTool(sideTalkKey);
       if (session.spellingLaunch) delete finalTools.sessionLog;
 
       debugPrintClaudePreRun(session, userMessage);
@@ -671,7 +677,14 @@ export async function runCompanionResponseForSession(
       if (fullResponse.trim()) {
         session.conversationHistory.push({ role: "assistant", content: fullResponse });
         session.recordDebugTranscript?.("assistant", fullResponse);
+        // A game-invited reply can give letters too (audit 2026-11-13 c); only her own turn is her help request.
         if (source === "user") session.recordCompanionHelpTurn?.(userMessage, fullResponse);
+        else session.recordCompanionReplySupport?.(fullResponse);
+        if (session.chartChildId) {
+          noteCompanionReplyForTutorPlan(String(session.chartChildId), fullResponse);
+          const said = noteCompanionReply(String(session.chartChildId), fullResponse);
+          console.log(` 🎮 [companion] [reply] [said] child=${session.chartChildId} words=${said.words} repeat=${said.repeat}`);
+        }
       }
 
       if (await finalizePendingSessionEnd(session)) {

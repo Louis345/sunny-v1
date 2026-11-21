@@ -1,3 +1,9 @@
+import { replyOverlap } from "../engine/companionPresenceAudit";
+import { childPaceFacts, itemAttemptFacts } from "./itemAttemptFacts";
+import { sunnyHealthFacts } from "../engine/sunnyHealth";
+import { noteCompanionHelpOnItem } from "./companionItemHelp";
+import { gamePaceFacts, noteGamePace } from "./gamePace";
+import { isChildHelpRequest, normalizeSpeechText } from "../engine/helpRequest";
 import { getChildChart } from "../profiles/childChart";
 import type { SpellingAssessmentState } from "./game-event-handler";
 import type {
@@ -22,6 +28,7 @@ import {
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import { companionMathTestObjective, companionSpellingTestObjective } from "../engine/schoolTestObjective";
 
 export type UrgentIntentType =
   | "help_request"
@@ -115,22 +122,13 @@ export function buildLiveLearningContext(input: BuildContextInput): LiveLearning
   };
 }
 
+/** Any live activity (2026-11-10: a list of five game names kept this from ever seeing built games or math). */
 function isActiveLearningGame(context: LiveLearningContext | null): context is LiveLearningContext {
-  if (!context) return false;
-  return /pronunciation|spell-check|word-radar|monster-stampede|wheel/.test(context.activityId);
+  return Boolean(context);
 }
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizeSpeechText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[’']/g, "")
-    .replace(/[^a-z0-9\s]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 export type CompanionPresenceTranscriptRoute =
@@ -217,8 +215,8 @@ export function prepareInstructionReadRequest(input: {
   };
 }
 
-function readCompanionCycle(childId: string) {
-  try { return getChildChart(childId).learningCycle; }
+function readCompanionChart(childId: string) {
+  try { return getChildChart(childId); }
   catch (error) {
     console.warn(" 🎮 [companion] [recorded-status] [unavailable]", error instanceof Error ? error.message : String(error));
     return undefined;
@@ -237,7 +235,8 @@ export function buildActivityCompanionContext(input: {
   screenReport?: ScreenReport | null;
 }): string {
   const reported = input.screenReport !== undefined;
-  const cycle = input.snapshot?.nodeId || reported ? readCompanionCycle(input.childId) : undefined;
+  const chart = input.snapshot?.nodeId || reported ? readCompanionChart(input.childId) : undefined;
+  const cycle = chart?.learningCycle;
   const snapshot = input.snapshot ? { ...input.snapshot,
     recordedActivityStatus: cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.state } : null;
   const activityState = buildCurrentBoardSnapshotContext(snapshot, { childSpeech: input.childSpeech });
@@ -248,6 +247,25 @@ export function buildActivityCompanionContext(input: {
   const activityOnScreen = !reported || screenShowsActivity(check);
   const board = reported ? describeScreenForCompanion({ ...check, activityContext: activityState }) : activityState;
   const liveBoard = cycle ? describeLiveBoardForCompanion(cycle) : "";
+  const tutorPlan = cycle ? describeTutorPlanForCompanion(cycle, input.snapshot?.nodeId) : "";
+  // The problem she has open, as saved (never its answer), so the companion knows what is really there (BUGS.md 2026-11-09).
+  const openProblem = input.snapshot?.itemId
+    ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract.itemContracts?.[input.snapshot.itemId]?.prompt : undefined;
+  const problemText = openProblem ? `[The problem she has open, as Sunny saved it]\n"${openProblem}"` : "";
+  // A game with problems that has not said which one is open: the companion is told it cannot see it (2026-11-10:
+  // Elli guessed from Ila counting aloud and told her a wrong answer three times). Code-owned fact, no script.
+  const openContract = input.snapshot?.nodeId ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract : undefined;
+  const unseen = activityOnScreen && !openProblem && Object.keys({ ...openContract?.itemContracts, ...openContract?.spellingItems }).length > 0
+    && !(input.spellingAssessment && input.snapshot?.itemId === input.spellingAssessment.itemId);
+  if (unseen) console.log(` 🎮 [companion-context] [problem-unseen] child=${input.childId} node=${input.snapshot?.nodeId}`);
+  const unseenText = unseen ? "[What Sunny can see]\nSunny cannot see which problem is on her screen right now: the game has not said which one is open. You do not know its numbers, its words or its answer." : "";
+  // Pace facts in every game, for her companion's judgment (2026-11-10); talking to her companion in a game is help asked.
+  if (input.presence === "summoned" && input.snapshot?.nodeId) noteGamePace(input.childId, input.snapshot.nodeId, "help");
+  // Her tries on the open problem and her pace from her chart (2026-11-10): facts, the companion judges.
+  const pace = activityOnScreen ? [gamePaceFacts(input.childId, input.snapshot?.nodeId), itemAttemptFacts(input.childId, input.snapshot?.nodeId, input.snapshot?.itemId),
+    input.snapshot?.nodeId ? childPaceFacts(chart?.demographics, cycle) : ""].filter(Boolean).join("\n") : "";
+  // Her companion answering while a problem is open is help on that problem: saved with its answer (2026-11-10).
+  if (openProblem && input.presence === "summoned" && input.snapshot?.nodeId && input.snapshot.itemId) noteCompanionHelpOnItem(input.childId, input.snapshot.nodeId, input.snapshot.itemId);
   const remembered = buildShowroomTalkMemoryPrompt(
     withoutRememberedPosition(readCompanionCareMemoryForPrompt(input.childId, input.companionId)),
   );
@@ -271,13 +289,86 @@ export function buildActivityCompanionContext(input: {
         instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
         ...(cycle ? {lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null} : {recordedHistoryAvailable:false}) }),
       "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
-      ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it. Until her answer for this item is submitted, you may say the word again or encourage her."]),
+      ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it.",
+        "Ways to help on a check word, before her answer is submitted: say the word again; say it in a short sentence, the way a teacher does on a spelling test; tell her a guess is great and that you will fix it together right after she sends it (she loves that part); cheer her on. She already knows letters wait until after her try, so the rule itself needs saying once at most."]),
     ].join("\n");
   }
-  return redactProtectedSpellingText([board, liveBoard, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  // The school test as her goal plus facts (owner, 2026-11-08): Elli judges how much help fits.
+  const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework, history: chart?.learningHistory,
+    instrument: spelling ? assessment?.instrument : undefined })
+    : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
+  // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
+  const health = sunnyHealthFacts(input.childId);
+  const recent = recentRepliesFact(input.childId);
+  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
-type CompanionCycle = NonNullable<ReturnType<typeof readCompanionCycle>>;
+type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
+
+/**
+ * The Planner's current plan, in its own words, and what the open stop is for (owner, 2026-11-09: the teacher and
+ * the aide work in sync). Facts for Elli's judgment; how she helps stays hers.
+ */
+export function describeTutorPlanForCompanion(cycle: CompanionCycle, nodeId?: string): string {
+  const decision = [...(cycle.decisionHistory ?? [])].reverse().find(row => row.eventType === "theory_decided");
+  const node = nodeId ? cycle.nodes.find(candidate => candidate.nodeId === nodeId) : undefined;
+  const plan = decision?.selfReview?.whatIChangeNow;
+  const said = tutorPlanLinesFor(cycle.childId, decision?.decisionId, [plan, decision?.selfReview?.whatIKeep, ...(decision?.change ?? [])]);
+  const lines = ["[Her tutor's plan (the Planner, in its own words)]",
+    ...(plan ? [`What the tutor changes now: "${plan}"${said(plan)}`] : decision?.reason ? [`The tutor's latest reasoning: "${decision.reason.slice(0, 400)}"`] : []),
+    ...(decision?.selfReview?.whatIKeep ? [`What the tutor keeps because it worked for her: "${decision.selfReview.whatIKeep}"${said(decision.selfReview.whatIKeep)}`] : []),
+    ...(decision?.change?.length ? ["The tutor's changes for this board:", ...decision.change.map(line => `- ${line}${said(line)}`)] : []),
+    ...(node ? [`This stop, "${node.title}", is for: ${node.openingScreen?.purpose ?? "not stated"}.${node.focus ? ` Aimed at: ${node.focus}.` : ""}`] : [])];
+  return lines.length > 1 ? lines.join("\n") : "";
+}
+
+/**
+ * Which plan lines Elli has already said to her (BUGS.md 2026-11-10 evening: she asked one keyboard check four times).
+ * Per child and Planner decision, in memory: a reply "carries" a line when it shares most of the line's own words.
+ */
+const tutorPlanDelivery = new Map<string, { decisionId: string; pending: string[]; said: Map<string, string> }>();
+const FUNCTION_WORDS = new Set(["the", "and", "her", "she", "you", "your", "not", "for", "with", "this", "that", "are", "was", "has", "have", "his", "him"]);
+const planWords = (text: string) => new Set((text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []).filter(word => !FUNCTION_WORDS.has(word)).map(word => word.replace(/s$/, "")));
+function tutorPlanLinesFor(childId: string, decisionId: string | undefined, lines: Array<string | undefined>) {
+  let entry = tutorPlanDelivery.get(childId);
+  if (!entry || entry.decisionId !== (decisionId ?? "")) tutorPlanDelivery.set(childId, entry = { decisionId: decisionId ?? "", pending: [], said: new Map() });
+  entry.pending = lines.filter((line): line is string => Boolean(line?.trim()));
+  const said = entry.said;
+  return (line: string) => said.has(line) ? ` (You already said this to her: "${said.get(line)}")` : "";
+}
+
+/**
+ * What the companion said to her in the last few minutes, shown back to it as facts (Ila, 2026-11-16: "Elli is annoying,
+ * she keeps saying the same over and over"). Per child, in memory; each reply is scored against the last three.
+ */
+const recentReplies = new Map<string, Array<{ at: number; text: string }>>();
+const RECENT_MS = 5 * 60_000;
+export function noteCompanionReply(childId: string, reply: string, now = Date.now()): { words: number; repeat: number } {
+  const text = reply.trim();
+  const kept = (recentReplies.get(childId) ?? []).filter(row => now - row.at < RECENT_MS);
+  const repeat = Math.max(0, ...kept.slice(-3).map(row => replyOverlap(text, row.text)));
+  if (text) recentReplies.set(childId, [...kept, { at: now, text }].slice(-3));
+  return { words: (text.match(/[\p{L}\p{N}'-]+/gu) ?? []).length, repeat: Math.round(repeat * 100) / 100 };
+}
+function recentRepliesFact(childId: string, now = Date.now()): string {
+  const rows = (recentReplies.get(childId) ?? []).filter(row => now - row.at < RECENT_MS);
+  if (!rows.length) return "";
+  return ["[What you said to her in the last few minutes, oldest first]", ...rows.map(row => `- "${row.text.slice(0, 220)}"`),
+    "She hears the same idea said again as nagging: something new, or less, lands better."].join("\n");
+}
+
+export function noteCompanionReplyForTutorPlan(childId: string, reply: string): void {
+  const entry = tutorPlanDelivery.get(childId);
+  if (!entry || !reply.trim()) return;
+  const replyWords = planWords(reply);
+  for (const line of entry.pending) {
+    if (entry.said.has(line)) continue;
+    const words = [...planWords(line)], shared = words.filter(word => replyWords.has(word)).length;
+    if (!words.length || shared < Math.min(words.length, Math.max(2, Math.min(3, Math.ceil(words.length / 2))))) continue;
+    entry.said.set(line, reply.trim().slice(0, 160));
+    console.log(` 🎮 [companion] [tutor-plan] [delivered] child=${childId} decision=${entry.decisionId} shared=${shared}/${words.length}`);
+  }
+}
 
 /** The current board's path, its saved progress and the next step: the only answer to "where did I leave off". */
 export function describeLiveBoardForCompanion(cycle: CompanionCycle): string {
@@ -387,9 +478,16 @@ export function handleCompanionPresenceTranscript(input: {
   sendFinal: (text: string) => void;
   setPresence: (state: CompanionPresence, reason: CompanionPresenceReason) => void;
   recordEvent: (component: string, action: string, fields: Record<string, unknown>) => void;
+  /** Files a child's bug report heard while the companion is minimized (BUGS.md 2026-11-08). */
+  reportBug?: (transcript: string) => void;
 }): boolean {
   if (!input.enabled) return false;
   const route = routeCompanionPresenceTranscript(input);
+  // A bug report is filed even when the companion is minimized or a game is listening; the companion stays quiet.
+  if ((route.action === "ignore_ambient" || route.action === "route_to_game") && input.reportBug && classifyProductComplaintText(input.transcript, null) === "bug_report") {
+    console.log(` 🎮 [product-issue] [heard-while-minimized] node=${input.nodeId ?? "none"}`);
+    input.reportBug(input.transcript);
+  }
   if (route.action === "route_to_game") {
     input.sendFinal(input.transcript);
     input.recordEvent("transcript", "routed_to_game", {
@@ -463,6 +561,12 @@ export function routeCompanionPresenceTranscript(input: {
   }
   const wake = new RegExp(`(?:^|\\s)(?:${aliasPattern})(?:\\b|$)`, "i");
   if (wake.test(text)) return { action: "summon_and_respond" };
+  // A request for help is addressed to her companion whatever name was heard, even while a game listens
+  // (Nov 8: Ila asked twice, was ignored, and ended up yelling).
+  if (isChildHelpRequest(text)) {
+    console.log(` 🎮 [companion-presence] [help-request] [summoned] armed=${input.speechCaptureArmed === true}`);
+    return { action: "summon_and_respond" };
+  }
   if (input.speechCaptureArmed) return { action: "route_to_game" };
   return input.presence === "summoned"
     ? { action: "respond" }

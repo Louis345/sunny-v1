@@ -68,7 +68,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
   {
     "id": "elli",
     "name": "Elli",
-    "vrmUrl": "/companions/2878599730723533962.vrm",
+    "vrmUrl": "/companions/sample.vrm",
     "personality": [
       "sparkly",
       "funny",
@@ -189,6 +189,135 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
         "en": {
           "intro": "Hi! I'm Elli. I love riddles, silly ideas, and cheering for every tiny win.",
           "plead": "Please pick me! I promise I'll make learning feel like hanging out with a friend who is always on your side."
+        }
+      }
+    }
+  },
+  {
+    "id": "hikari",
+    "name": "Hikari",
+    "vrmUrl": "/companions/673852811403133503.vrm",
+    "personality": [
+      "warm",
+      "playful",
+      "glowing"
+    ],
+    "unlockCost": 0,
+    "voiceAvailable": true,
+    "voices": [
+      {
+        "id": "d8WcCpplp8meHt10UhL8",
+        "label": "Hikari Voice",
+        "language": "en",
+        "default": true
+      },
+      {
+        "id": "piI8Kku0DcvcL6TTSeQt",
+        "label": "Fairy",
+        "language": "en"
+      },
+      {
+        "id": "n7Wi4g1bhpw4Bs8HK5ph",
+        "label": "Gigi - Energetic",
+        "language": "en"
+      },
+      {
+        "id": "Nggzl2QAXh3OijoXD116",
+        "label": "Candy - Young and Sweet",
+        "language": "en"
+      }
+    ],
+    "companionConfig": {
+      "companionId": "hikari",
+      "vrmUrl": "/companions/673852811403133503.vrm",
+      "expressions": {
+        "idle": "neutral",
+        "happy": "happy",
+        "thinking": "lookDown",
+        "celebrating": "happy",
+        "concerned": "sad",
+        "winking": "blinkLeft",
+        "surprised": "surprised",
+        "angry": "angry",
+        "blink": "blink"
+      },
+      "faceCamera": {
+        "position": [
+          0,
+          1.4,
+          0.8
+        ],
+        "target": [
+          0,
+          1.4,
+          0
+        ]
+      },
+      "displayScale": 1,
+      "dopamineGames": [
+        "space-invaders",
+        "asteroid",
+        "space-frogger"
+      ],
+      "sensitivity": {
+        "session_start": 0.8,
+        "correct_answer": 0.9,
+        "wrong_answer": 0.6,
+        "mastery_unlock": 1,
+        "session_complete": 0.85,
+        "session_end": 0.7,
+        "idle_too_long": 0.5
+      },
+      "idleFrequency_ms": 8000,
+      "randomMomentProbability": 0.3,
+      "toggledOff": false
+    },
+    "showroom": {
+      "modelName": "Sunny companion Hikari (angel)",
+      "recommendedNames": [
+        "Hikari"
+      ],
+      "ageImage": "Around 8 years old, a little angel friend",
+      "personality": "Warm, playful, a little mischievous angel who loves helping her friend shine",
+      "likes": [
+        "stars",
+        "fluffy clouds",
+        "secret wishes",
+        "silly jokes",
+        "pink jackets"
+      ],
+      "dislikes": [
+        "thunderstorms",
+        "being left out",
+        "grumpy days"
+      ],
+      "catchphrases": [
+        "Let's make it glow!",
+        "Wish granted!"
+      ],
+      "specialSkills": [
+        "Turning hard moments into bright ones",
+        "making up sky games",
+        "noticing when you need a cheer"
+      ],
+      "role": "A glowing angel best friend for video calls",
+      "outfitChangeEffect": "New outfit -> extra sparkly halo energy",
+      "gestureProfile": {
+        "meet": "wave",
+        "intro": [
+          "wave",
+          "think"
+        ],
+        "plead": [
+          "dance_victory",
+          "wave"
+        ],
+        "specialDance": "dance_victory"
+      },
+      "scripts": {
+        "en": {
+          "intro": "Hi! I'm Hikari. My name means light, and I floated down from the clouds to be your friend.",
+          "plead": "Pick me and I'll make every call glow, play silly sky games, and cheer for you super loud."
         }
       }
     }
@@ -359,7 +488,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
   {
     "id": "matilda",
     "name": "Matilda",
-    "vrmUrl": "/companions/673852811403133503.vrm",
+    "vrmUrl": "/companions/sample.vrm",
     "personality": [
       "clever",
       "patient",

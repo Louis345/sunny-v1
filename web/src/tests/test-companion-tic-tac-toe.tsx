@@ -187,7 +187,7 @@ describe("CompanionTicTacToe", () => {
 
     expect(source).toContain("playCompanionActivitySfx");
     const sfxSource = readFileSync(
-      resolve(__dirname, "../components/companionActivities/companionActivitySfx.ts"),
+      resolve(__dirname, "../utils/gameSfx.ts"),
       "utf8",
     );
     expect(sfxSource).toContain("child_move");

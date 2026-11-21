@@ -38,6 +38,21 @@ describe("useAdaptiveMathGenerationRefresh", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  // BUGS.md S28: a published board with an unbuilt activity waits behind the screen, so the watcher must keep checking
+  // until the rebuilt game appears, then refresh the board once (same status time, changed activity).
+  it("keeps checking a published board while an activity is still unbuilt, and refreshes when it is built", async () => {
+    const onStatusChanged = vi.fn();
+    const published = (status: string) => ({ ok: true, json: async () => ({ updatedAt: "t1", phase: "successor_published", nodes: [{ nodeId: "L", status }] }) });
+    const fetchMock = vi.fn().mockResolvedValueOnce(published("not_ready")).mockResolvedValueOnce(published("not_ready")).mockResolvedValue(published("ready"));
+    vi.stubGlobal("fetch", fetchMock);
+    renderHook(() => useAdaptiveMathGenerationRefresh({ childId: "ila", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged, keepPollingWhilePublished: true }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(onStatusChanged).toHaveBeenCalledTimes(2);
+  });
+
   it("stops the Probe Board watcher when every probe artifact is ready", async () => {
     const onStatusChanged = vi.fn();
     const fetchMock = vi.fn()
@@ -88,11 +103,12 @@ describe("useAdaptiveMathGenerationRefresh", () => {
     const fetchMock=vi.fn().mockResolvedValue({ok:true,json:async()=>({updatedAt:"t1",phase:"board_generating",nodes:[{nodeId:"n1",status:"preparing"}]})});
     vi.stubGlobal("fetch",fetchMock);
     const {result}=renderHook(()=>useAdaptiveMathGenerationRefresh({childId:"ila",homeworkId:"hw-1",enabled:true,onStatusChanged}));
-    await act(async()=>{await vi.advanceTimersByTimeAsync(1_500_000);});
-    expect(fetchMock).toHaveBeenCalledTimes(10);
+    // BUGS.md S45: after the quick checks it keeps checking once a minute, and pauses only after three hours.
+    await act(async()=>{await vi.advanceTimersByTimeAsync(4 * 60 * 60_000);});
     expect(result.current.paused).toBe(true);
+    const paused = fetchMock.mock.calls.length;
     await act(async()=>{result.current.checkNow();});
-    expect(fetchMock).toHaveBeenCalledTimes(11);
+    expect(fetchMock).toHaveBeenCalledTimes(paused + 1);
     expect(fetchMock.mock.calls.every(call=>!call[1]?.method || call[1]?.method === "GET")).toBe(true);
     expect(onStatusChanged).toHaveBeenCalledTimes(1);
   });
@@ -228,7 +244,29 @@ describe("fast polling while the preparation screen is shown", () => {
     expect(result.current.paused).toBe(false);
   });
 
-  it("still pauses eventually, so polling can never run forever", async () => {
+  // BUGS.md S45 (2026-11-20 01:44-02:03 UTC): Ila's next board took 17 minutes; the waiting screen stopped checking
+  // at 15, so the published board never appeared. Why the human caught it: she sat in front of a ready board. Why the
+  // logs missed it: a stopped check writes nothing on the server. Why the lab missed it: the test below asserted the
+  // stop at one hour as the safety rule, not that a slow build still shows up.
+  it("keeps checking slowly after a long unchanged wait, so a board published after 17 minutes still appears", async () => {
+    let published = false;
+    const fetchMock = vi.fn().mockImplementation(async () => ({ ok: true, json: async () => (published
+      ? { updatedAt: "after", phase: "successor_published", nodes: [] }
+      : { updatedAt: "same", phase: "successor_preparing", nodes: [] }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onStatusChanged = vi.fn();
+    const { result } = renderHook(() => useAdaptiveMathGenerationRefresh({
+      childId: "ila", homeworkId: "hw", enabled: true, intervalMs: 10_000, onStatusChanged,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(17 * 60_000); });
+    expect(result.current.paused).toBe(false);
+    published = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(61_000); });
+    expect(onStatusChanged).toHaveBeenLastCalledWith(expect.objectContaining({ phase: "successor_published" }));
+  });
+
+  it("still pauses after three hours, so polling can never run forever", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ updatedAt: "same", phase: "targeted_planning", nodes: [] }) });
     vi.stubGlobal("fetch", fetchMock);
     const onStatusChanged = vi.fn();
@@ -237,7 +275,9 @@ describe("fast polling while the preparation screen is shown", () => {
     }));
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60_000); });
+    expect(result.current.paused).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(3 * 60 * 60_000); });
     expect(result.current.paused).toBe(true);
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(200);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(90 + 180 + 2);
   });
 });

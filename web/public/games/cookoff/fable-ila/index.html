@@ -1,0 +1,243 @@
+<!-- DESIGN CARD
+title: Midnight Spirit Toast
+genre / core loop (one sentence): A cozy 3D spirit-cafe adventure: a friendly spirit floats up acting out a word, Elli says "Ready… go!", Ila types the word from memory on toast tiles, and each word she lands flips French toast onto a tower that feeds the sleepy Moon.
+why this child (3 facts from her files this design uses):
+  1. 100% with pictures vs 37.5% without: every word IS a spirit acting out its meaning (bowing "pardon" ghost, toothy meat-eating carnivore, robot that needs a charge, snoring dormant volcano) plus a picture bubble. Pictures carry meaning and never show letters.
+  2. Rushing is her biggest enemy, "wait until I say Go" works, spelling collapses under load: typing is untimed, music ducks, keys unlock only after "Ready… go!", and a two-tap "look it over 👀 then ⭐" beat rewards fixing over speed. The speed lives in a tap-the-drops syrup shower between words.
+  3. She loves French toast with syrup, spooky-friendly spirits, designing, and wants to teach Elli Japanese: she cooks a toast tower, picks its topping, and Elli cheers in Japanese words that unlock as stickers run by run.
+learning: how each target item is truly retrieved or reasoned (not guessed)
+  Typed recall from dictation on the game's own on-screen QWERTY (physical keys are read by key position, so a Japanese IME cannot turn letters into katakana). No letters and no letter count on screen at the first attempt. Each of the 4 words returns 2 to 4 times after gaps with a fresh context sentence each time. One felt cue per word at the trouble spot:
+  - pardon: hand on the neck for the voicing buzz; the D key always buzzes (sound, wiggle, device vibration) and the T key always puffs air, so "parton" feels wrong as she types it.
+  - carnivore: three bites tapped on her arm (car / ni / vore) while the spirit chomps three times, for the n-i order.
+  - charge: the "sneeze" ch air-pop for the start; the look-it-over beat catches the chargr slip.
+  - dormant: round yawning lips for "or".
+  Hints escalate only after a real attempt: (1) nudge and cue replay, (2) pattern with trouble letters blank, (3) whole word shown, hidden, then typed. Assisted successes are reported as assisted, never first-try.
+replayability bet: spirits earn stars across runs (collect and grow), one new Japanese sticker per run, new toppings unlock each run, contexts rotate, order shuffles, personal best of "on my own" words.
+dopamine bet: every key pops a toast tile; a correct word turns tiles gold, Elli throws a fireball, toast flips onto the tower, then a syrup shower with rare stars and strawberries. Finale: the Moon wakes and eats the tower.
+intuitive bet (first 10 seconds, no reading): a spirit floats in with a picture bubble, Elli says the sentence and the word, ✋ becomes GO!, the keyboard bounces up. The only thing to do is type. 🔊 replays the word.
+algorithm targets: retrieval practice, spaced returns in-session, error-pattern remediation (d/t voicing, n-i order, ch onset, final-e slip), desirable difficulty (no length cue), mastery gating (round 3 returns only words not yet clean twice; pardon always gets the comeback boss slot), variable reward (drops, stickers, toppings).
+how we will know it worked: hint-0 first-attempt accuracy on round 2 and 3 returns versus round 1 in the evidence stream; "pardon" typed with d at hint 0 in the comeback slot; then all four words correct on her own in the next Memory Check, outside this game.
+fix round 2: every emoji size, font, UI layer, spirit action, Elli clip and particle is now drawn once behind the loading screen (the long frames matched first-time emoji and UI paints); per-key CSS filters and big blurred text shadows removed; if a sentence or cue voice file is missing the word itself is spoken instead; Elli stays in frame when a spirit arrives; trees no longer cover the Moon.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Midnight Spirit Toast</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Lexend:wght@500;700&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
+  "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.1/lib/three-vrm.module.min.js"}}</script>
+<script src="/games/_contract.js"></script>
+<script src="/games/cookoff/_library.js"></script>
+<script type="application/json" id="sunny-assets">{
+  "voice": [
+    { "id": "intro", "text": "The spirits are hungry tonight! Let's cook magic toast." },
+    { "id": "go", "text": "Ready… go!" },
+    { "id": "word-pardon", "text": "Pardon." },
+    { "id": "word-carnivore", "text": "Carnivore." },
+    { "id": "word-charge", "text": "Charge." },
+    { "id": "word-dormant", "text": "Dormant." },
+    { "id": "ctx-pardon-1", "text": "Bonk! This spirit bumped our cart. He bows and says, pardon me! Your word is pardon." },
+    { "id": "ctx-pardon-2", "text": "Burp! Oh my. The spirit covers his mouth and says, pardon! Your word is pardon." },
+    { "id": "ctx-pardon-3", "text": "He wants to squeeze past the moon. He says, pardon me, Moon! Your word is pardon." },
+    { "id": "ctx-carnivore-1", "text": "This spirit says, no toast for me. Only meat! He is a carnivore. Your word is carnivore." },
+    { "id": "ctx-carnivore-2", "text": "Look at those sharp teeth. A carnivore eats meat. Your word is carnivore." },
+    { "id": "ctx-carnivore-3", "text": "Sniff, sniff. He smells bacon toast! That makes a carnivore happy. Your word is carnivore." },
+    { "id": "ctx-charge-1", "text": "Uh oh. The robot spirit ran out of power. We need to charge him. Your word is charge." },
+    { "id": "ctx-charge-2", "text": "The storm cloud can charge our robot. Zap! Your word is charge." },
+    { "id": "ctx-charge-3", "text": "His flashlight went dark. It is time to charge it. Your word is charge." },
+    { "id": "ctx-dormant-1", "text": "Shh. The volcano spirit is dormant. No fire tonight. Just snores. Your word is dormant." },
+    { "id": "ctx-dormant-2", "text": "He was dormant for one hundred years. That is a long nap! Your word is dormant." },
+    { "id": "ctx-dormant-3", "text": "A dormant volcano is asleep. But one day it can wake up! Your word is dormant." },
+    { "id": "cue-pardon", "text": "Put your hand on your neck. Say it slow. Par, don. Feel the buzz in the middle?" },
+    { "id": "cue-carnivore", "text": "Tap three bites on your arm. Car. Nih. Vore." },
+    { "id": "cue-charge", "text": "It starts like a sneeze. Ch! Feel the air pop on your hand." },
+    { "id": "cue-dormant", "text": "Make round lips, like a big yawn. Dor. Then, mant." },
+    { "id": "hint-1", "text": "So close! Good try. Let's feel it one more time." },
+    { "id": "hint-2", "text": "Here are some parts. You fill in the gaps." },
+    { "id": "hint-3", "text": "Here it is. Take a picture with your eyes." },
+    { "id": "hint-3b", "text": "Now it hides. Your turn to type it!" },
+    { "id": "kind", "text": "Good work. We will meet this word again." },
+    { "id": "look", "text": "Look it over. Then tap the star." },
+    { "id": "praise-own", "text": "You did it! All on your own!" },
+    { "id": "praise-care", "text": "Yes! You took your time and fixed it." },
+    { "id": "praise-fix", "text": "Nice fixing! You got it." },
+    { "id": "shower", "text": "Syrup shower! Tap the drops!" },
+    { "id": "comeback", "text": "The moon is waking up! And pardon is back for a rematch. Hand on your neck. Find the buzz." },
+    { "id": "comeback-win", "text": "Comeback! You beat pardon all on your own!" },
+    { "id": "topping", "text": "Pick a topping for the giant toast!" },
+    { "id": "finish", "text": "We fed everyone! Thank you for cooking with me." },
+    { "id": "jp-sugoi", "text": "すごい!" },
+    { "id": "jp-yatta", "text": "やったー!" },
+    { "id": "jp-oishii", "text": "おいしい!" },
+    { "id": "jp-arigato", "text": "ありがとう!" }
+  ],
+  "sfx": [
+    { "id": "cart-music", "prompt": "cozy playful spooky-cute night market music loop, soft marimba, music box, upright bass, gentle shakers, warm and friendly", "seconds": 20, "loop": true },
+    { "id": "buzz-d", "prompt": "short low warm friendly buzz like a bumblebee in a jar, soft and round", "seconds": 0.5 },
+    { "id": "puff-t", "prompt": "tiny soft puff of air, quick breathy pop, very gentle", "seconds": 0.5 },
+    { "id": "sizzle-flip", "prompt": "quick whoosh of a pancake flip then a short buttery sizzle on a griddle", "seconds": 1.0 },
+    { "id": "syrup-pour", "prompt": "thick syrup pouring glug glug with a sparkling magical chime", "seconds": 1.6 },
+    { "id": "drop-pop", "prompt": "juicy bubbly pop with a tiny sparkle bell", "seconds": 0.5 },
+    { "id": "spirit-arrive", "prompt": "cute friendly ghost whoosh arriving with a soft twinkling bell", "seconds": 1.2 },
+    { "id": "soft-oops", "prompt": "gentle soft marimba boing, kind and curious, warm, not negative", "seconds": 0.8 },
+    { "id": "chomp", "prompt": "cute cartoon chomp bite, crunchy little munch", "seconds": 0.5 },
+    { "id": "moon-wake", "prompt": "big warm magical awakening swell, soft choir shimmer and twinkling chimes, joyful", "seconds": 3.0 }
+  ]
+}</script>
+<style>
+html{font-size:min(1vw,1.78vh)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(ellipse at 60% 20%,#2a2466,#0b1026 70%);font-family:'Baloo 2','Lexend',system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+button{font-family:inherit;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;outline:none;padding:0}
+#gl{position:fixed;inset:0}
+#gl canvas{display:block;width:100%;height:100%}
+.off{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+.off *{pointer-events:none!important}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#warm{position:fixed;left:0;top:0;width:100vw;height:100vh;overflow:hidden;z-index:40;pointer-events:none;line-height:1.05;word-break:break-all}
+#title{z-index:70;gap:1.6rem;background:radial-gradient(ellipse at 50% 45%,rgba(20,16,60,.15),rgba(8,8,30,.8));transition:opacity .45s,visibility .45s}
+#title.loading{background:rgba(11,16,38,.985)}
+h1{margin:0;font-weight:800;font-size:7.6rem;line-height:1;color:#ffe9a8;text-shadow:0 .4rem 0 #b3541e,0 0 3rem rgba(255,160,60,.8);text-align:center}
+#shelf{display:flex;gap:1rem;align-items:center;min-height:4.4rem;font-size:2.2rem}
+.st{background:rgba(255,255,255,.14);border:.2rem solid rgba(255,255,255,.3);border-radius:1.2rem;padding:.1rem 1.1rem}
+.st.lk{opacity:.4}
+.st.gold{background:rgba(255,200,80,.25);border-color:#ffd24a;color:#ffe9a8}
+.st.new{background:#fff6fb;color:#d2437a;border-color:#ff8fb8;animation:pulse .8s infinite}
+#load{font-size:5rem;animation:bob .7s infinite alternate ease-in-out}
+#start{font-size:4.4rem;font-weight:800;padding:1.2rem 5rem 1rem;border-radius:99rem;background:linear-gradient(#ffe07a,#ff9d3c);color:#4a2500;box-shadow:0 .8rem 0 #b85c00,0 0 4rem rgba(255,180,80,.7);animation:pulse 1.2s infinite ease-in-out}
+#start[hidden]{display:none!important}
+#chips{position:fixed;left:50%;top:1.1rem;margin-left:-13.6rem;z-index:15;display:flex;gap:.8rem;transition:opacity .3s}
+.chip{display:flex;flex-direction:column;align-items:center;background:rgba(14,12,44,.6);border:.2rem solid rgba(255,255,255,.18);border-radius:1.3rem;padding:.2rem .8rem .3rem;width:6.2rem;transition:transform .25s,border-color .25s}
+.chip.act{transform:scale(1.14);border-color:#ffd24a}
+.chip .cf{font-size:2.6rem;line-height:1.15}
+.chip .pips{height:1.9rem;font-size:1.6rem;line-height:1.9rem;display:flex;gap:.15rem}
+.pip{font-style:normal;animation:tpop .3s}
+.pip.own{color:#ffd24a}
+.pip.help{color:#bfe3ff}
+.pip.soft{color:#9d95d6}
+#jar{position:fixed;right:1.6rem;top:1.2rem;z-index:15;display:flex;align-items:center;gap:.6rem;background:rgba(14,12,44,.6);border:.2rem solid rgba(255,255,255,.18);border-radius:99rem;padding:.3rem 1.6rem;font-size:2.6rem;transition:opacity .3s}
+#jar b{font-family:'Lexend',sans-serif;min-width:2.6rem;color:#ffe9a8}
+.bub{position:fixed;left:0;top:0;z-index:14;background:#fff;color:#222;border-radius:2.6rem;padding:.3rem 1.6rem;font-size:4.6rem;line-height:1.3;white-space:nowrap;box-shadow:0 .4rem 0 rgba(0,0,0,.25);transition:opacity .25s,visibility .25s;will-change:transform}
+.bub::after{content:'';position:absolute;left:50%;bottom:-1.3rem;margin-left:-1rem;border:1rem solid transparent;border-top-color:#fff;border-bottom:0}
+#bubble{transform:translate(80vw,34vh) translate(-50%,-100%)}
+#ebub{transform:translate(27vw,24vh) translate(-50%,-100%);font-size:3.4rem;font-weight:800;color:#d2437a;background:#fff6fb}
+#banner{position:fixed;left:50%;top:19%;z-index:16;transform:translate(-50%,-50%) scale(0);font-size:5rem;font-weight:800;background:linear-gradient(#ff7aa8,#ff4d6d);padding:.4rem 3rem;border-radius:99rem;box-shadow:0 .5rem 0 #b3264a;transition:transform .35s cubic-bezier(.2,1.6,.4,1);white-space:nowrap;pointer-events:none}
+#banner.show{transform:translate(-50%,-50%) scale(1)}
+#go{position:fixed;left:50%;top:30%;z-index:22;transform:translate(-50%,-50%) scale(0);font-size:13rem;font-weight:800;color:#fff7c2;text-shadow:0 .6rem 0 #c2571a;pointer-events:none;opacity:0;will-change:transform,opacity}
+#go.ready{opacity:1;transform:translate(-50%,-50%) scale(.7);transition:transform .25s}
+#go.pop{animation:gopop .75s forwards}
+#guide{position:fixed;left:0;right:0;bottom:24.8rem;z-index:21;display:flex;justify-content:center;gap:.5rem;pointer-events:none}
+.gt,.tile{width:5.2rem;height:5.2rem;border-radius:1.1rem;font:700 3.6rem 'Lexend',sans-serif;display:flex;align-items:center;justify-content:center}
+.gt{background:rgba(255,255,255,.94);border:.3rem solid #b9a8ff;color:#5b3fd0;animation:tpop .25s}
+.gt.b{background:rgba(255,255,255,.14);border-style:dashed;border-color:#ffe08a}
+.gt.h{background:linear-gradient(#f6c56a,#e09a35);border-color:#9a5a1e;color:transparent}
+.gt.au{background:linear-gradient(#fff3b0,#ffc93c);border-color:#fff;color:#5a3200}
+#panel{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:.6rem 0 .9rem;background:linear-gradient(rgba(18,16,52,0),rgba(18,16,52,.9) 20%,rgba(10,9,36,.97));transform:translateY(106%);transition:transform .4s cubic-bezier(.2,1.25,.4,1);will-change:transform}
+#panel.up{transform:none}
+#tiles{height:6.2rem;display:flex;justify-content:center;align-items:center;gap:.5rem}
+.tile{background:linear-gradient(#f9cf7c,#e09a35);border:.35rem solid #9a5a1e;color:#3b1d00;box-shadow:0 .35rem 0 #6b3a10;transition:transform .1s}
+.tile.e{background:rgba(255,255,255,.07);border:.25rem dashed rgba(255,230,170,.55);box-shadow:none}
+.tile.cur{animation:blink 1s infinite}
+.tile.new{animation:tpop .22s}
+.tile.scan{transform:translateY(-.9rem) scale(1.16);background:#fff0b8}
+.tile.gold{animation:gold .55s both}
+#tiles.drift .tile{animation:drift .65s both}
+#kbrow{display:flex;justify-content:center;align-items:center;gap:2.2rem;transition:opacity .2s}
+#panel.lock #kbrow{opacity:.42}
+#keys{display:flex;flex-direction:column;gap:.6rem;align-items:center}
+.krow{display:flex;gap:.6rem}
+.key{width:6rem;height:5rem;border-radius:1.1rem;background:linear-gradient(#fdf8ff,#d9d0f5);color:#2a1e5c;font:700 3rem 'Lexend',sans-serif;box-shadow:0 .4rem 0 #7d6fc0;position:relative}
+.key.back{width:8.4rem;background:linear-gradient(#ffe3ea,#ffb3c4);box-shadow:0 .4rem 0 #c2607a;color:#7a1f3a}
+.key.hit{transform:translateY(.3rem) scale(.94);background:#ffe08a}
+.key.bee::after{content:'🐝';position:absolute;right:-.7rem;top:-1.1rem;font-size:2rem;pointer-events:none}
+.key.air::after{content:'💨';position:absolute;right:-.7rem;top:-1.1rem;font-size:2rem;pointer-events:none}
+.key.buzz{animation:buzz .42s linear}
+.key.whiff::after{animation:whiff .4s ease-out}
+.key.feel{animation:feel .5s 3}
+.big{width:10.4rem;height:10.4rem;border-radius:50%;font-size:5.2rem;line-height:1;background:linear-gradient(#8fe3ff,#3fa7e0);box-shadow:0 .6rem 0 #1b6a9c;color:#fff}
+#send{background:linear-gradient(#cfc6ff,#8d7be6);box-shadow:0 .6rem 0 #54429e}
+#send.dim{opacity:.5}
+#send.look{animation:pulse 1s infinite}
+#send.scan{animation:wob .5s infinite}
+#send.star{background:linear-gradient(#fff2a8,#ffb52e);box-shadow:0 .6rem 0 #b56a00;animation:pulse .7s infinite}
+#shower{position:fixed;inset:0;z-index:30;pointer-events:none}
+.drop{position:absolute;left:0;top:0;width:11rem;height:11rem;margin:-5.5rem 0 0 -5.5rem;display:none;align-items:center;justify-content:center;font-size:5.8rem;pointer-events:auto;will-change:transform}
+.drop.on{display:flex}
+.drop i{display:block;width:4.6rem;height:6rem;background:radial-gradient(circle at 35% 35%,#fff0b0,#f5a623 55%,#b96a00);border-radius:50%/65% 65% 38% 38%}
+.drop.pop i,.drop.pop span{animation:dpop .24s forwards}
+#toppick{position:fixed;left:0;right:0;bottom:9%;z-index:35;display:flex;justify-content:center;gap:3.4rem;transition:opacity .3s}
+.tp{width:15rem;height:15rem;border-radius:50%;font-size:8.4rem;line-height:1;background:radial-gradient(circle at 40% 30%,#fff,#ffe6b0);box-shadow:0 .9rem 0 #c98a2e;animation:bob .8s infinite alternate ease-in-out}
+#finish{z-index:60;background:radial-gradient(ellipse at 50% 40%,rgba(40,30,100,.55),rgba(8,8,30,.9));transition:opacity .5s,visibility .5s}
+#fcard{display:flex;flex-direction:column;align-items:center;gap:1.1rem}
+#fcard h2{margin:0;font-size:5.4rem;font-weight:800;color:#ffe9a8;text-shadow:0 .35rem 0 #b3541e}
+#ftoast{display:flex;flex-direction:column;align-items:center}
+#ftoast .ts{width:13rem;height:2.6rem;margin-top:-.4rem;border-radius:1rem;background:linear-gradient(#f9cf7c,#d98f2b);border:.35rem solid #9a5a1e}
+#ftoast .ts:nth-child(odd){transform:rotate(-3deg)}
+#ftoast .tp2{font-size:6rem;line-height:1;animation:bob .8s infinite alternate ease-in-out;z-index:2}
+#fchips{display:flex;gap:1.2rem}
+.fc{display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.1);border:.25rem solid rgba(255,255,255,.25);border-radius:1.6rem;padding:.4rem 1.4rem;min-width:9rem}
+.fc span{font-size:3.6rem;line-height:1.2}
+.fc em{font-style:normal;font-size:1.9rem;height:2.4rem}
+.fc small{font-size:1.8rem;height:2.2rem;color:#ffd24a;letter-spacing:.15rem}
+.fc.grew{border-color:#ffd24a;animation:pulse 1s 3}
+#fstick{display:flex;gap:.8rem;font-size:2.3rem}
+#fcoins{font-size:4.6rem;font-weight:800;color:#ffe9a8}
+#again{width:9rem;height:9rem;border-radius:50%;font-size:5rem;background:linear-gradient(#ffe07a,#ff9d3c);color:#4a2500;box-shadow:0 .7rem 0 #b85c00}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+@keyframes bob{from{transform:translateY(0)}to{transform:translateY(-.9rem)}}
+@keyframes tpop{0%{transform:scale(.3)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes gold{0%{transform:translateY(0)}40%{transform:translateY(-1.6rem) rotate(8deg)}100%{transform:translateY(0);background:linear-gradient(#fff3b0,#ffc93c);border-color:#fff}}
+@keyframes drift{0%{transform:rotate(0)}25%{transform:rotate(-5deg)}60%{transform:rotate(4deg);opacity:1}100%{transform:translateY(-2.4rem);opacity:0}}
+@keyframes buzz{0%,100%{transform:translate(0,0)}12%,37%,62%{transform:translate(-.3rem,0) rotate(-4deg)}25%,50%,75%{transform:translate(.3rem,0) rotate(4deg)}}
+@keyframes whiff{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(1.6rem,-1.2rem) scale(2);opacity:0}}
+@keyframes feel{0%,100%{transform:translateY(0)}50%{transform:translateY(-.8rem)}}
+@keyframes wob{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@keyframes dpop{to{transform:scale(2.1);opacity:0}}
+@keyframes gopop{0%{opacity:1;transform:translate(-50%,-50%) scale(.4)}35%{opacity:1;transform:translate(-50%,-50%) scale(1.25)}70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.5)}}
+</style>
+</head>
+<body>
+<div id="gl"></div>
+<div id="chips"></div>
+<div id="jar"><span>🍯</span><b id="jarN">0</b><span>🍞</span><b id="toastN">0</b></div>
+<div id="bubble" class="bub">🌋💤</div>
+<div id="ebub" class="bub">👂</div>
+<div id="banner" class="show">🥊 REMATCH!</div>
+<div id="go" class="ready">GO!</div>
+<div id="guide"></div>
+<div id="panel" class="up lock">
+  <div id="tiles"></div>
+  <div id="kbrow">
+    <button class="big" id="hear" data-k="hear" tabindex="-1" aria-label="hear it">🔊</button>
+    <div id="keys"></div>
+    <button class="big dim" id="send" data-k="send" tabindex="-1" aria-label="look it over, then send">👀</button>
+  </div>
+</div>
+<div id="shower"></div>
+<div id="toppick" class="off"></div>
+<div id="warm" aria-hidden="true"></div>
+<div id="finish" class="ov off">
+  <div id="fcard">
+    <h2>🌝 やったー!</h2>
+    <div id="ftoast"></div>
+    <div id="fchips"></div>
+    <div id="fstick"></div>
+    <div id="fcoins">🪙 <b id="coinN">0</b></div>
+    <button id="again" tabindex="-1" aria-label="play again">↻</button>
+  </div>
+</div>
+<div id="title" class="ov loading">
+  <div id="shelf"></div>
+  <h1>Midnight Spirit Toast</h1>
+  <div id="load">🍞</div>
+  <button id="start" hidden>▶ PLAY</button>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

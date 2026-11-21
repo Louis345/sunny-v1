@@ -15,7 +15,7 @@ import {
 } from "../../utils/runtimeMode";
 import { readLearningProfile } from "../../utils/learningProfileIO";
 import type { LearningProfile } from "../../context/schemas/learningProfile";
-import { resolveChildContextDir } from "../../utils/contextRoot";
+import { readSoulWithCurrentFacts } from "../../profiles/soulCurrentFacts";
 
 export const todaysPlanActivitySchema = z.object({
   activity: z.string(),
@@ -56,12 +56,7 @@ export function assertTodaysPlanInvariants(plan: TodaysPlanActivity[]): void {
 }
 
 function loadSoulSnippet(childName: "Ila" | "Reina", maxChars: number): string {
-  const folder = childName === "Ila" ? "ila" : "reina";
-  const full = fs.readFileSync(
-    path.resolve(resolveChildContextDir(folder), "soul.md"),
-    "utf-8",
-  );
-  return full.slice(0, maxChars);
+  return readSoulWithCurrentFacts(childName === "Ila" ? "ila" : "reina").slice(0, maxChars);
 }
 
 function planSystemPrompt(

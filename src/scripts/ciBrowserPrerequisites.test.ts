@@ -6,7 +6,7 @@ it("provisions Chromium and its OS dependencies before CI runs real-browser test
   const workflow = fs.readFileSync(path.join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
   const commands = [...workflow.matchAll(/^\s*run:\s*(.+)$/gm)].map(match => match[1]!.trim());
   const install = commands.findIndex(command => /^npx playwright install --with-deps chromium$/.test(command));
-  const tests = commands.indexOf("npm run test");
+  const tests = commands.indexOf("npm run test:all");
 
   expect(install, "A fresh CI runner has npm packages, but no Playwright browser binary.").toBeGreaterThan(-1);
   expect(install).toBeGreaterThan(commands.indexOf("npm ci"));

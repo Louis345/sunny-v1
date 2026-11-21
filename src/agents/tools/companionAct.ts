@@ -1,6 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { COMPANION_ANIMATION_IDS } from "../../shared/companions/companionContract";
+import { COMPANION_CAPABILITIES } from "../../shared/companions/registry";
+
+/** The registry's strict payload shapes are the only source: the model reads exactly what the validator accepts. */
+const registryPayloadSchemas = [...COMPANION_CAPABILITIES.values()].map((def) => def.payloadSchema) as unknown as [
+  z.ZodTypeAny,
+  z.ZodTypeAny,
+  ...z.ZodTypeAny[],
+];
 
 export interface CompanionActHost {
   companionAct(args: Record<string, unknown>): Promise<Record<string, unknown>>;
@@ -16,14 +23,8 @@ const companionActInputSchema = z.object({
       "Capability id from [Companion Capabilities] in the session manifest (e.g. camera, animate).",
     ),
   payload: z
-    .object({
-      animation: z
-        .enum(COMPANION_ANIMATION_IDS)
-        .optional()
-        .describe("For type animate only: one of these exact animation ids."),
-    })
-    .catchall(z.unknown())
-    .describe("Payload object for that capability, matching the manifest."),
+    .union(registryPayloadSchemas)
+    .describe("Payload for that capability: exactly one of these shapes, no other keys (animate takes animation, emote takes emote)."),
   presenceAfterSpeech: z
     .enum(["standby_after_speech", "await_child_response"])
     .optional()

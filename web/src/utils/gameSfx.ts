@@ -1,3 +1,11 @@
+import { ceremonyStageAt } from "../components/unlockCeremonyTimeline";
+import {
+  DEFAULT_SENSORY_PROFILE,
+  resolveSensoryProfile,
+  type SensoryProfile,
+  type SensorySoundBrightness,
+} from "../../../src/shared/sensoryProfile";
+
 export const GAME_SFX = {
   adventureBoard: {
     launch: "/sfx/pronunciation/replay_start.wav",
@@ -21,6 +29,12 @@ export const GAME_SFX = {
     replayStart: "/sfx/pronunciation/replay_start.wav",
     completeFanfare: "/sfx/pronunciation/complete_fanfare.wav",
     heatUp: "/sfx/pronunciation/hes-heating-up.mp3",
+  },
+  /** Recorded big moments for the Spark Orb capture; gesture sounds are synthesized in sparkOrbSfx. */
+  sparkOrb: {
+    captureLock: "/sfx/unlock/boom.mp3",
+    collected: "/sfx/unlock/fanfare.mp3",
+    perfect: "/sfx/unlock/coin.mp3",
   },
 } as const;
 
@@ -71,116 +85,157 @@ export type PronunciationHitSfxEffect =
   | "legendary";
 
 let audioCtx: AudioContext | null = null;
+let sensory: SensoryProfile = DEFAULT_SENSORY_PROFILE;
 
-function getAudioCtx(): AudioContext | null {
+const BRIGHTNESS_CUTOFF_HZ: Record<SensorySoundBrightness, number> = { soft: 2_400, standard: 6_500, bright: 16_000 };
+
+/** The chart's sensory sheet for the child on the kiosk: every game sound reads it (neutral until set). */
+export function setGameSfxSensory(partial: Partial<SensoryProfile> | null | undefined): void {
+  sensory = resolveSensoryProfile(partial);
+  console.log(" 🎮 [sfx] [sensory] [set]", sensory);
+}
+
+export function getGameSfxSensory(): SensoryProfile {
+  return sensory;
+}
+
+function soundOn(sheet: SensoryProfile): boolean {
+  return sheet.soundEnabled && sheet.soundVolume > 0;
+}
+
+/** The one Web Audio context every game sound shares (browsers limit how many can be open). */
+export function getSharedAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
-  if (!audioCtx) {
-    const Ctor =
-      window.AudioContext ||
-      (
-        window as unknown as {
-          webkitAudioContext?: typeof AudioContext;
-        }
-      ).webkitAudioContext;
-    if (Ctor) audioCtx = new Ctor();
+  if (!audioCtx || audioCtx.state === "closed") {
+    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    audioCtx = Ctor ? new Ctor() : null;
   }
   return audioCtx;
 }
 
-function playTone(
+/** Test seam: drop the cached context so a stubbed AudioContext is picked up. */
+export function resetSharedAudioContextForTests(): void {
+  audioCtx = null;
+}
+
+/** Per-sound output: volume from the sensory sheet, then a low-pass that rounds off harsh highs. */
+export function sfxOutput(context: AudioContext, sheet: SensoryProfile = sensory, volume = 1): AudioNode {
+  const gain = context.createGain();
+  gain.gain.value = sheet.soundVolume * volume;
+  if (typeof context.createBiquadFilter !== "function") {
+    gain.connect(context.destination);
+    return gain;
+  }
+  const filter = context.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = BRIGHTNESS_CUTOFF_HZ[sheet.soundBrightness];
+  gain.connect(filter);
+  filter.connect(context.destination);
+  return gain;
+}
+
+/** Runs a synthesized sound on the shared context through the sensory output; false when silent or unavailable. */
+export function playSynth(label: string, run: (context: AudioContext, out: AudioNode) => void, sheet: SensoryProfile = sensory): boolean {
+  if (!soundOn(sheet)) return false;
+  try {
+    const context = getSharedAudioContext();
+    if (!context) return false;
+    void context.resume?.()?.catch((error: unknown) => console.warn(" 🎮 [sfx] [resume] [blocked]", { label, error }));
+    run(context, sfxOutput(context, sheet));
+    return true;
+  } catch (error) {
+    console.warn(" 🎮 [sfx] [synth] [failed]", { label, error });
+    return false;
+  }
+}
+
+/** One recorded sound file at the sensory sheet's volume; false when silent or unavailable. */
+export function playSfxFile(
+  src: string,
+  options: { label: string; volume?: number; rate?: number; sensory?: SensoryProfile; onEnded?: () => void },
+): boolean {
+  const sheet = options.sensory ?? sensory;
+  if (!soundOn(sheet) || typeof Audio === "undefined") return false;
+  try {
+    const audio = new Audio(src);
+    const softness = sheet.soundBrightness === "soft" ? 0.8 : 1;
+    audio.volume = Math.max(0, Math.min(1, (options.volume ?? 0.85) * sheet.soundVolume * softness));
+    audio.playbackRate = options.rate ?? 1;
+    if (options.onEnded) {
+      audio.onended = options.onEnded;
+      audio.onerror = options.onEnded;
+    }
+    const result = audio.play();
+    if (result && typeof result.catch === "function") {
+      void result.catch((error: unknown) => {
+        console.warn(" 🎮 [sfx] [file] [blocked]", { label: options.label, src, error });
+        options.onEnded?.();
+      });
+    }
+    return true;
+  } catch (error) {
+    console.warn(" 🎮 [sfx] [file] [unavailable]", { label: options.label, src, error });
+    return false;
+  }
+}
+
+/** One note (optionally gliding to toFrequency) into a sensory output. */
+export function tone(
+  context: AudioContext,
+  out: AudioNode,
   frequency: number,
   startOffset: number,
   duration: number,
   gainPeak: number,
   type: OscillatorType = "sine",
+  toFrequency?: number,
 ): void {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  void ctx.resume();
-  const now = ctx.currentTime;
-  const oscillator = ctx.createOscillator();
-  const gain = ctx.createGain();
+  const start = context.currentTime + startOffset;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
   oscillator.type = type;
-  oscillator.frequency.value = frequency;
-  gain.gain.setValueAtTime(0, now + startOffset);
-  gain.gain.linearRampToValueAtTime(gainPeak, now + startOffset + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
-  oscillator.connect(gain).connect(ctx.destination);
-  oscillator.start(now + startOffset);
-  oscillator.stop(now + startOffset + duration + 0.05);
+  oscillator.frequency.setValueAtTime(frequency, start);
+  if (toFrequency) oscillator.frequency.exponentialRampToValueAtTime(toFrequency, start + duration);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(gainPeak, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain);
+  gain.connect(out);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.05);
 }
 
-function playSweep(
-  fromFrequency: number,
-  toFrequency: number,
-  duration: number,
-  gainPeak: number,
-): void {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  void ctx.resume();
-  const now = ctx.currentTime;
-  const oscillator = ctx.createOscillator();
-  const gain = ctx.createGain();
-  oscillator.type = "triangle";
-  oscillator.frequency.setValueAtTime(fromFrequency, now);
-  oscillator.frequency.exponentialRampToValueAtTime(toFrequency, now + duration);
-  gain.gain.setValueAtTime(gainPeak, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-  oscillator.connect(gain).connect(ctx.destination);
-  oscillator.start(now);
-  oscillator.stop(now + duration + 0.05);
+type Note = [frequency: number, startOffset: number, duration: number, gainPeak: number, type?: OscillatorType, toFrequency?: number];
+
+/** Synthesized cues, each a list of notes. */
+const SYNTH_CUES = {
+  /** Slot machine lock: fairy-shimmer stacked sines. */
+  lockChime: [[523, 0, 0.22, 0.16], [659, 0.08, 0.22, 0.16], [784, 0.16, 0.22, 0.16], [1047, 0.24, 0.22, 0.16]],
+  /** Story finale: coins spent. */
+  spend: [[780, 0, 0.16, 0.11, "triangle"], [620, 0.07, 0.16, 0.11, "triangle"], [480, 0.14, 0.16, 0.11, "triangle"]],
+  wordRadarChime: [[523, 0, 0.35, 0.28], [659, 0.08, 0.35, 0.28], [784, 0.16, 0.35, 0.28]],
+  wordRadarBuzz: [[180, 0, 0.35, 0.3, "sawtooth", 60]],
+} satisfies Record<string, Note[]>;
+
+export type SynthCue = keyof typeof SYNTH_CUES;
+
+export function playSynthCue(cue: SynthCue): boolean {
+  const notes: readonly Note[] = SYNTH_CUES[cue];
+  return playSynth(cue, (context, out) => notes.forEach((note) => tone(context, out, ...note)));
 }
 
-function playSynthSfx(src: string): void {
-  switch (src) {
-    case "synth:pronunciation-hit-pop":
-      playTone(523.25, 0, 0.5, 0.18);
-      playTone(659.25, 0.015, 0.5, 0.16);
-      playTone(783.99, 0.03, 0.5, 0.14);
-      return;
-    case "synth:pronunciation-miss-thunk":
-      playSweep(220, 110, 0.25, 0.15);
-      return;
-    case "synth:pronunciation-replay-start":
-      playTone(392, 0, 0.18, 0.12, "triangle");
-      playTone(523.25, 0.08, 0.24, 0.14, "triangle");
-      return;
-    case "synth:pronunciation-complete-fanfare":
-      playTone(523.25, 0, 0.3, 0.13, "triangle");
-      playTone(659.25, 0.11, 0.32, 0.14, "triangle");
-      playTone(783.99, 0.22, 0.42, 0.16, "triangle");
-      playTone(1046.5, 0.36, 0.48, 0.13, "triangle");
-      return;
-    case "synth:pronunciation-heat-up":
-      playSweep(330, 880, 0.42, 0.11);
-      return;
-    case "synth:pronunciation-combo":
-      playTone(587, 0, 0.055, 0.054, "square");
-      playTone(740, 0.045, 0.06, 0.054, "triangle");
-      playTone(988, 0.09, 0.075, 0.05, "square");
-      return;
-    case "synth:pronunciation-on-fire":
-      playTone(330, 0, 0.07, 0.054, "sawtooth");
-      playTone(660, 0.055, 0.07, 0.063, "square");
-      playTone(990, 0.11, 0.09, 0.068, "triangle");
-      playTone(1320, 0.18, 0.12, 0.054, "square");
-      return;
-    case "synth:pronunciation-mega-streak":
-      playTone(220, 0, 0.08, 0.063, "sawtooth");
-      playTone(440, 0.06, 0.08, 0.068, "square");
-      playTone(880, 0.12, 0.1, 0.068, "square");
-      playTone(1760, 0.22, 0.16, 0.063, "triangle");
-      return;
-    case "synth:pronunciation-legendary":
-      playTone(196, 0, 0.11, 0.072, "sawtooth");
-      playTone(392, 0.08, 0.1, 0.072, "square");
-      playTone(784, 0.16, 0.12, 0.077, "triangle");
-      playTone(1568, 0.28, 0.2, 0.072, "triangle");
-      return;
-    default:
-      console.warn(" 🎮 [sfx] unknown synth", { src });
-  }
+/** Companion activities (tic-tac-toe, connect four): one short tone per move, game-agnostic. */
+export type CompanionActivitySfx = "child_move" | "companion_move" | "round_complete";
+export function playCompanionActivitySfx(kind: CompanionActivitySfx): boolean {
+  const hz = { child_move: 520, companion_move: 740, round_complete: 880 }[kind];
+  const done = kind === "round_complete";
+  return playSynth(`companion-activity:${kind}`, (context, out) =>
+    tone(context, out, hz, 0, done ? 0.28 : 0.16, done ? 0.075 : 0.045, done ? "triangle" : "sine", hz * (kind === "companion_move" ? 1.18 : 1.06)));
+}
+
+/** Reward loot sounds (node chest, boss drop): /sfx/loot/<name>.mp3. */
+export function playLootSfx(name: string, rate = 1, volume = 0.6): boolean {
+  return playSfxFile(`/sfx/loot/${name}.mp3`, { label: `loot:${name}`, rate, volume });
 }
 
 function srcForPronunciationEffect(effect: PronunciationHitSfxEffect): string | undefined {
@@ -209,27 +264,7 @@ function playSfxSource(
   meta: { game: string; id: string },
   volume = 0.85,
 ): boolean {
-  if (src.startsWith("synth:")) {
-    try {
-      playSynthSfx(src);
-      return true;
-    } catch (error) {
-      console.warn(" 🎮 [sfx] synth failed", { ...meta, error });
-      return false;
-    }
-  }
-  if (typeof Audio === "undefined") return false;
-  try {
-    const audio = new Audio(src);
-    audio.volume = volume;
-    void audio.play().catch((error: unknown) => {
-      console.warn(" 🎮 [sfx] play failed", { ...meta, error });
-    });
-    return true;
-  } catch (error) {
-    console.warn(" 🎮 [sfx] create failed", { ...meta, error });
-    return false;
-  }
+  return playSfxFile(src, { label: `${meta.game}:${meta.id}`, volume });
 }
 
 export function playGameSfx<G extends GameSfxGame>(
@@ -253,23 +288,18 @@ export function playAdventureBoardSfx(cue: AdventureBoardSfxCue): boolean {
  * rumble as the board dims, riser with the light pillar, the boom as the node bursts out, coins along the
  * new path, then the fanfare (Quest) or the boss hit. */
 export function playUnlockCeremonySfx(kind: "quest" | "boss"): boolean {
-  if (typeof Audio === "undefined") return false;
+  if (!soundOn(sensory) || typeof Audio === "undefined") return false;
   const boss = kind === "boss";
-  const play = (name: string, rate = 1, volume = 0.85) => {
-    try {
-      const audio = new Audio(`/sfx/unlock/${name}.mp3`);
-      audio.playbackRate = rate;
-      audio.volume = volume;
-      void audio.play().catch((error: unknown) => console.warn(" 🎮 [sfx] [unlock-ceremony] [blocked]", { name, error }));
-    } catch (error) {
-      console.warn(" 🎮 [sfx] [unlock-ceremony] [unavailable]", { name, error });
-    }
-  };
+  const play = (name: string, rate = 1, volume = 0.85) =>
+    playSfxFile(`/sfx/unlock/${name}.mp3`, { label: "unlock-ceremony", rate, volume });
+  // One timeline with the board: the rumble runs under her companion's reaction, then the reveal (owner, 2026-11-20).
+  const at = ceremonyStageAt;
   play("rumble", boss ? 0.8 : 1, boss ? 1 : 0.8);
-  setTimeout(() => play("riser"), 900);
-  setTimeout(() => { play("boom", boss ? 0.75 : 1); if (boss) play("boss"); }, 1250);
-  for (let index = 1; index <= 12; index += 1) setTimeout(() => play("coin", 0.9 + index * 0.05, 0.6), 1900 + index * 70);
-  if (!boss) setTimeout(() => play("fanfare"), 2200);
+  for (let time = at("rumble"); time < at("pillar") - 300; time += 1100) setTimeout(() => play("rumble", boss ? 0.75 : 0.9, 0.55), time);
+  setTimeout(() => play("riser"), at("pillar"));
+  setTimeout(() => { play("boom", boss ? 0.75 : 1); if (boss) play("boss"); }, at("rise"));
+  for (let index = 1; index <= 12; index += 1) setTimeout(() => play("coin", 0.9 + index * 0.05, 0.6), at("open") + index * 70);
+  if (!boss) setTimeout(() => play("fanfare"), at("banner"));
   console.log(" 🎮 [sfx] [unlock-ceremony] [played]", { kind });
   return true;
 }

@@ -4,6 +4,7 @@ import { expandJourneySequence, journeyExecutions } from "../shared/adventureBoa
 import { assignmentPlannerAllowedEvidenceIds, hydrateNativeLearningProgram, type AssignmentPlanningPacket } from "./assignmentPlanner";
 import type { PlannerTool } from "./plannerToolLoop";
 import { finishJourneySequence, journeyOrderTools, removeFromJourney, type JourneyOrderState } from "./journeyTools";
+import { plannerMenu, rewardBreakTool, stageChoices } from "./plannerMenu";
 
 /** The Teaching Planner's small locked tools. The model decides activities, words, order, the
  * choice and its predictions; the handlers stamp IDs, configuration, measurement bookkeeping and
@@ -24,38 +25,8 @@ type Result = { ok: true; result: unknown } | { ok: false; error: string };
 const text = (description: string) => z.string().min(1).describe(description);
 const enumOf = (values: readonly string[], fallback: string) => z.enum((values.length ? values : [fallback]) as [string, ...string[]]);
 const repeated = (values: readonly string[]) => values.find((value, index) => values.indexOf(value) !== index);
-const ROLES: Record<string, ReadonlyArray<"instruction" | "practice" | "fresh_checkpoint">> = {
-  "word-radar:hidden_word_recall": ["fresh_checkpoint", "practice", "instruction"],
-  "word-radar:visible_read": ["instruction", "practice"],
-  "word-radar:partial_visual_recall": ["instruction", "practice"],
-  // Her answers in a game built for her are practice; its pick and replays are the taste signal.
-  "generated-game": ["practice"],
-};
-
-/** The tested games and modes a spelling board can offer: one menu for the Teaching board and the next board. */
-export function spellingActivityMenu(catalog: AssignmentPlanningPacket["activityCatalog"]) {
-  const launchable = catalog.filter(card => card.launchable);
-  const offered = new Set(launchable.map(card => card.nodeType ?? card.activityId));
-  const radarModes = new Map<string, Record<string, unknown>>();
-  for (const mode of launchable.find(card => card.activityId === "word-radar")?.capabilityModes ?? []) {
-    const recall = (mode.config as { recallMode?: unknown } | undefined)?.recallMode;
-    if (typeof recall === "string" && `word-radar:${recall}` in ROLES && !radarModes.has(recall)) radarModes.set(recall, structuredClone(mode.config as Record<string, unknown>));
-  }
-  const games = [...offered].filter(type => !["word-radar", "visual-explainer", "letter-rush", "mystery", "quest", "boss"].includes(type));
-  const choices = [
-    ...[...radarModes.keys()].map(mode => `word-radar:${mode}`),
-    ...(offered.has("letter-rush") ? ["letter-rush:read-and-race", "letter-rush:hear-and-spell", "letter-rush:type-and-spell"] : []),
-    ...games,
-  ];
-  /** The roles a game can play: only a hidden-word Radar measures what she knows. */
-  const roles = (activity: string): ReadonlyArray<"instruction" | "practice" | "fresh_checkpoint"> => ROLES[activity] ?? (activity.startsWith("letter-rush:") ? ["practice"] : ["instruction", "practice"]);
-  /** What code fills in for a game and mode: the Radar's settings or Letter Rush's mode. */
-  const setup = (activity: string): { type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string } => {
-    const [type, mode] = activity.split(":");
-    return { type, ...(type === "word-radar" ? { wordRadarConfig: structuredClone(radarModes.get(mode)) } : type === "letter-rush" ? { letterRushMode: mode } : {}) };
-  };
-  return { offered, choices, roles, setup };
-}
+/** The one menu (Law 16) lives in plannerMenu.ts; the old name stays for its callers. */
+export const spellingActivityMenu = plannerMenu;
 
 type ExplainerPage = { words: string[]; activityConfig: Record<string, unknown> };
 type ExplainerInput = { title: string; story: string; picture: string };
@@ -65,12 +36,12 @@ type ExplainerInput = { title: string; story: string; picture: string };
  * unlocked and its handler checks it. */
 export function explainerPageTool<State>(input: { grade: unknown; word: z.ZodType<string>; look: Record<string, z.ZodType<string>>; returns: string; run: (state: State, page: ExplainerPage, given: ExplainerInput) => Result }): PlannerTool<State> {
   const { word } = input;
-  return { name: "add_explainer", strict: false, description: `Add a Visual Explainer that teaches a spelling pattern with chunked words and one check question at the end. It is always instruction. She is in grade ${input.grade ?? "school"} and Elli reads it with her: every line is short and in her words. Returns its ${input.returns}.`,
+  return { name: "add_explainer", strict: false, description: `Add a Visual Explainer that teaches a spelling pattern with chunked words and one check question at the end. It is always instruction. She is in grade ${input.grade ?? "school"} and Elli reads it with her. Returns its ${input.returns}.`,
     schema: z.object({
       title: text("The short name she sees under the portal."), ...input.look, topic: z.string().min(1).max(120), learning_goal: z.string().min(1).max(220), misconception: text("The mistake this explainer addresses."),
       strategy: z.object({ title: z.string().min(1).max(32).describe("A name for the trick, in her words."), steps: z.array(z.string().min(1).max(60)).min(2).max(3).describe("Two or three short steps she can hear and remember.") }).strict(),
       words: z.array(z.object({ text: word, chunks: z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."), spoken_chunks: z.array(z.string().min(1).max(100)).min(2).max(6).describe("How each chunk sounds, one per chunk in the same order, spelled the way it is said (lee for ly), never letter names."), focus_chunk: text("One chunk from this word."), tip: z.string().min(1).max(60).describe("One short line Elli reads with this word.") }).strict()).min(1).max(8),
-      check: z.object({ target_word: word, prompt: z.string().min(1).max(90).describe("Asked after the lesson: about the pattern across her words, such as which word has the sneaky letter."), options: z.array(z.object({ label: text("An answer choice."), correct: z.boolean() }).strict()).min(2).max(4).describe("Exactly one option is correct.") }).strict(),
+      check: z.object({ target_word: word, prompt: z.string().min(1).max(90).describe("Asked after the lesson."), options: z.array(z.object({ label: text("An answer choice."), correct: z.boolean() }).strict()).min(2).max(4).describe("Exactly one option is correct.") }).strict(),
     }).strict(),
     run: (state: State, given: any): Result => {
       // She reads letters, not phonetic notation: a sound is written the way it is said.
@@ -94,10 +65,10 @@ export function explainerPageTool<State>(input: { grade: unknown; word: z.ZodTyp
 }
 
 export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
-  const menu = spellingActivityMenu(packet.activityCatalog);
+  const menu = plannerMenu(packet.activityCatalog);
   const { offered, roles, setup } = menu;
-  // The Teaching board is published at intake, before any game can be built: her own game starts on the next board.
-  const choices = menu.choices.filter(id => id !== "generated-game");
+  // Only the stated exceptions leave this stage's menu (STAGE_EXCEPTIONS.teaching).
+  const choices = stageChoices(menu, "teaching");
   const assigned = [...new Set([...packet.capturedHomework.words, ...(packet.capturedHomework.wordGroups ?? []).flatMap(group => group.words)])];
   // Predictions cite this homework's evidence. Her whole history stays in the prompt as context, but as
   // a pick-list it outgrew what strict mode can compile (251 IDs on a real chart, 2026-10-25).
@@ -145,9 +116,8 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
       } },
     ...(offered.has("visual-explainer") ? [explainerPageTool<TeachingState>({ grade: packet.childChart.grade, word, look, returns: "activity_id; then call predict for it", run: (state, page, input) =>
       add(state, { title: input.title, type: "visual-explainer", role: "instruction", targets: page.words, prediction: null, extra: { ...lookOf(input), activityConfig: page.activityConfig } }) })] : []),
-    ...(offered.has("mystery") ? [{ name: "add_reward", description: "Add a Mystery reward with no words and no measurement. Returns its activity_id.",
-      schema: z.object({ title: text("The short name she sees under the portal."), ...look }).strict(),
-      run: (state: TeachingState, input: { title: string; story: string; picture: string }) => add(state, { title: input.title, type: "mystery", role: null, targets: [], prediction: null, extra: lookOf(input) }) } as PlannerTool<TeachingState>] : []),
+    ...(menu.rewardBreak ? [rewardBreakTool<TeachingState>({ returns: "activity_id", add: (state, input) =>
+      add(state, { title: input.title, type: "mystery", role: null, targets: [], prediction: null, extra: lookOf(input) }) })] : []),
     { name: "predict", description: "Record your preregistered prediction for one academic activity. Every activity except a reward needs one. Calling it again replaces it. It is never a claim she has learned anything.",
       schema: predictionSchema,
       run: (state, input) => {

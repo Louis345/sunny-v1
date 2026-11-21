@@ -255,3 +255,16 @@ it('reuses only the same launched practice answers when completion arrives',asyn
  expect(unrelated.observations).toEqual(before.observations);
  expect(unrelated.evidence.academic.find(e=>e.evidenceId==='completion-other:check:completion')?.accuracy).toBeUndefined();
 });
+
+// Human-caught 2026-11-08 (owner watching Ila): Memory Lighthouse (12 hidden-word checks) never finished.
+// She answered 11 words one evening and the last one the next day; the board resumes with only the words
+// still unanswered, but completion demanded all 12 in that one launch, so it was refused forever and the
+// next launch had no words and ended at once. Logs showed coverage_incomplete twice; the lab only tested
+// a check finished in a single sitting. A check split across sittings is complete when every word has an
+// answer; each answer keeps its own launch in the record.
+it('completes a checkpoint answered across two sittings once every word has an answer',async()=>{
+ const f=fixture();const base=f.current();
+ recordSpellingDiscoveryAttempt({childId:base.childId,homeworkId:base.homeworkId,sessionId:'voice-2',launchId:'launch-two',attempt:{attemptId:'second-sitting',itemId:f.items[0].id,attemptedValue:'night',observedAt:'2026-09-09T01:00:00Z'},support:{status:'unknown',scaffolds:[]}},{rootDir});
+ const done=recordCanonicalNodeCompletion({...f.completion,sessionId:'second-sitting-completion',result:{completed:true,accuracy:1,timeSpent_ms:100,captureLaunchId:'launch-two'}},{rootDir})!;
+ expect(done.nodes.find(node=>node.nodeId==='check')?.state).toBe('completed');
+});

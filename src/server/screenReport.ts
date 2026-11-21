@@ -12,6 +12,8 @@ export type ScreenReport = {
   nodeId?: string;
   activityTitle?: string;
   waiting?: { step?: string; detail?: string; ready?: number; total?: number };
+  /** What the board portrait draws her wearing, by store name; "" is her own clothes / no accessory (2026-11-15, W8). */
+  companionLook?: { outfit: string; accessory: string };
 };
 
 const KINDS = new Set<ScreenKind>(["loading", "unavailable", "evaluation", "waiting", "board", "activity", "resting"]);
@@ -23,6 +25,8 @@ export function normalizeScreenReport(raw: unknown): ScreenReport | null {
   const row = raw as Record<string, unknown>;
   if (!KINDS.has(row.screen as ScreenKind)) return null;
   const waiting = row.waiting && typeof row.waiting === "object" ? row.waiting as Record<string, unknown> : undefined;
+  const look = row.companionLook && typeof row.companionLook === "object" ? row.companionLook as Record<string, unknown> : undefined;
+  const name = (value: unknown) => (typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) : "");
   return {
     screen: row.screen as ScreenKind,
     ...(text(row.boardId) ? { boardId: text(row.boardId) } : {}),
@@ -30,6 +34,7 @@ export function normalizeScreenReport(raw: unknown): ScreenReport | null {
     ...(text(row.nodeId) ? { nodeId: text(row.nodeId) } : {}),
     ...(text(row.activityTitle) ? { activityTitle: text(row.activityTitle) } : {}),
     ...(waiting ? { waiting: { step: text(waiting.step), detail: text(waiting.detail), ready: count(waiting.ready), total: count(waiting.total) } } : {}),
+    ...(look ? { companionLook: { outfit: name(look.outfit), accessory: name(look.accessory) } } : {}),
   };
 }
 
@@ -50,7 +55,17 @@ export function screenShowsActivity(input: ScreenCheck): boolean {
   return Boolean(report.nodeId) && report.nodeId === input.activityNodeId;
 }
 
-export function describeScreenForCompanion(input: {
+/** Her screen, plus what she is wearing on it when the kiosk said (she cannot see herself otherwise). */
+export function describeScreenForCompanion(input: Parameters<typeof describeScreen>[0]): string {
+  const screen = describeScreen(input);
+  const look = input.report?.companionLook;
+  if (!look) return screen;
+  const outfit = look.outfit ? JSON.stringify(look.outfit) : "your own clothes";
+  const accessory = look.accessory ? `accessory ${JSON.stringify(look.accessory)}` : "no accessory";
+  return `${screen}\nOn her screen you are wearing: ${outfit}, ${accessory}.`;
+}
+
+function describeScreen(input: {
   report: ScreenReport | null;
   boards: ServerBoards;
   /** Live state of the activity the server last heard from, and which node it belongs to. */

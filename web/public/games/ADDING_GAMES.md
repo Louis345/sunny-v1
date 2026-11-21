@@ -26,11 +26,9 @@
 - [ ] Report vital signs: attention, mood/frustration, idle/reengagement signals
 - [ ] Dyslexia mode: check `childId === "ila" || dyslexiaMode === true`
 
-### Platform registration (4 files, always all 4)
-- [ ] `src/shared/adventureTypes.ts` — add to `NodeType` union + `ALL_NODE_TYPES`
-- [ ] `src/shared/nodeRegistry.ts` — add iframe handler with `GAME_PARAMS`
-- [ ] `src/server/map-coordinator.ts` — add `NODE_THUMBNAIL_PROMPTS` entry; add to `isWordDrivenHomeworkNodeType` if word-driven
-- [ ] `src/agents/designer/designer.ts` — add to thumbnail prompts `Record`
+### Platform registration (one registry, then let the tests name the rest)
+- [ ] `src/engine/activityToolCatalog.ts`: add the game's contract (id, label, nodeType, purposes, domains, evidence). This is the one registry: the Planner menu for every stage and subject (`src/engine/plannerMenu.ts`) and the dopamine pool derive from it.
+- [ ] Run `npx vitest run src/engine/plannerMenuParity.test.ts src/engine/activityListDrift.test.ts`. They name anything else that must change (node type, kiosk handler in `src/shared/nodeRegistry.ts`, display label, certification). A stage may leave a game off its menu only through `STAGE_EXCEPTIONS` in `plannerMenu.ts`, with a child-safety or honest-record reason (AGENTS.md Law 16).
 
 ### Diag test button (always required)
 - [ ] `web/src/components/DiagPanel.tsx` — add `onTestYourGame` prop + button
@@ -64,7 +62,7 @@ No exceptions. No `max-width`. No fixed height. `FlowGameOverlay` handles the fu
 ```
 
 ## Tests (always write first)
-- `ALL_NODE_TYPES` includes your new type
+- `plannerMenuParity.test.ts` and `activityListDrift.test.ts` pass with your contract added
 - `NODE_THUMBNAIL_PROMPTS["your-game"]` is defined
 - `isWordDrivenHomeworkNodeType("your-game")` correct
 - nodeRegistry builds correct iframe URL

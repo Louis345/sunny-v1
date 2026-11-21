@@ -2063,8 +2063,8 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
           recallMode: "hidden_word_recall",
           inputMode: "whole-word",
           speakStyle: "option-b",
-          showTimer: true,
-          timerSeconds: 8,
+          // No clock unless the Planner sets showTimer and timerSeconds from her evidence (BUGS.md S31).
+          showTimer: false,
           hideWordDuringResponse: true,
           requiresCapturedResponse: true,
         },
@@ -2332,6 +2332,7 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
     strengths: [
       "A new game Sunny builds for her from her chart: what she likes, how she has played, and the story you give this stop.",
       "Sits in a choice beside the hand-made games, so what she picks and replays tells you what she enjoys.",
+      "It can be aimed at one specific error you name, e.g. the m before p in import.",
     ],
     weakFor: ["initial-baseline", "mastery-gating", "independent-retrieval"],
     goodFitWhen: [

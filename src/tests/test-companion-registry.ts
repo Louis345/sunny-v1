@@ -3,8 +3,8 @@ import { CompanionRegistry } from "../prompts/companions/registry";
 import { tryLoadIntroOnlyShowroomCompanion } from "../server/introOnlyShowroomCompanion";
 
 describe("CompanionRegistry", () => {
-  it("discovers all prompt companions (elli, matilda, showroom chars)", () => {
-    expect(CompanionRegistry.getAll().length).toBe(7);
+  it("discovers all prompt companions (elli, matilda, hikari, showroom chars)", () => {
+    expect(CompanionRegistry.getAll().length).toBe(8);
   });
 
   it("getById returns elli", () => {

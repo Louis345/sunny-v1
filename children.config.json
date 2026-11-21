@@ -13,7 +13,8 @@
       "showKeyboard": false
     },
     "ila": {
-      "ttsName": "Ayla",
+      "ttsName": "EYE-lah",
+      "ttsAliases": ["Ayla"],
       "avatarImagePath": "/characters/ila.png",
       "showTimer": true,
       "showKeyboard": false,

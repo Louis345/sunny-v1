@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RewardItem, VRREvent } from "../../../src/shared/vrrTypes";
+import { playSynthCue } from "../utils/gameSfx";
 
 const SYMBOLS = ["⭐", "💎", "👑", "⚡", "🌟", "🔮"];
 
@@ -15,37 +16,6 @@ function ct(id: number): void {
 }
 function ci(id: number): void {
   window.clearInterval(id);
-}
-
-/** Fairy-shimmer style chime — short stacked sines. */
-function playLockChime(): void {
-  try {
-    const AC =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AC) return;
-    const ac = new AC();
-    if (ac.state === "suspended") void ac.resume();
-    const t0 = ac.currentTime;
-    const scale = [523, 659, 784, 1047];
-    scale.forEach((freq, i) => {
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.connect(g);
-      g.connect(ac.destination);
-      o.type = "sine";
-      o.frequency.setValueAtTime(freq, t0 + i * 0.08);
-      g.gain.setValueAtTime(0, t0 + i * 0.08);
-      g.gain.linearRampToValueAtTime(0.16, t0 + i * 0.08 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + i * 0.08 + 0.22);
-      o.start(t0 + i * 0.08);
-      o.stop(t0 + i * 0.08 + 0.3);
-    });
-    setTimeout(() => ac.close(), 1200);
-  } catch {
-    /* ignore */
-  }
 }
 
 type UiPhase = "dim" | "spin" | "pause" | "modal";
@@ -108,17 +78,17 @@ export function SlotMachineOverlay({
               ci(intervalRef.current);
             }
             intervalRef.current = null;
-            playLockChime();
+            playSynthCue("lockChime");
             setLocked([true, false, false]);
             setReels((r) => [event.reward.icon, r[1]!, r[2]!]);
             timersRef.current.push(
               st(() => {
-                playLockChime();
+                playSynthCue("lockChime");
                 setLocked([true, true, false]);
                 setReels((r) => [r[0]!, event.reward.icon, r[2]!]);
                 timersRef.current.push(
                   st(() => {
-                    playLockChime();
+                    playSynthCue("lockChime");
                     setLocked([true, true, true]);
                     setReels([
                       event.reward.icon,

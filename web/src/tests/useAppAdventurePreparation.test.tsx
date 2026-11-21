@@ -1,6 +1,6 @@
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAppAdventurePreparation, type PreparationSurface } from "../components/AdventurePreparation/useAppAdventurePreparation";
+import { boardReadyRaiseHand, useAppAdventurePreparation, type PreparationSurface } from "../components/AdventurePreparation/useAppAdventurePreparation";
 import type { GenerationStatus } from "../hooks/useAdaptiveMathGenerationRefresh";
 
 const packet = { activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: ["night", "light"] }], adventureBoard: { nodes: [{ id: "a", kind: "activity", activityId: "word-radar" }, { id: "b", kind: "activity", activityId: "letter-rush" }] } } } as never;
@@ -34,6 +34,71 @@ describe("useAppAdventurePreparation", () => {
     expect(screen.getByRole("button", { name: "Hear word9 — To practise" })).toHaveTextContent("✕");
   });
 
+  // Owner 2026-11-12: "it just shows spelling, but we should just show math... their progress, what they worked on."
+  // The same waiting screen shows a finished math board: each problem as her answer with a check or a cross, the
+  // problem read aloud on tap, and "New!" where she fixed a first miss.
+  it("shows a finished math board's problems as her answers", () => {
+    const math = { activeSessionPlan: { domain: "math" }, mathBoardResults: { "hw:board:3": [
+      { display: "7", spoken: "42 stickers, 6 on each sheet. How many sheets?", firstTry: false, correct: true },
+      { display: "8", spoken: "56 apples in 8 bags. How many in each bag?", firstTry: true, correct: false },
+    ] } };
+    const sendMessage = vi.fn();
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: "chapter", packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:3",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage,
+    }));
+    render(<>{result.current.screen}</>);
+    expect(screen.getByRole("button", { name: "Hear 7 — Correct" })).toHaveTextContent("New!");
+    expect(screen.getByRole("button", { name: "Hear 8 — To practise" })).toHaveTextContent("✕");
+    expect(result.current.waiting?.step).toBe("You did it! Let me look at all your answers.");
+    fireEvent.click(screen.getByRole("button", { name: "Hear 7 — Correct" }));
+    expect(JSON.stringify(sendMessage.mock.calls)).toContain("42 stickers, 6 on each sheet. How many sheets?");
+  });
+
+  // 2026-11-15 (Ila): a problem she got right with a hint showed no mark at all. Right with help is still right, and
+  // the card says she had help, with a picture, not words.
+  it("marks a problem she got right with help as right, with a helper badge", () => {
+    const math = { activeSessionPlan: { domain: "math" }, mathBoardResults: { "hw:board:5": [
+      { display: "36", spoken: "Problem", firstTry: false, correct: true, helped: true },
+      { display: "26", spoken: "Problem two", firstTry: false, correct: false, helped: true },
+    ] } };
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: "chapter", packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:5",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+    }));
+    render(<>{result.current.screen}</>);
+    const right = screen.getByRole("button", { name: "Hear 36 — Correct with help" });
+    expect(right).toHaveTextContent("✓");
+    expect(right.querySelector("[data-helped]")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Hear 26 — To practise" })).toHaveTextContent("✕");
+  });
+
+  // 2026-11-15 (owner, approved mock): the finished-board screen is a report card: her answers grouped honestly (on her
+  // own, fixed it, with help, still growing) and her on-her-own count against the board before.
+  it("groups her answers like a report card and shows her progress since the last board", () => {
+    const math = { activeSessionPlan: { domain: "math" }, mathBoardResults: {
+      "hw:board:4": [{ display: "60", spoken: "a", firstTry: true, correct: true, own: true }],
+      "hw:board:5": [
+        { display: "70", spoken: "b", firstTry: true, correct: true, own: true },
+        { display: "500", spoken: "c", firstTry: true, correct: true, own: true },
+        { display: "36", spoken: "d", firstTry: false, correct: true },
+        { display: "50", spoken: "e", firstTry: true, correct: true, helped: true },
+        { display: "45", spoken: "f", firstTry: false, correct: false },
+      ] } };
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: "chapter", packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:5",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+    }));
+    render(<>{result.current.screen}</>);
+    const group = (name: string) => screen.getByTestId(`ap-group-${name}`);
+    expect(within(group("own")).getAllByRole("button").map(card => card.textContent)).toEqual([expect.stringContaining("70"), expect.stringContaining("500")]);
+    expect(within(group("fixed")).getByRole("button").textContent).toContain("36");
+    expect(within(group("helped")).getByRole("button").textContent).toContain("50");
+    expect(within(group("growing")).getByRole("button").textContent).toContain("45");
+    expect(screen.queryByTestId("ap-group-practised")).toBeNull();
+    expect(screen.getByTestId("ap-progress").textContent).toContain("1 → 2");
+  });
+
   // 2026-11-01 Ila finished her board and nothing happened: the next board was ready but her screen still said done.
   describe("when she finishes a board", () => {
     const finished = { activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: ["mailbox", "moonlight"] }] },
@@ -54,6 +119,15 @@ describe("useAppAdventurePreparation", () => {
       expect(screen.getByRole("button", { name: /Hear mailbox — Correct/ })).toHaveTextContent("New!");
       expect(screen.getByRole("button", { name: /Hear moonlight — To practise/ })).not.toHaveTextContent("New!");
       expect(result.current.waiting?.detail ?? "").toContain("New since her first try: mailbox.");
+    });
+
+    // BUGS.md S23: a missed word shows what she typed with the cross, never the right spelling with a cross.
+    it("shows her own spelling on a missed word, and still reads the right word aloud", () => {
+      const { result } = open({ packet: { ...finished, spellingBoardResults: [{ display: "mailbox", firstTry: false, correct: true }, { display: "moonlight", firstTry: false, correct: false, typed: "monelite" }] } as never });
+      render(<>{result.current.screen}</>);
+      const missed = screen.getByRole("button", { name: /Hear moonlight/ });
+      expect(missed).toHaveTextContent("monelite");
+      expect(missed).not.toHaveTextContent("moonlight");
     });
 
     it("opens again after the Discovery screen was already used on this homework", async () => {
@@ -280,6 +354,71 @@ describe("useAppAdventurePreparation", () => {
     render(<>{result.current.screen}</>);
     expect(screen.getByRole("button", { name: "Let's go!" })).toBeTruthy();
     expect(screen.queryByText(/min/)).toBeNull();
+  });
+
+  // 2026-11-12 Ila (AI-caught in the log): she tapped "Stop for now" 11 s into the waiting screen while board 3 was
+  // still being built, then stayed on "You can go. I'll finish it for next time" for 35 minutes. Board 3 was
+  // published at 21:13, but the stop card ignored it, so nothing opened. Why a human would catch it: a child sat in
+  // front of a finished board. Why the logs missed it: the screen kept reporting "waiting" and nothing measured how
+  // long. Why the lab missed it: stop was tested only on an already-ready board (declining it, below).
+  // BUGS.md S46 (owner + kiosk screenshot, 2026-11-20 02:03-02:20 UTC): board 9 was published and the screen said
+  // "Your map is ready", but the kiosk's copy of the board still marked a game as building, so Let's go did nothing
+  // for 17 minutes ("I press crazy"). Why the human caught it: she pressed and nothing happened. Why the logs missed
+  // it: the dead press logged only in the browser console. Why the lab missed it: Let's go was tested only with a
+  // board copy that already agreed with the server.
+  it("never ignores Let's go: a stale board copy is refreshed, and the board opens once it is current", () => {
+    const sendMessage = vi.fn(), onReveal = vi.fn(), onRefresh = vi.fn(), checkNow = vi.fn();
+    const building = status("successor_preparing", [["a", "ready"], ["b", "preparing"]]);
+    const published = status("successor_published", [["a", "ready"], ["b", "ready"]]);
+    const { result, rerender } = renderHook((props: { surface: PreparationSurface; status: GenerationStatus }) => useAppAdventurePreparation({
+      surface: props.surface, status: props.status, packet, childId: "ila", homeworkId: "hw", finished: false,
+      checkNow, onFinish: vi.fn(), onReveal, onRefresh, sendMessage,
+    }), { initialProps: { surface: "held" as PreparationSurface, status: building } });
+    rerender({ surface: null, status: published });
+    // The server says published; the kiosk's board copy still marks a game as building.
+    rerender({ surface: "held", status: published });
+    const view = render(<>{result.current.screen}</>);
+    fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
+    view.unmount();
+    expect(onRefresh).toHaveBeenCalledOnce();
+    expect(checkNow).toHaveBeenCalledOnce();
+    expect(sendMessage.mock.calls.map(call => (call[1] as { event: { payload: { button?: string } } }).event.payload.button)).toContain("lets_go_waiting");
+    expect(onReveal).not.toHaveBeenCalled();
+    rerender({ surface: null, status: published });
+    expect(onReveal).toHaveBeenCalledOnce();
+    rerender({ surface: null, status: published });
+    expect(onReveal).toHaveBeenCalledOnce();
+  });
+
+  it("offers a board that is published after she tapped Stop while it was still being built", () => {
+    const { result, rerender } = setup({ surface: "held", status: status("board_generating", [["a", "ready"], ["b", "preparing"]]) });
+    const first = render(<>{result.current.screen}</>);
+    fireEvent.click(screen.getByRole("button", { name: /stop for now/i }));
+    first.unmount();
+    rerender({ surface: null, status: status("board_ready", [["a", "ready"], ["b", "ready"]]) });
+    render(<>{result.current.screen}</>);
+    expect(screen.getByRole("button", { name: "Let's go!" })).toBeTruthy();
+    expect(result.current.waiting?.step).toBe("Your map is ready. Let's go!");
+    expect(result.current.readyAt).toEqual(expect.any(Number));
+  });
+
+  it("never offers Let's go on a finished math board before the next board is published", () => {
+    const math = { activeSessionPlan: { domain: "math", adventureBoard: { nodes: [{ id: "a", kind: "activity" }] } }, mathBoardResults: {} };
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: null, packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:2",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+    }));
+    act(() => { vi.advanceTimersByTime(20_000); });
+    render(<>{result.current.screen}</>);
+    expect(screen.queryByRole("button", { name: "Let's go!" })).toBeNull();
+    expect(result.current.readyAt).toBeNull();
+  });
+
+  it("raises Elli's hand once when the board becomes ready, with no scripted words", () => {
+    expect(boardReadyRaiseHand("ila", null)).toBeNull();
+    expect(boardReadyRaiseHand("ila", 1234)).toEqual(expect.objectContaining({
+      type: "check_back_in", childId: "ila", timestamp: 1234, payload: { how: "raise_hand", why: "her next map is ready" },
+    }));
   });
 
   it("allows declining a completed board without revealing it", () => {

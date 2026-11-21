@@ -4,7 +4,7 @@
   "voiceModelId": "eleven_multilingual_v2",
   "ttsName": "mah-TILL-dah",
   "unlockCost": 0,
-  "vrmPath": "/companions/673852811403133503.vrm",
+  "vrmPath": "/companions/sample.vrm",
   "showInShowroom": true,
   "defaultFor": "reina"
 }

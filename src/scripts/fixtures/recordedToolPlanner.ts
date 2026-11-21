@@ -1,4 +1,5 @@
 import { getLearningCycle } from "../../engine/learningCycleRepository";
+import { offeredValues } from "../../engine/plannerTransport";
 
 /** What the robot knows about its run, and what it saw at the provider boundary. */
 export type RecordedToolLab = {
@@ -12,7 +13,7 @@ export type RecordedToolLab = {
 
 /** One recorded Planner, artist and next-board Planner at the Anthropic client boundary. It answers
  * each real tool conversation the way the model would, using only what the request offers (its tool
- * names, enums and Sunny's own tool results), so the real handlers, checks and receipts all run at $0.
+ * names, pick-lists and Sunny's own tool results), so the real handlers, checks and receipts all run at $0.
  * A request it does not recognise fails the run: no paid call can hide behind the robot. */
 /** A small game the builder could have made: one word at a time, opened through the contract, typed and reported. */
 export const RECORDED_SPELLING_GAME = `<!doctype html><html><head><title>Recorded game</title></head><body><p id="clue">Spell the word Elli says.</p><input id="box" data-testid="generated-game-input" aria-label="Spell it"><script>
@@ -21,7 +22,7 @@ window.openSpellingItem(words[i], "Word 1 of " + words.length);
 document.getElementById("box").addEventListener("change", event => { const typed = event.target.value.trim();
   window.fireAttemptEvent({ domain: "spelling", target: words[i], attemptedValue: typed, correct: typed.toLowerCase() === words[i] });
   event.target.value = ""; i += 1;
-  if (i < words.length) window.openSpellingItem(words[i], "Word " + (i + 1) + " of " + words.length); else window.sendNodeComplete({ completed: true }); });
+  if (i < words.length) window.openSpellingItem(words[i], "Word " + (i + 1) + " of " + words.length); else { window.reportStep("done", "All answered."); window.sendNodeComplete({ completed: true }); } });
 </script></body></html>`;
 
 export function recordedToolReply(lab: RecordedToolLab, request: any): any {
@@ -29,7 +30,7 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
   const names: string[] = (request.tools ?? []).map((tool: any) => tool.name);
   const turn = (request.messages ?? []).filter((row: any) => row.role === "assistant").length;
   const properties = (name: string) => request.tools.find((tool: any) => tool.name === name).input_schema.properties;
-  const offered = (name: string, field: string): string[] => { const schema = properties(name)[field]; return schema.enum ?? schema.items?.enum ?? []; };
+  const offered = (name: string, field: string): string[] => { const schema = properties(name)[field]; return offeredValues(schema) ?? offeredValues(schema.items) ?? []; };
   const results: any[] = turn === 0 ? [] : (request.messages.at(-1).content as any[])
     .filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(typeof block.content === "string" ? block.content : block.content[0].text));
   const message = (calls: Array<{ name: string; input: unknown }>) => ({ id: `recorded-${lab.requests.length}`, type: "message", role: "assistant", model: request.model,
@@ -42,7 +43,7 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
   // Discovery intake: the assigned words, then the hidden-word radar that finds her starting point.
   if (names.includes("record_words")) return message([
     { name: "record_words", input: { words: lab.words.map(word => ({ word, page_number: 1 })), uncertainty: [], source_notes: [] } },
-    { name: "choose_discovery", input: { action: "select", instrument: pick(offered("choose_discovery", "instrument"), "independent_spelling_discovery"), reason: "Independent recall shows where she starts.",
+    { name: "choose_discovery", input: { action: "select", instrument: pick(offered("choose_discovery", "instrument"), "independent_spelling_discovery"), check_words: [...lab.words], reason: "Independent recall shows where she starts.",
       evidence_ids: offered("choose_discovery", "evidence_ids").slice(0, 1), uncertainty: ["One occasion."], next_evidence_needed: ["Independent recall of each word."] } },
     { name: "finish_intake", input: { title: "School spelling", portal_label: "Word Check", endpoint_label: "Finish" } },
   ]);
@@ -83,7 +84,9 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
   if (names.includes("decide")) {
     if (turn === 0) lab.decisions += 1;
     const decide = (status: string, action: string) => ({ name: "decide", input: { status, reason: "From her recorded answers.", progression_action: pick(offered("decide", "progression_action"), action),
-      preserve: [], change: [], test_next: [], next_evidence_required: ["Independent recall."], prediction_evaluation_ids: offered("decide", "prediction_evaluation_ids"), revised_hypothesis: "" } });
+      preserve: [], change: [], test_next: [], next_evidence_required: ["Independent recall."], prediction_evaluation_ids: offered("decide", "prediction_evaluation_ids"), revised_hypothesis: "",
+      // Contract 56: a new question asks for the Planner's self-review; a frozen older one does not.
+      ...(properties("decide").self_review ? { self_review: { what_i_tried: "From my journal.", what_happened: "From her track record.", why: "From her answers.", what_i_keep: "What worked.", what_i_change_now: "This board." } } : {}) } });
     if (lab.decisions > 1) return message([decide("inconclusive", "await_calibration"), { name: "finish_board", input: { title: "Waiting", endpoint_label: "Finish", single_path_reason: "Awaiting graded work." } }]);
     if (turn === 0) {
       const cycle = getLearningCycle(lab.childId, lab.homeworkId, { rootDir: lab.root })!;

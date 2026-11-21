@@ -1,3 +1,7 @@
+import type Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import { readCompanionBaseSection } from "../companions/loader";
+import { sideTalkAnthropicTool } from "./companionSideTalk";
 import {
   type CompanionCommand,
   type AnimationName,
@@ -50,6 +54,10 @@ const MAX_VISUAL_SNAPSHOT_BASE64_LENGTH = 700_000;
 const MAX_VISUAL_SNAPSHOT_DIMENSION = 1024;
 const MAX_REWARD_CONTEXT_FIELD_LENGTH = 160;
 const MAX_ACTIVITY_REASON_LENGTH = 180;
+const MAX_SHOPPING_TEXT_LENGTH = 160;
+const MAX_SHOPPING_ITEM_IDS = 100;
+const MAX_SHOPPING_STYLE_TAGS = 12;
+const MAX_SHOPPING_BALANCE = 1_000_000;
 const SHOWROOM_ACTIVITY_STATUSES = new Set(["active", "completed"]);
 const SHOWROOM_ACTIVITY_TURNS = new Set(["child", "companion", "none"]);
 const SHOWROOM_ACTIVITY_RESULTS = new Set(["child_win", "companion_win", "draw"]);
@@ -64,6 +72,11 @@ const SHOWROOM_TALK_FALLBACK_TEXT = "I'm here with you. Let's keep going.";
 const SHOWROOM_COMPANION_ACT_CAPABILITIES = [
   ...COMPANION_CAPABILITIES.keys(),
 ] as string[];
+/** The registry's strict payload shapes, so the call companion reads exactly what the validator accepts. */
+const SHOWROOM_COMPANION_ACT_PAYLOADS = [...COMPANION_CAPABILITIES.values()].map((def) => {
+  const { $schema: _schema, ...shape } = z.toJSONSchema(def.payloadSchema, { io: "input" });
+  return shape;
+});
 const SHOWROOM_COMPANION_ACTIVITY_SURFACES = new Set(["video_call_overlay"]);
 
 export type ShowroomTalkPhase = "thinking" | "speaking" | "idle";
@@ -137,6 +150,49 @@ export type ShowroomVisualSnapshot = {
   width: number;
   height: number;
 };
+export type ShowroomShoppingContext = {
+  mode: "entrance" | "review" | "try_on";
+  visitId: string;
+  walletBalance: number;
+  companionWish: string;
+  companionMood: { id: string; label: string };
+  selectedItem: {
+    id: string;
+    name: string;
+    price: number;
+    category: "accessory" | "outfit";
+    styleTags: string[];
+    owned: boolean;
+    saved: boolean;
+    preferenceMatch: boolean;
+    opinionVerdict: "love" | "like" | "unsure" | "reject";
+    opinionReasons: string[];
+    companionConsentsToWear: boolean;
+  } | null;
+  ownedItemIds: string[];
+  savedItemIds: string[];
+  /** She just bought the companion's wish (owner, 2026-11-12). */
+  wishFulfilled?: { itemId: string; name: string };
+};
+/** Call clock moments (owner, 2026-11-07). The screen names the moment; the server supplies the facts. */
+export type ShowroomCallClockEvent = "minute_left" | "time_up" | "minutes_bought";
+const CALL_CLOCK_EVENTS: readonly ShowroomCallClockEvent[] = ["minute_left", "time_up", "minutes_bought"];
+export type ShowroomCallClockFacts = { event: ShowroomCallClockEvent; minutesLeft: number; secondsLeft?: number; coins: number; price: number; minutes: number };
+
+export type ShowroomShoppingEvent = {
+  type: "item_reviewed" | "try_on_started";
+  itemId: string;
+};
+
+export type ShoppingSpeechGuardResult = {
+  accepted: boolean;
+  reason:
+    | "generic_fallback"
+    | "incomplete_response"
+    | "verdict_mismatch"
+    | "item_role_confusion"
+    | null;
+};
 
 export type ResolvedShowroomTalkRequest = {
   childId: string;
@@ -155,7 +211,63 @@ export type ResolvedShowroomTalkRequest = {
   turnId?: string;
   visualSnapshot?: ShowroomVisualSnapshot;
   lastVisualSummary?: string;
+  shoppingContext?: ShowroomShoppingContext;
+  shoppingEvent?: ShowroomShoppingEvent;
+  callClockEvent?: ShowroomCallClockEvent;
+  companionLook?: ShowroomCompanionLook;
 };
+
+/**
+ * What the call draws the companion wearing, by store name ("" = her own clothes / no accessory), and the last
+ * outfits the child tried on her, newest last (BUGS.md S34, 2026-11-19). Code-owned truth: she cannot see herself.
+ */
+export type ShowroomCompanionLook = { outfit: string; accessory: string; recentTryOns: string[] };
+const MAX_RECENT_TRY_ONS = 3;
+
+function resolveCompanionLook(value: unknown): ShowroomCompanionLook | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const name = (item: unknown) => (typeof item === "string" ? item.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) : "");
+  const tried = Array.isArray(raw.recentTryOns) ? raw.recentTryOns.map(name).filter(Boolean) : [];
+  return { outfit: name(raw.outfit), accessory: name(raw.accessory), recentTryOns: tried.slice(-MAX_RECENT_TRY_ONS) };
+}
+
+export const LOOK_AT_MYSELF_TOOL = "lookAtMyself";
+export const SELF_LOOK_SNAPSHOT_REASON = "self_look";
+
+/**
+ * The companion's own way to see itself on the call (S34). Offered on FaceTime turns only, and never on the turn that
+ * already carries her picture, so one question can cause at most one look.
+ */
+export function getShowroomSelfLookTools(input: { mode?: ShowroomTalkMode; visualSnapshot?: ShowroomVisualSnapshot }) {
+  if (input.mode !== "video_call" || input.visualSnapshot?.reason === SELF_LOOK_SNAPSHOT_REASON) return [];
+  return [{
+    name: LOOK_AT_MYSELF_TOOL,
+    description:
+      "See a picture of yourself as the child sees you on the call right now. Use it when the facts about your outfit are not enough, such as how colours look together or what a dress looks like on you. Say only a few words like \"let me look\" with it; the picture comes right after.",
+    input_schema: {
+      type: "object" as const,
+      properties: { reason: { type: "string", description: "Why you want to look, in a few words." } },
+      additionalProperties: false,
+    },
+  }];
+}
+
+/** The answer to a look request inside a tool follow-up: her picture comes on the next turn. */
+export function selfLookToolResults(content: ReadonlyArray<{ type: string; name?: string; id?: string }>) {
+  return content
+    .filter(block => block.type === "tool_use" && block.name === LOOK_AT_MYSELF_TOOL && typeof block.id === "string")
+    .map(block => ({
+      type: "tool_result" as const,
+      tool_use_id: block.id as string,
+      content: JSON.stringify({ type: "self_look_result", accepted: true, instruction: "Your picture comes right after this. Say only a few words like \"let me look\", or nothing." }),
+    }));
+}
+
+/** True when the reply asks for a look at herself. */
+export function selfLookRequested<B extends { type: string }>(content: readonly B[]): boolean {
+  return content.some(block => block.type === "tool_use" && (block as { name?: unknown }).name === LOOK_AT_MYSELF_TOOL);
+}
 
 export type ShowroomTalkCompletedEvent = {
   type: "companion_talk_completed";
@@ -208,16 +320,52 @@ export function getShowroomCompanionActTools() {
               "Capability id. Use animate for gestures, emote for facial feeling, camera for framing, and move for small symbolic shifts.",
           },
           payload: {
-            type: "object",
             description:
-              "Payload for the capability. Examples: {\"animation\":\"wave\",\"loop\":false}, {\"animation\":\"think\",\"loop\":true}, {\"emote\":\"happy\",\"intensity\":0.8}, {\"angle\":\"close-up\",\"transition_ms\":400}.",
-            additionalProperties: true,
+              'Payload for the capability: exactly one of these shapes. Examples: {"animation":"wave","loop":false}, {"emote":"happy","intensity":0.8}, {"angle":"close-up","transition_ms":400}.',
+            anyOf: SHOWROOM_COMPANION_ACT_PAYLOADS,
           },
         },
         required: ["type", "payload"],
         additionalProperties: false,
       },
     },
+  ];
+}
+
+export const REMEMBER_CHILD_GIVEN_NAME_TOOL = "rememberWhatChildCallsMe";
+export const RECALL_ABOUT_HER_TOOL = "recallAboutHer";
+
+/** The companion's own way to keep a name or role the child gives it; code stores it, the companion decides. */
+export function getShowroomRelationshipTools() {
+  return [
+    {
+      name: REMEMBER_CHILD_GIVEN_NAME_TOOL,
+      description:
+        "Remember a nickname or a role the child just gave you, so you keep it in this call and every later call. Use it when she names you or casts you as someone; do not use it for names she gives to other things.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          name: { type: "string", description: "The nickname or role, in her words." },
+          kind: { type: "string", enum: ["nickname", "role"] },
+          childWords: { type: "string", description: "What she said when she gave it." },
+        },
+        required: ["name", "kind"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: RECALL_ABOUT_HER_TOOL,
+      description:
+        "Look up something older she told you or any of her other companions: a topic, a person, a place, a word. Returns dated facts (current or replaced by something newer) and her own words from earlier calls. Use it when she mentions something you might already know about.",
+      input_schema: {
+        type: "object" as const,
+        properties: { query: { type: "string", description: "A word or short phrase, like wrestling or her teacher." } },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+    // Shared with every companion in every room (owner 2026-11-15).
+    sideTalkAnthropicTool,
   ];
 }
 
@@ -352,6 +500,142 @@ function resolveVisualSummary(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim().replace(/\s+/g, " ");
   return trimmed ? trimmed.slice(0, MAX_VISUAL_SUMMARY_LENGTH) : undefined;
+}
+
+function resolveShoppingText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (!trimmed || trimmed.length > MAX_SHOPPING_TEXT_LENGTH) return null;
+  return trimmed;
+}
+
+function resolveShoppingTextList(value: unknown, maxItems: number): string[] | null {
+  if (!Array.isArray(value) || value.length > maxItems) return null;
+  const resolved = value.map(resolveShoppingText);
+  return resolved.some((item) => item === null) ? null : (resolved as string[]);
+}
+
+function resolveShoppingContext(
+  value: unknown,
+): ShowroomShoppingContext | undefined | null {
+  if (value == null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  if (
+    raw.mode !== "entrance" &&
+    raw.mode !== "review" &&
+    raw.mode !== "try_on"
+  ) return null;
+  if (
+    typeof raw.walletBalance !== "number" ||
+    !Number.isInteger(raw.walletBalance) ||
+    raw.walletBalance < 0 ||
+    raw.walletBalance > MAX_SHOPPING_BALANCE
+  ) {
+    return null;
+  }
+  const companionWish = resolveShoppingText(raw.companionWish);
+  const visitId = resolveShoppingText(raw.visitId);
+  if (
+    !raw.companionMood ||
+    typeof raw.companionMood !== "object" ||
+    Array.isArray(raw.companionMood)
+  ) return null;
+  const rawMood = raw.companionMood as Record<string, unknown>;
+  const moodId = resolveShoppingText(rawMood.id);
+  const moodLabel = resolveShoppingText(rawMood.label);
+  const ownedItemIds = resolveShoppingTextList(raw.ownedItemIds, MAX_SHOPPING_ITEM_IDS);
+  const savedItemIds = resolveShoppingTextList(raw.savedItemIds, MAX_SHOPPING_ITEM_IDS);
+  if (!visitId || !companionWish || !moodId || !moodLabel || !ownedItemIds || !savedItemIds) {
+    return null;
+  }
+
+  let selectedItem: ShowroomShoppingContext["selectedItem"] = null;
+  if (raw.selectedItem != null) {
+    if (typeof raw.selectedItem !== "object" || Array.isArray(raw.selectedItem)) {
+      return null;
+    }
+    const selected = raw.selectedItem as Record<string, unknown>;
+    const id = resolveShoppingText(selected.id);
+    const name = resolveShoppingText(selected.name);
+    const styleTags = resolveShoppingTextList(
+      selected.styleTags,
+      MAX_SHOPPING_STYLE_TAGS,
+    );
+    const opinionReasons = resolveShoppingTextList(
+      selected.opinionReasons,
+      MAX_SHOPPING_STYLE_TAGS,
+    );
+    const opinionVerdict = selected.opinionVerdict;
+    const validOpinionVerdict =
+      opinionVerdict === "love" ||
+      opinionVerdict === "like" ||
+      opinionVerdict === "unsure" ||
+      opinionVerdict === "reject";
+    if (
+      !id ||
+      !name ||
+      !styleTags ||
+      !opinionReasons ||
+      !validOpinionVerdict ||
+      (selected.category !== "accessory" && selected.category !== "outfit") ||
+      typeof selected.price !== "number" ||
+      !Number.isInteger(selected.price) ||
+      selected.price < 0 ||
+      selected.price > MAX_SHOPPING_BALANCE ||
+      typeof selected.owned !== "boolean" ||
+      typeof selected.saved !== "boolean" ||
+      typeof selected.preferenceMatch !== "boolean" ||
+      typeof selected.companionConsentsToWear !== "boolean"
+    ) {
+      return null;
+    }
+    selectedItem = {
+      id,
+      name,
+      price: selected.price,
+      category: selected.category,
+      styleTags,
+      owned: selected.owned,
+      saved: selected.saved,
+      preferenceMatch: selected.preferenceMatch,
+      opinionVerdict,
+      opinionReasons,
+      companionConsentsToWear: selected.companionConsentsToWear,
+    };
+  }
+
+  if (raw.mode === "entrance" && selectedItem !== null) return null;
+  if (raw.mode !== "entrance" && selectedItem === null) return null;
+  const wishRaw = raw.wishFulfilled as Record<string, unknown> | undefined;
+  const wishItemId = wishRaw ? resolveShoppingText(wishRaw.itemId) : null;
+  const wishName = wishRaw ? resolveShoppingText(wishRaw.name) : null;
+
+  return {
+    ...(wishItemId && wishName ? { wishFulfilled: { itemId: wishItemId, name: wishName } } : {}),
+    mode: raw.mode,
+    visitId,
+    walletBalance: raw.walletBalance,
+    companionWish,
+    companionMood: { id: moodId, label: moodLabel },
+    selectedItem,
+    ownedItemIds,
+    savedItemIds,
+  };
+}
+
+function resolveShoppingEvent(
+  value: unknown,
+): ShowroomShoppingEvent | undefined | null {
+  if (value == null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const itemId = resolveShoppingText(raw.itemId);
+  if (
+    (raw.type !== "item_reviewed" && raw.type !== "try_on_started") ||
+    !itemId
+  ) return null;
+  return { type: raw.type, itemId };
 }
 
 /**
@@ -608,8 +892,22 @@ export function resolveShowroomTalkRequest(
     return { ok: false, status: 400, error: "invalid_activity_reaction" };
   }
   const conversationIntent = resolveShowroomConversationIntent(raw.conversationIntent);
+  const shoppingContext = resolveShoppingContext(raw.shoppingContext);
+  if (shoppingContext === null) {
+    return { ok: false, status: 400, error: "invalid_shopping_context" };
+  }
+  const shoppingEvent = resolveShoppingEvent(raw.shoppingEvent);
+  if (shoppingEvent === null) {
+    return { ok: false, status: 400, error: "invalid_shopping_event" };
+  }
+  const callClockEvent = raw.callClockEvent == null ? undefined
+    : CALL_CLOCK_EVENTS.find((event) => event === raw.callClockEvent) ?? null;
+  if (callClockEvent === null) {
+    return { ok: false, status: 400, error: "invalid_call_clock_event" };
+  }
   const callTraceId = resolveTraceIdentifier(raw.callTraceId ?? raw.traceId);
   const turnId = resolveTraceIdentifier(raw.turnId);
+  const companionLook = resolveCompanionLook(raw.companionLook);
 
   return {
     ok: true,
@@ -625,13 +923,39 @@ export function resolveShowroomTalkRequest(
       ...(mode === "video_call" && activeActivity && { activeActivity }),
       ...(mode === "video_call" && activityReaction && { activityReaction }),
       ...(mode === "video_call" && conversationIntent && { conversationIntent }),
+      ...(mode === "video_call" && shoppingContext && { shoppingContext }),
+      ...(mode === "video_call" && shoppingEvent && { shoppingEvent }),
+      ...(mode === "video_call" && callClockEvent && { callClockEvent }),
       ...(mode === "video_call" && callTraceId && { callTraceId }),
       ...(mode === "video_call" && turnId && { turnId }),
       ...(mode === "video_call" && { mode }),
       ...(mode === "video_call" && visualSnapshot && { visualSnapshot }),
       ...(mode === "video_call" && lastVisualSummary && { lastVisualSummary }),
+      ...(mode === "video_call" && companionLook && { companionLook }),
     },
   };
+}
+
+/** The last line of the part of the call prompt that stays the same all call: Claude caches everything up to it. */
+const STABLE_PROMPT_END = "The message text must contain only the words spoken aloud; no stage directions, labels, or commentary.";
+
+/**
+ * The call prompt as two system blocks: the part that stays the same all call (persona, rules), cached, then this
+ * turn's facts (intent, clock, memory, what she showed), not cached. One changing line used to void the whole cache
+ * (owner, 2026-11-21: FaceTime replies took 1.3–2.0 s to start).
+ */
+export function cacheableShowroomSystem(system: string): Anthropic.TextBlockParam[] {
+  const end = system.indexOf(STABLE_PROMPT_END);
+  if (end < 0) {
+    console.warn(" 🎮 [companion-talk-stream] [prompt-cache] [no-split] stable end line missing; caching whole prompt");
+    return [{ type: "text", text: system, cache_control: { type: "ephemeral" } }];
+  }
+  const cut = end + STABLE_PROMPT_END.length;
+  const turn = system.slice(cut).trim();
+  return [
+    { type: "text", text: system.slice(0, cut), cache_control: { type: "ephemeral" } },
+    ...(turn ? [{ type: "text" as const, text: turn }] : []),
+  ];
 }
 
 export function buildShowroomTalkSystemPrompt(input: {
@@ -641,6 +965,9 @@ export function buildShowroomTalkSystemPrompt(input: {
   personality: string;
   mode?: ShowroomTalkMode;
   hasFreshVisualSnapshot?: boolean;
+  /** "self_look" when the picture is the companion's own portrait (S34). */
+  visualSnapshotReason?: string;
+  companionLook?: ShowroomCompanionLook;
   lastVisualSummary?: string;
   callSource?: CompanionCallSource;
   relationshipState?: CompanionRelationshipState;
@@ -649,6 +976,9 @@ export function buildShowroomTalkSystemPrompt(input: {
   activityReaction?: ShowroomActivityReactionContext;
   conversationIntent?: ShowroomConversationIntent;
   companionMemory?: string;
+  shoppingContext?: ShowroomShoppingContext;
+  shoppingEvent?: ShowroomShoppingEvent;
+  callClock?: ShowroomCallClockFacts;
 }): string {
   const callSource = input.callSource ?? "showroom";
   const relationshipState = input.relationshipState ?? "previewing";
@@ -661,11 +991,14 @@ export function buildShowroomTalkSystemPrompt(input: {
     `Call source: ${callSource}.`,
     `Relationship state: ${relationshipState}.`,
     `Persona notes: ${input.personality}`,
-    "Answer the child directly in 1-3 short sentences.",
+    // The shared base every companion inherits, for the part that applies in a call (owner 2026-11-15).
+    readCompanionBaseSection("Side conversations and things that go wrong"),
+    "Answer the child directly in 1-3 short sentences, and open with a short first sentence of a few words so your voice starts right away.",
     "Use a warm, child-safe tone. Ask at most one follow-up question.",
     "Never tutor unless the child explicitly asks for learning help; follow the child's conversational lead.",
     "The child may be playing, chatting, joking, testing the call, or asking for help; be fun and relationship-first.",
     "Do not repeat your previous greeting, opener, or last sentence; continue from the child's newest turn.",
+    `When she brings up something you might already know about, call ${RECALL_ABOUT_HER_TOOL} to remember what she told you or her other companions before. If the child gives you a nickname or a role, it is her game: play along, and call ${REMEMBER_CHILD_GIVEN_NAME_TOOL} so you keep it. You can still know your own name, but never correct her or argue about what she calls you.`,
     "If you want emotion, show emotion through movement with companionAct rather than describing stage directions in words.",
     `If the child asks to play ${describeCompanionActivityChoices()}, use openCompanionActivity with the matching activityId (${COMPANION_ACTIVITY_IDS.join(", ")}) and surface=video_call_overlay.`,
     "Do not say stage directions. Do not say things like 'I wave', '*waves*', or 'I smile'; call companionAct for that motion and keep spoken text natural.",
@@ -675,7 +1008,7 @@ export function buildShowroomTalkSystemPrompt(input: {
     "Always answer in one response: first write the words you say aloud as plain message text, then call companionAct for the matching gesture in that same response. Never wait for tool results before speaking.",
     "Never send a tool-only response when the child asked you something or a spoken line is expected; the spoken text comes first, the tool call comes second.",
     "Only leave the message text empty when the child is quietly working and silence is genuinely better.",
-    "The message text must contain only the words spoken aloud; no stage directions, labels, or commentary.",
+    STABLE_PROMPT_END,
   ];
   if (input.conversationIntent) {
     lines.push(`Conversation intent: ${input.conversationIntent}.`);
@@ -718,6 +1051,89 @@ export function buildShowroomTalkSystemPrompt(input: {
   }
   if (input.companionMemory) {
     lines.push(input.companionMemory);
+  }
+  if (isVideoCall) {
+    lines.push("When you tell her to tap or press something, name only a control from What is on her screen right now. If she asks for something the screen cannot do, say so plainly and offer what you can do.");
+  }
+  if (input.shoppingContext) {
+    const shopping = input.shoppingContext;
+    lines.push(
+      "Active shared shopping context (code-provided store truth):",
+      `Shopping mode: ${shopping.mode}.`,
+      `Shopping visit mood: ${shopping.companionMood.label} (id=${shopping.companionMood.id}).`,
+      `Wallet balance: ${shopping.walletBalance} demo coins.`,
+      `Companion wish: ${shopping.companionWish}.`,
+      "The child controls spending. You may express a preference, but you cannot buy, promise a purchase, pressure the child, or treat your wish as spending authority.",
+    );
+    if (shopping.wishFulfilled) {
+      lines.push(`The child just made your wish come true: ${shopping.wishFulfilled.name}. They earned it with their own coins. Celebrate it warmly and thank them by name, once, in your own words.`);
+    }
+    if (shopping.selectedItem) {
+      const item = shopping.selectedItem;
+      lines.push(
+        `Selected item: ${item.name} (id=${item.id}, category=${item.category}, price=${item.price} demo coins).`,
+        `Selected item state: owned=${item.owned}, saved=${item.saved}, preference_match=${item.preferenceMatch}.`,
+        `Selected item style: ${item.styleTags.join(", ") || "none listed"}.`,
+        `Code-owned companion verdict: ${item.opinionVerdict}.`,
+        `Code-owned opinion reasons: ${item.opinionReasons.join(", ") || "none"}.`,
+        `Companion consents to wear: ${item.companionConsentsToWear}.`,
+        "Treat the code-owned verdict as truth. Express it naturally in your persona; do not reverse it, soften a rejection into approval, or invent a different verdict.",
+        "A like verdict is not love or obsession; keep the strength of the spoken opinion equal to the code-owned verdict.",
+        "The selected item is for you, the companion, to try on. Do not imply that the child is wearing it or that you and the child need matching copies.",
+      );
+      if (item.opinionVerdict === "reject" && item.companionConsentsToWear) {
+        // Owner 2026-11-12: her opinion never locks an item; the child decides.
+        lines.push("Not your favourite today, but it is the child's choice: say so lightly once, then go along cheerfully if the child picks it, without claiming to like or love it.");
+      }
+      if (!item.companionConsentsToWear) {
+        lines.push(
+          "This item cannot be bought-and-worn or equipped during this visit. The child may save it or keep looking. Be honest without shaming the child's taste or pressuring them.",
+        );
+      }
+      if (shopping.mode === "try_on") {
+        lines.push(
+          "You are wearing the selected item in the try-on view. React to that exact item and do not guess from pixels.",
+        );
+      }
+    } else {
+      lines.push("No store item is currently selected.");
+    }
+    lines.push(
+      `Owned item ids: ${shopping.ownedItemIds.join(", ") || "none"}.`,
+      `Saved item ids: ${shopping.savedItemIds.join(", ") || "none"}.`,
+    );
+  }
+  if (input.shoppingEvent?.type === "item_reviewed") {
+    lines.push(
+      `Live store event: the child selected item id=${input.shoppingEvent.itemId} for review.`,
+      "Always include one short spoken reaction grounded in the selected item, code-owned mood, and verdict. You may also use one expressive companionAct gesture.",
+      "This event came from the store UI, not from words spoken by the child. Do not pretend the child asked a question.",
+    );
+  }
+  if (input.shoppingEvent?.type === "try_on_started") {
+    lines.push(
+      `Live store event: the child just tried on item id=${input.shoppingEvent.itemId}.`,
+      "Always include one short spoken reaction grounded in the selected item and code-owned verdict. You may also use one expressive companionAct gesture.",
+      "This event came from the store UI, not from words spoken by the child. Do not pretend the child asked a question.",
+    );
+  }
+  if (input.callClock) {
+    const clock = input.callClock;
+    const moment = clock.event === "minute_left"
+      ? "about one minute of call time is left"
+      : clock.event === "time_up"
+        ? "call time is up"
+        : `the child just spent coins on more call time; about ${Math.max(1, Math.round(((clock.secondsLeft ?? clock.minutesLeft * 60) + 60) / 60))} minutes are left now`;
+    lines.push(
+      `Live call clock event: ${moment}. The child has ${clock.coins} coins; 5 more minutes cost ${clock.price} coins.`,
+      clock.coins >= clock.price
+        ? "She can afford more time."
+        : `She cannot afford more time yet; she needs ${clock.price - clock.coins} more coins. Do not offer to buy time; finishing another board earns more coins and another call.`,
+      clock.event === "time_up"
+        ? "In one or two short sentences, react in your own voice: she can buy more time or say goodbye for now. Never pressure her to spend, and if she cannot afford it, make finishing another board sound like the way back."
+        : "Mention it in one short sentence in your own voice, then carry on with the conversation.",
+      "This event came from the call clock, not from words spoken by the child. Do not pretend the child asked a question.",
+    );
   }
   if (input.activeActivity) {
     const activeDescriptor = getCompanionActivityDescriptor(input.activeActivity.activityId);
@@ -801,11 +1217,24 @@ export function buildShowroomTalkSystemPrompt(input: {
     lines.push(
       "You are in a video call with the child; your 3D companion portrait is visible in the corner.",
       "Do not claim you can see the child, their face, their room, or an object unless this request includes a fresh camera snapshot.",
-      input.hasFreshVisualSnapshot
-        ? "A fresh camera snapshot is included for this turn. Use it only when it helps answer the child."
-        : "No fresh camera snapshot is included. If the child asks a visual question, ask the child to tap Look so you can take a quick look.",
+      input.hasFreshVisualSnapshot && input.visualSnapshotReason === SELF_LOOK_SNAPSHOT_REASON
+        ? "The picture in this turn is you: your own portrait on the call, exactly as the child sees you. It is not the child's camera. Answer her question about how you look from it, warmly and specifically."
+        : input.hasFreshVisualSnapshot
+          ? "A fresh camera snapshot is included for this turn. Use it only when it helps answer the child."
+          : "No fresh camera snapshot is included. The Look button is only for something of the child's (her face, her room, something she holds up); ask her to tap Look only for those.",
       "Never mention screenshots, image data, tokens, or implementation details to the child.",
     );
+    if (input.companionLook) {
+      // BUGS.md S34 (2026-11-19): she cannot see herself, so code tells her; the child dresses her and asks.
+      const look = input.companionLook;
+      lines.push(
+        `You are wearing right now: ${look.outfit ? JSON.stringify(look.outfit) : "your own clothes"}, ${look.accessory ? `accessory ${JSON.stringify(look.accessory)}` : "no accessory"}. This is true even without a picture; answer questions about your clothes from it.`,
+        ...(look.recentTryOns.length
+          ? [`Outfits the child just tried on you, oldest to newest: ${look.recentTryOns.map(name => JSON.stringify(name)).join(", ")}. "This one or that one" means these.`]
+          : []),
+        `To actually see yourself (colours, how it looks on you), call ${LOOK_AT_MYSELF_TOOL}; never send the child to the Look button for your own clothes.`,
+      );
+    }
     if (input.lastVisualSummary) {
       lines.push(`Previous visual context summary: ${input.lastVisualSummary}`);
     }
@@ -821,6 +1250,12 @@ export function shouldRequireShowroomActivityReactionSpeech(
     eventType === "companion_move" ||
     eventType === "round_complete"
   );
+}
+
+function formatChildGivenNames(names: CompanionCareMemory["childGivenNames"]): string | null {
+  if (!names?.length) return null;
+  const list = names.map((row) => `"${row.name}" (${row.kind === "role" ? "a role she gave you" : "her nickname for you"})`);
+  return `What she calls you: ${list.join("; ")}. Answer to it and play along; never correct her.`;
 }
 
 function formatMemoryList(label: string, values: string[] | undefined): string | null {
@@ -841,6 +1276,7 @@ export function buildShowroomTalkMemoryPrompt(
     formatMemoryList("Relationship facts", memory.relationshipFacts),
     formatMemoryList("Favorite moments", memory.favoriteMoments),
     formatMemoryList("Things you have shown about yourself", memory.companionSelfNotes),
+    formatChildGivenNames(memory.childGivenNames),
     formatCompanionGameRecord(memory.gameRecord),
     memory.rivalryNote && `Rivalry note: ${memory.rivalryNote}`,
   ].filter((line): line is string => Boolean(line));
@@ -874,11 +1310,55 @@ function formatCompanionGameRecord(
 export function resolveShowroomSpokenText(input: {
   rawText: string;
   companionCommandCount: number;
+  requireGeneratedSpeech?: boolean;
+  shoppingContextPresent?: boolean;
 }): string {
   const trimmed = input.rawText.trim();
   if (trimmed) return trimmed;
   if (input.companionCommandCount > 0) return "";
+  if (input.requireGeneratedSpeech) return "";
+  if (input.shoppingContextPresent) return "";
   return SHOWROOM_TALK_FALLBACK_TEXT;
+}
+
+export function evaluateShoppingSpeech(input: {
+  text: string;
+  verdict: NonNullable<ShowroomShoppingContext["selectedItem"]>["opinionVerdict"];
+}): ShoppingSpeechGuardResult {
+  const text = input.text.replace(/\s+/g, " ").trim();
+  const normalized = text.toLowerCase();
+  if (!text) return { accepted: false, reason: "incomplete_response" };
+  if (normalized === SHOWROOM_TALK_FALLBACK_TEXT.toLowerCase()) {
+    return { accepted: false, reason: "generic_fallback" };
+  }
+  if (/\b(?:get|buy|wear)\s+(?:one|it|this)\s+too\b/i.test(text)) {
+    return { accepted: false, reason: "item_role_confusion" };
+  }
+  if (
+    /\bi can feel (?:this|the)\s+[a-z-]+$/i.test(text) ||
+    /(?:\b(?:and|but|because|so|though)|[—-])\s*$/i.test(text)
+  ) {
+    return { accepted: false, reason: "incomplete_response" };
+  }
+  const strongApproval =
+    /\b(?:i(?:'m| am) obsessed|i (?:really |absolutely )?love|my favorite|it(?:'s| is) perfect)\b/i;
+  const anyApproval =
+    /\b(?:i (?:really )?(?:like|love)|i(?:'m| am) obsessed|my favorite|it(?:'s| is) perfect)\b/i;
+  if (
+    (input.verdict === "like" && strongApproval.test(text)) ||
+    (input.verdict === "unsure" && strongApproval.test(text)) ||
+    (input.verdict === "reject" && anyApproval.test(text))
+  ) {
+    return { accepted: false, reason: "verdict_mismatch" };
+  }
+  return { accepted: true, reason: null };
+}
+
+export function shouldSynthesizeShowroomSpeech(
+  spokenText: string,
+  apiKey: string | undefined,
+): boolean {
+  return Boolean(spokenText.trim() && apiKey?.trim());
 }
 
 export function shouldRunShowroomToolFollowup(input: {
@@ -886,9 +1366,11 @@ export function shouldRunShowroomToolFollowup(input: {
   rawText: string;
   companionActToolUseCount: number;
   activityToolUseCount: number;
+  relationshipToolUseCount?: number;
   activityReactionEventType?: ShowroomActivityReactionEventType;
 }): boolean {
-  const toolUseCount = input.companionActToolUseCount + input.activityToolUseCount;
+  const toolUseCount =
+    input.companionActToolUseCount + input.activityToolUseCount + (input.relationshipToolUseCount ?? 0);
   if (toolUseCount === 0) return false;
   if (input.rawText.trim().length > 0) return false;
   if (!input.isActivityReaction) return true;

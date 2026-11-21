@@ -101,3 +101,20 @@ it('publishes an as-authored map with missing artwork but reports the missing fi
   expect(error).not.toHaveBeenCalled();
  } finally {error.mockRestore();rmSync(rootDir,{recursive:true,force:true});}
 });
+
+// Bug 2026-11-10 (AI-caught in the math board preview): the board's level badge read "â Level 1". The preview page
+// was served as text/html with no charset, so Chromium decoded the UTF-8 "⭐" as Windows-1252.
+// Why a human did not catch it: the live kiosk page declares UTF-8; only the Planner's preview screenshot was garbled.
+// Why the logs did not: the preview logs its screenshots and portal boxes, never the text drawn in them.
+// Why the lab missed it: canvas tests measured geometry; none read a glyph back from the rendered preview.
+it('serves the board preview as UTF-8 so the level badge keeps its star', async () => {
+ const { boardPreviewHtml, BOARD_PREVIEW_CONTENT_TYPE } = await import('./adventureBoardCanvas');
+ const { chromium } = await import('playwright');
+ const browser = await chromium.launch({ headless: true });
+ try {
+  const page = await browser.newPage();
+  await page.route('**/*', route => route.fulfill({ contentType: BOARD_PREVIEW_CONTENT_TYPE, body: boardPreviewHtml('body{margin:0}', '<button class="level-path-trigger">⭐ Level 1</button>') }));
+  await page.goto('http://board-preview.local/');
+  expect(await page.locator('.level-path-trigger').textContent()).toBe('⭐ Level 1');
+ } finally { await browser.close(); }
+}, 20000);

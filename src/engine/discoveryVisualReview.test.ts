@@ -3,7 +3,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { DISCOVERY_RELEASE_VIEWPORTS, DISCOVERY_VERIFIER_VERSION, renderDiscoveryCandidate, reviewDiscoveryCandidate, withDiscoveryBrowserPage } from "./discoveryVisualReview";
 
 const playwrightLaunch = vi.hoisted(() => vi.fn());
@@ -12,8 +12,13 @@ vi.mock("playwright", () => ({
   chromium: { launch: playwrightLaunch },
 }));
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 function dir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-discovery-visual-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-discovery-visual-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 function activeHandles(): unknown[] {

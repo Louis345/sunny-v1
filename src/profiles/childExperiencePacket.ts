@@ -2,15 +2,22 @@ import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
-import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
+import { isSpellingPracticeContinuation, presentedSpellingItems } from "../engine/learningCycleRepository";
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
-  spellingEvaluationResults?: Array<{ display: string; correct?: boolean }>;
+  /** Stops left before this board ends and earns the FaceTime call (owner, 2026-11-07). Display only. */
+  boardProgress?: { stopsLeft: number };
+  spellingEvaluationResults?: Array<{ display: string; correct?: boolean; typed?: string }>;
   /** Her first try at each word, and her latest try without help; a word with no such try has no `correct`. */
-  spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean }>;
+  spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean; typed?: string }>;
+  /** Per math board: each problem she answered, shown as her answer and read aloud as the problem (owner 2026-11-12). */
+  /** helped: her final answer came with a hint or Elli's help (shown honestly; never counted as on her own). */
+  mathBoardResults?: Record<string, Array<{ display: string; spoken: string; firstTry?: boolean; correct?: boolean; helped?: true; own?: true }>>;
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
   spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
+  /** Each built game's items to open through the contract's openItem, per stop (display = the item as she sees it). */
+  itemBindings?: Record<string, Array<{ itemId: string; display: string }>>;
   childChart: {
     childId: string;
     identity: ChildChart["identity"];
@@ -21,12 +28,15 @@ export type ChildExperiencePacket = {
     };
     companionCare: ChildChart["companionCare"];
     economy: ChildChart["economy"];
+    /** How loud and bright game sound is for her; the kiosk hands it to gameSfx. */
+    sensory?: ChildChart["sensory"];
     adventureMapProfile: AdventureMapProfile;
     learningCycle?: {
       homeworkId: string;
       lifecycle: string;
       revision: number;
       boardKind?: "probe" | "teaching" | "successor" | "legacy";
+      boardPublishedAt?: string | null;
     };
   };
   activeSessionPlan: ChildChart["activeSessionPlan"];
@@ -219,18 +229,22 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
     : undefined;
   const answered = new Set(spellingEvaluation ? chart.learningCycle!.observations.map(observation => observation.itemId) : []);
   const spellingInstruments = chart.learningCycle?.domain === "spelling" ? Object.fromEntries(chart.learningCycle.nodes.flatMap(node => {
-    const items = Object.values(node.evidenceContract.spellingItems ?? {});
+    const items = presentedSpellingItems(node);
     if (!items.length) return [];
     const assessment = node.state !== "completed" && !isSpellingPracticeContinuation(chart.learningCycle!) && (node.role === "evaluation" || items.every(item => item.lineage.measurementRole === "fresh_checkpoint"));
     const captured = new Set(chart.learningCycle!.observations.map(row => row.itemId));
     return [[node.nodeId, { assessment, items: items.filter(item => !assessment || node.state === "completed" || !captured.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) }]];
+  })) : undefined;
+  const itemBindings = chart.learningCycle && chart.learningCycle.domain !== "spelling" ? Object.fromEntries((chart.learningCycle.nodes ?? []).flatMap(node => {
+    const items = Object.values(node.evidenceContract?.itemContracts ?? {});
+    return node.implementationType === "generated-game" && items.length ? [[node.nodeId, items.map(item => ({ itemId: item.id, display: item.prompt }))]] : [];
   })) : undefined;
   const spellingEvaluationResults = chart.learningCycle?.domain === "spelling"
     && !["evaluation_ready", "evaluation_active"].includes(chart.learningCycle.lifecycle)
     ? chart.learningCycle.nodes.filter(node => node.role === "evaluation").flatMap(node =>
       Object.values(node.evidenceContract.spellingItems ?? {}).map(item => {
         const observation = chart.learningCycle!.observations.find(row => row.itemId === item.id && row.sourceId === `evaluation:${node.nodeId}`);
-        return { display: item.word, ...(typeof observation?.result.correct === "boolean" ? { correct: observation.result.correct } : {}) };
+        return { display: item.word, ...(typeof observation?.result.correct === "boolean" ? { correct: observation.result.correct } : {}), ...missedSpelling(observation) };
       }))
     : undefined;
   const spellingBoardResults = spellingEvaluationResults?.length ? chart.learningCycle!.nodes.filter(node => node.role === "evaluation").flatMap(node =>
@@ -239,13 +253,34 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       const construct = first?.constructLinks?.[0]?.constructId;
       const latest = construct ? chart.learningCycle!.observations.filter(row => !row.sourceId.startsWith("evaluation:")
         && row.assistance?.status === "unassisted" && row.constructLinks?.some(link => link.constructId === construct)).at(-1) : undefined;
-      return { display: item.word, ...(typeof first?.result.correct === "boolean" ? { firstTry: first.result.correct } : {}), ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}) };
+      return { display: item.word, ...(typeof first?.result.correct === "boolean" ? { firstTry: first.result.correct } : {}), ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}), ...missedSpelling(latest) };
     })) : undefined;
+  // The screen shows her final answer, right or still wrong, and says when she had help (2026-11-15: a fixed answer
+  // showed as a cross and a helped one as blank). Her learning record is unchanged: help is never "on her own".
+  const mathCycle = chart.learningCycle?.domain === "math" ? chart.learningCycle : null;
+  const mathBoardResults = mathCycle ? Object.fromEntries((mathCycle.boards ?? []).map(board => {
+    const nodeIds = (board as { nodeIds?: string[] }).nodeIds ?? [];
+    const rows = mathCycle.nodes.filter(node => nodeIds.includes(node.nodeId)).flatMap(node =>
+      Object.values(node.evidenceContract?.itemContracts ?? {}).flatMap(item => {
+        const seen = mathCycle.observations.filter(row => row.itemId === item.id && row.sourceId.endsWith(`:${node.nodeId}`));
+        if (!seen.length) return [];
+        const final = seen.at(-1)!;
+        return [{ display: String(final.childResponse ?? "?"), spoken: item.prompt,
+          ...(typeof seen[0].result.correct === "boolean" ? { firstTry: seen[0].result.correct } : {}),
+          ...(typeof final.result.correct === "boolean" ? { correct: final.result.correct } : {}),
+          ...(final.assistance?.status === "assisted" ? { helped: true as const } : {}),
+          // On her own: her very first answer was right, with no help (the report card's first group).
+          ...(seen[0].result.correct === true && seen[0].assistance?.status === "unassisted" ? { own: true as const } : {}) }];
+      }));
+    return [board.boardId, rows] as const;
+  }).filter(([, rows]) => rows.length)) : {};
   return {
+    ...(Object.keys(mathBoardResults).length ? { mathBoardResults } : {}),
     ...(spellingEvaluationResults?.length ? { spellingEvaluationResults } : {}),
     ...(spellingBoardResults?.length ? { spellingBoardResults } : {}),
     ...(spellingInstruments ? { spellingInstruments } : {}),
-    ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: Object.values(spellingEvaluation.evidenceContract.spellingItems!).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
+    ...(itemBindings && Object.keys(itemBindings).length ? { itemBindings } : {}),
+    ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: presentedSpellingItems(spellingEvaluation).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
     childChart: {
       childId: chart.childId,
       identity: chart.identity,
@@ -256,6 +291,7 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       },
       companionCare: chart.companionCare,
       economy: chart.economy,
+      sensory: chart.sensory,
       adventureMapProfile: chart.adventureMapProfile,
       learningCycle: chart.learningCycle
         ? {
@@ -263,6 +299,8 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
             lifecycle: chart.learningCycle.lifecycle,
             revision: chart.learningCycle.revision,
             boardKind: chart.learningCycle.boards?.find(board => board.boardId === selectedPlan?.adventureBoard?.boardId)?.kind,
+            // When the board on screen was published: an earned call is offered only for the board just finished.
+            boardPublishedAt: chart.learningCycle.boards?.find(board => board.boardId === selectedPlan?.adventureBoard?.boardId)?.publishedAt ?? null,
           }
         : undefined,
     },
@@ -274,4 +312,10 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       ),
     ),
   };
+}
+
+/** What she typed for a word she missed, so the screen shows her spelling with the cross (BUGS.md S23). */
+function missedSpelling(observation: { childResponse?: unknown; result: { correct?: boolean } } | undefined): { typed?: string } {
+  return observation?.result.correct === false && typeof observation.childResponse === "string" && observation.childResponse.trim()
+    ? { typed: observation.childResponse.trim() } : {};
 }

@@ -208,6 +208,16 @@
   box-shadow: 0 8px 32px rgba(255, 255, 255, 0.52);
 }
 
+/* The one next stop pulses and glows so the next step is obvious without words. */
+.adventure-board__node--next .adventure-board__node-orb {
+  animation: adventureBoardPulse 1.5s ease-in-out infinite;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 0 6px rgba(253, 224, 71, 0.85), 0 0 28px rgba(253, 224, 71, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adventure-board__node--next .adventure-board__node-orb { animation: none; }
+}
+
 .adventure-board__node--locked .adventure-board__node-orb,
 .adventure-board__node--preview .adventure-board__node-orb {
   background: #cbd5e1;

@@ -126,3 +126,20 @@ it('refuses a Quest step the decision did not authorize, and a game that shows h
  const errors=f.requests.flatMap((row:any)=>row.messages.flatMap((message:any)=>Array.isArray(message.content)?message.content:[])).filter((block:any)=>block.type==='tool_result'&&block.is_error).map((block:any)=>String(block.content));
  expect(errors.some(error=>/needs progression_action generate_quest/.test(error))).toBe(true);
 });
+
+// Contract 54 (owner, 2026-11-07): the Planner decides when Quest is justified; code adds no evidence gate. Her
+// answers are still recorded exactly as they happened, so a Quest chosen on thin evidence shows in the record.
+it('offers Quest to the Planner with no evidence gate, even when no fresh answer was right',async()=>{
+ const f=fixture();
+ const file=path.join(resolveChildContextDir(childId,{rootDir:f.rootDir}),'homework','cycles',`${homeworkId}.json`);
+ const saved=JSON.parse(fs.readFileSync(file,'utf8'));
+ saved.observations=saved.observations.filter((row:any)=>row.observationId!=='discovery-1');
+ fs.writeFileSync(file,JSON.stringify(saved));
+ const radar=Object.values(getLearningCycle(childId,homeworkId,f.opts)!.nodes.find(row=>row.nodeId==='radar-check')!.evidenceContract.spellingItems!);
+ radar.forEach((item,index)=>runtime.recordSpellingDiscoveryAttempt({childId,homeworkId,attempt:{attemptId:`miss-${index}`,itemId:item.id,attemptedValue:'zzz',observedAt:new Date().toISOString()},support:{status:'unassisted',scaffolds:[]}},f.opts));
+ expect(runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:'radar-check',sessionId:'thin',result:{completed:true,accuracy:0,timeSpent_ms:100,targetResults:radar.map(item=>({target:item.id,correct:false,attemptedValue:'zzz'}))}},f.opts)!.lifecycle).toBe('baseline_evaluating');
+ f.plan('generate_quest','quest');
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,f.opts);
+ expect(f.requests[0].tools.find((tool:any)=>tool.name==='decide').input_schema.properties.progression_action.enum).toContain('generate_quest');
+ expect((await f.build()).lifecycle).toBe('quest_ready');
+});

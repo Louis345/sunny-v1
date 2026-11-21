@@ -74,15 +74,32 @@ describe("urgent learning support", () => {
       .toEqual({ action: "summon_and_respond" });
   });
 
+  it("hears Ila's help requests from Nov 8 when Elli is minimized", () => {
+    // Nov 8 human catch, big: Ila asked Elli for help twice and was ignored until she yelled. Logs showed
+    // [ambient-ignored] companion_collapsed_without_wake_phrase for both; the lab only tested names spelled
+    // as listed, and nothing treated a request for help as addressed to her companion.
+    const collapsed = (transcript: string, speechCaptureArmed = false) =>
+      routeCompanionPresenceTranscript({ transcript, presence: "collapsed", companionWakeNames: COMPANION_WAKE_NAMES, speechCaptureArmed }).action;
+    expect(collapsed("o r m m door n i i four u. Uh, Elliot, can I help?")).toBe("summon_and_respond");
+    expect(collapsed("Belly, can I help? I could wait, but I don't want to wait that long if you're not gonna talk to me.")).toBe("summon_and_respond");
+    // A request for help is addressed to her companion whatever name was heard, even while a game listens.
+    expect(collapsed("Can you help me with this one?")).toBe("summon_and_respond");
+    expect(collapsed("I need help", true)).toBe("summon_and_respond");
+    expect(collapsed("I'm stuck")).toBe("summon_and_respond");
+    // Room talk and spelled answers still stay out of it.
+    expect(collapsed("The rectangles look equal")).toBe("ignore_ambient");
+    expect(collapsed("d o r m a n t", true)).toBe("route_to_game");
+  });
+
   it("wakes any companion by the names listed in every companion file", () => {
     // Nov 2 human catch: the children call "Hey Elli" and asked that every
     // companion be reachable the same way. Elli's names were hardcoded in the
     // gate, so only Elli had misheard spellings and Charlotte could not be
     // called by name. Reina has said "Ellie" to Matilda, so names stay shared.
-    expect(ELLI.wakeNames).toEqual(["Elli", "Ellie", "Ellen"]);
+    expect(ELLI.wakeNames).toEqual(["Elli", "Ellie", "Ellen", "Elliot", "Belly"]);
     expect(MATILDA.wakeNames).toEqual(["Matilda"]);
     expect(CHARLOTTE_CREATOR.wakeNames).toEqual(["Charlotte"]);
-    expect([...COMPANION_WAKE_NAMES].sort()).toEqual(["Charlotte", "Ellen", "Elli", "Ellie", "Matilda"]);
+    expect([...COMPANION_WAKE_NAMES].sort()).toEqual(["Belly", "Charlotte", "Ellen", "Elli", "Ellie", "Elliot", "Matilda"]);
     const collapsed = (transcript: string) =>
       routeCompanionPresenceTranscript({ transcript, presence: "collapsed", companionWakeNames: COMPANION_WAKE_NAMES }).action;
     expect(collapsed("Hey Matilda, help me")).toBe("summon_and_respond");

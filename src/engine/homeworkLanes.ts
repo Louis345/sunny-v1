@@ -213,14 +213,23 @@ export function patchActiveHomeworkLane(
 export function selectHomeworkDomain(
   childId: string,
   domain: HomeworkDomain,
-  opts: { rootDir?: string } = {},
+  opts: { rootDir?: string; source: string },
 ): LearningProfile {
+  // A parent's switch between her subjects (2026-11-10, "Ila's ready for math"): only to a subject she has homework
+  // for, logged with who asked; the next session start reads it.
+  if (!opts.source.trim()) throw new Error("source_required");
   const rootDir = opts.rootDir ?? process.cwd();
   const file = profilePath(rootDir, childId);
   const profile = readProfile(rootDir, childId);
+  if (!activeHomeworkByDomainView(profile)[domain]) throw new Error(`no_${domain}_homework`);
+  const from = selectedHomeworkDomain(profile) ?? null;
   const next = selectHomeworkLaneProfile(profile, domain);
   next.lastUpdated = new Date().toISOString();
   writeWaterfallHomework(childId, next, opts);
   fs.writeFileSync(file, JSON.stringify(slimLearningProfileForDoorway(next), null, 2), "utf8");
+  const log = path.join(resolveChildContextDir(childId, { rootDir }), "sunny_health", "profile-changes.ndjson");
+  fs.mkdirSync(path.dirname(log), { recursive: true });
+  fs.appendFileSync(log, `${JSON.stringify({ at: next.lastUpdated, source: opts.source.trim(), changes: { selectedHomeworkDomain: { from, to: domain } } })}\n`);
+  console.log(` 🎮 [homework-subject] [selected] child=${childId} from=${from} to=${domain} homework=${next.pendingHomework?.homeworkId} source=${JSON.stringify(opts.source.trim())}`);
   return next;
 }

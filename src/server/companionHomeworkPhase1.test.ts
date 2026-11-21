@@ -138,6 +138,17 @@ describe("one factual homework turn path", () => {
     expect(s.recordCompanionHelpTurn).not.toHaveBeenCalled();
   });
 
+  it("checks a game-invited reply for spelling help without saving it as her help request", async () => {
+    // Measurement audit 2026-11-13 (c): Elli's letters in a system turn were never checked.
+    const s = await session();
+    provider(["It starts with n, i, g."]);
+    s.recordCompanionHelpTurn = vi.fn();
+    s.recordCompanionReplySupport = vi.fn();
+    await s.runCompanionResponse("[System event: the game asked for help on this word]", "system");
+    expect(s.recordCompanionHelpTurn).not.toHaveBeenCalled();
+    expect(s.recordCompanionReplySupport).toHaveBeenCalledWith("It starts with n, i, g.");
+  });
+
   it("retains factual status without legacy tutor agenda even after a tool call", async () => {
     const s = await session();
     const status = await hostSessionStatus(s);

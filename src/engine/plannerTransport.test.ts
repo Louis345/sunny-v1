@@ -66,3 +66,16 @@ it('uses the same configured bounded deadline for the current Planner without ch
 it('honors an explicit caller deadline for adaptive models too',()=>{
  expect(plannerTransportPolicy('claude-opus-5-5',6000,60000).timeout).toBe(60000);
 });
+it('logs how long a streamed Planner turn waits for its first event, apart from the total',async()=>{
+ const log=vi.spyOn(console,'log').mockImplementation(()=>{});
+ try{
+  vi.useFakeTimers({now:0});
+  let emit:(event:{type:string})=>void=()=>{};
+  const finalMessage=async()=>{vi.setSystemTime(1500);emit({type:'message_start'});vi.setSystemTime(4000);return {id:'m1',stop_reason:'tool_use',content:[],usage:{input_tokens:1,output_tokens:2}};};
+  const stream=vi.fn(()=>({on:(name:string,handler:(event:{type:string})=>void)=>{if(name==='streamEvent')emit=handler;},finalMessage}));
+  await requestPlannerMessage({messages:{stream}} as never,{...params,model:'claude-sonnet-5'});
+  const received=log.mock.calls.map(call=>String(call[0])).find(line=>line.includes('[received]'))!;
+  expect(received).toContain('elapsed_ms=4000');
+  expect(received).toContain('first_event_ms=1500');
+ }finally{vi.useRealTimers();log.mockRestore();}
+});

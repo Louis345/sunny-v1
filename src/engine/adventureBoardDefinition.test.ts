@@ -35,6 +35,15 @@ describe('Planner-authored journey authority', () => {
     expect(journeyFrontier(definition, {order:'learn'}, ['play']).activityNodeId).toBe('learn');
     expect(journeyFrontier(definition, {order:'play'}, ['play','learn','check']).complete).toBe(true);
   });
+  // 2026-11-13 Ila (AI-caught in the log): board 3's fork offered two orders of the same two stops. She played every
+  // stop by tapping it directly, never the fork, so the board never finished and no next board was built; she was
+  // left on a finished map and called it a bug. Why the logs missed it: each stop logged "completed" and the board
+  // simply stayed ready. Why the lab missed it: completion was only tested after a choice was made.
+  it('finishes the board when every stop on one route is done, even if the fork itself was never tapped', () => {
+    const definition = authoredJourney();
+    expect(journeyFrontier(definition, {}, ['play','learn','check']).complete).toBe(true);
+    expect(journeyFrontier(definition, {}, ['play','learn']).complete).toBe(false);
+  });
   it('rejects a missing binding, reports a missing edge, and keeps the authored choice', () => {
     const definition = authoredJourney(); definition.edges.pop();
     const issues = validateBoardDefinition(definition, ['learn','check']);
@@ -225,4 +234,15 @@ describe('board coordinates stay playable without vetoing the author', () => {
       expect(text).toContain(`[board] [portal] [fallback-position] portal=${board.portals[2].id}`);
     } finally { log.mockRestore(); }
   });
+});
+
+// Owner, 2026-11-07: she should see how close the FaceTime call is. Stops left counts the unfinished activities on
+// her path (the chosen route, or the first route while a choice is still open); a not-ready stop is passed over.
+it('counts the stops left on her path until the board is finished', async () => {
+  const { journeyStopsLeft } = await import('../shared/adventureBoardDefinition');
+  const definition = authoredJourney();
+  expect(journeyStopsLeft(definition, {}, [])).toBe(3);
+  expect(journeyStopsLeft(definition, {order:'play'}, ['play'])).toBe(2);
+  expect(journeyStopsLeft(definition, {order:'play'}, ['play'], ['learn'])).toBe(1);
+  expect(journeyStopsLeft(definition, {order:'play'}, ['play','learn','check'])).toBe(0);
 });

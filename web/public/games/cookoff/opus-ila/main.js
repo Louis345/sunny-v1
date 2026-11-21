@@ -1,0 +1,432 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+
+const Q = new URLSearchParams(location.search); const LITE = Q.has('lite');
+const log = (...a) => console.log(' 🎮 [spirit-night]', ...a);
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const EV = (name, p) => { try { window.SunnyEvidence?.[name]({ activityId: 'opus-ila', ...p }); } catch (e) { console.warn(' 🎮 [spirit-night] [evidence] [failed]', name, e); } };
+
+// ---------------- words (Planner target: r-controlled ar/or, the four words she still misses) ----------------
+const BUILT_IN = {
+  pardon:    { pics: ['👑🐲', '🙋☂️'], beats: [3], cue: 'h-pardon' },
+  carnivore: { pics: ['🦁🍖', '🦖🦷'], beats: [3, 5], cue: 'h-carnivore' },
+  charge:    { pics: ['🤖🔋', '🐂💨'], beats: [6], cue: 'h-charge' },
+  dormant:   { pics: ['🌋😴', '🌱❄️'], beats: [3], cue: 'h-dormant' },
+};
+// The board's words (window.SUNNY_GAME_CONFIG via the library bridge) replace the built-in four when present.
+// A word with recorded lines keeps them; any other word is said by the companion from TEXT (no recording is faked).
+const SL = window.SunnyLibrary || { hasItems: false, items: [], spellingWords: () => [], pictures: () => ['⭐❓', '✨❓'] };
+const TEXT = {};
+const WORDS = {};
+if (SL.hasItems) {
+  for (const { word, sentence } of SL.spellingWords()) {
+    WORDS[word] = BUILT_IN[word] || { pics: SL.pictures(word), beats: [Math.max(1, Math.ceil(word.length / 2))], cue: 'h-' + word };
+    const say2 = sentence ? `${word}. ${sentence} ${word}.` : `${word}. ${word}.`;
+    Object.assign(TEXT, { ['w-' + word]: `${word}.`, ['s1-' + word]: say2, ['s2-' + word]: say2, ['h-' + word]: `${word}. Say it slowly and listen to every sound, in order.` });
+  }
+} else Object.assign(WORDS, BUILT_IN);
+log('[content]', SL.hasItems ? `items=${Object.keys(WORDS).length}` : 'built-in');
+
+// ---------------- audio (WebAudio: sfx, music, Elli's voice with lip-sync) ----------------
+const AC = new (window.AudioContext || window.webkitAudioContext)(); const master = AC.createGain(); master.connect(AC.destination);
+const musicGain = AC.createGain(); musicGain.gain.value = .32; musicGain.connect(master);
+const analyser = AC.createAnalyser(); analyser.fftSize = 1024; const voiceGain = AC.createGain(); voiceGain.gain.value = 1; voiceGain.connect(analyser); analyser.connect(master);
+const BUF = {}; const lipBuf = new Float32Array(1024);
+const LIB = { coin: 'coin.mp3', correct: 'correct.mp3', fanfare: 'fanfare.mp3', legendary: 'legendary.mp3', riser: 'riser.mp3', boom: 'boom.mp3', combo: 'combo.wav', soft: 'miss_thunk.wav', pop: 'hit_pop.wav', epic: 'epic.mp3', finale: 'complete_fanfare.wav' };
+const MINE = ['giggle', 'awake', 'beam', 'music', 'whoosh', 'mumble', 'tap'];
+const VOICES = JSON.parse($('sunny-assets').textContent).voice.map(v => v.id);
+async function loadBuf(key, url) { try { const r = await fetch(url); if (!r.ok) throw new Error('HTTP ' + r.status); BUF[key] = await AC.decodeAudioData(await r.arrayBuffer()); } catch (e) { console.warn(' 🎮 [spirit-night] [audio] [missing]', key, e.message); } }
+const audioReady = Promise.all([...Object.entries(LIB).map(([k, f]) => loadBuf(k, '/a3d/sfx/' + f)), ...MINE.map(k => loadBuf(k, `assets/sfx/${k}.mp3`)), ...VOICES.map(k => loadBuf('v:' + k, `assets/voice/${k}.mp3`))]);
+function sfx(key, vol = .7, rate = 1) { const b = BUF[key]; if (!b) return; const s = AC.createBufferSource(); s.buffer = b; s.playbackRate.value = rate; const g = AC.createGain(); g.gain.value = vol; s.connect(g).connect(master); s.start(); }
+let voiceSrc = null, speaking = false;
+let talkIdle = Promise.resolve();   // the game's own lines wait while Elli is answering Ila
+async function say(id) {
+  await talkIdle;
+  return new Promise(res => {
+    try { voiceSrc?.stop(); } catch { /* already stopped */ }
+    const b = BUF['v:' + id];
+    if (!b && TEXT[id] && SL.speak) { speaking = true; SL.speak(TEXT[id], { reason: 'library_game_word', word: G.current?.word }).then(() => { speaking = false; res(); }); return; }
+    if (!b) { console.warn(' 🎮 [spirit-night] [voice] [missing]', id); setTimeout(res, 500); return; }
+    playVoice(b).then(res);
+  });
+}
+function playVoice(b) {
+  return new Promise(res => {
+    try { voiceSrc?.stop(); } catch { /* already stopped */ }
+    const s = AC.createBufferSource(); s.buffer = b; s.connect(voiceGain); voiceSrc = s; speaking = true; musicGain.gain.setTargetAtTime(.1, AC.currentTime, .1);
+    s.onended = () => { if (voiceSrc === s) { speaking = false; musicGain.gain.setTargetAtTime(G.calm ? .14 : .32, AC.currentTime, .3); } res(); };
+    s.start();
+  });
+}
+let musicSrc = null;
+function startMusic() { if (musicSrc || !BUF.music) return; musicSrc = AC.createBufferSource(); musicSrc.buffer = BUF.music; musicSrc.loop = true; musicSrc.connect(musicGain); musicSrc.start(); }
+
+// ---------------- renderer / scene (Cook-off Kit settings: 1.25 scale + 2x MSAA = sharp at 60 fps) ----------------
+const PR = LITE ? .5 : 1.25;
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(PR); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = !LITE; renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .9; document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0x120a35, 18, 60);
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, .1, 300);
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: LITE ? 0 : 2 }));
+composer.setPixelRatio(PR); composer.setSize(innerWidth, innerHeight); composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .45, .45, .86); if (!LITE) composer.addPass(bloom); composer.addPass(new OutputPass());
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
+
+// sky dome + moon + stars
+const sky = new THREE.Mesh(new THREE.SphereGeometry(150, 32, 16), new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, map: canvasTex(4, 512, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#05031a'); gr.addColorStop(.42, '#1b0f4d'); gr.addColorStop(.5, '#3a1a6b'); gr.addColorStop(.56, '#120a35'); gr.addColorStop(1, '#120a35'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }) }));
+scene.add(sky);
+const moon = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 16), new THREE.MeshBasicMaterial({ color: 0xfff1c2, fog: false, toneMapped: false })); moon.position.set(16, 22, -90); scene.add(moon);
+{ const n = 900, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const th = rand(0, Math.PI * 2), ph = rand(.08, 1.3); pos.set([Math.cos(th) * Math.cos(ph) * 140, Math.sin(ph) * 140, Math.sin(th) * Math.cos(ph) * 140 - 20], i * 3); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: .5, fog: false, transparent: true, opacity: .8 }))); }
+
+// lights (all created now: adding a light mid-game recompiles every material)
+scene.add(new THREE.HemisphereLight(0x8f7cff, 0x2a1438, .9));
+const moonLight = new THREE.DirectionalLight(0xb9c4ff, 1.4); moonLight.position.set(6, 12, 8); moonLight.castShadow = true; moonLight.shadow.mapSize.set(1024, 1024);
+Object.assign(moonLight.shadow.camera, { left: -8, right: 8, top: 8, bottom: -4 }); moonLight.shadow.bias = -.0005; scene.add(moonLight);
+const keyLight = new THREE.SpotLight(0xffe2c4, 90, 22, .5, .6, 1.2); keyLight.position.set(-1, 7, 7); keyLight.target.position.set(-1.6, 1, 0); scene.add(keyLight, keyLight.target);
+const warmA = new THREE.PointLight(0xff9a4d, 14, 14, 1.6); warmA.position.set(-5.5, 2.6, -4); scene.add(warmA);
+const warmB = new THREE.PointLight(0xff6fa8, 14, 14, 1.6); warmB.position.set(5.5, 2.6, -6); scene.add(warmB);
+const beamLight = new THREE.PointLight(0x9fe8ff, 0, 10, 1.5); beamLight.position.set(0, 2, 1); scene.add(beamLight);
+
+// ground + festival street
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ color: 0x241a52, roughness: .55, metalness: .15 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const path = new THREE.Mesh(new THREE.PlaneGeometry(6, 60), new THREE.MeshStandardMaterial({ color: 0x3a2d6e, roughness: .4, metalness: .2 })); path.rotation.x = -Math.PI / 2; path.position.set(0, .005, -25); path.receiveShadow = true; scene.add(path);
+const stageRing = new THREE.Mesh(new THREE.RingGeometry(1.05, 1.2, 64), new THREE.MeshBasicMaterial({ color: 0xb59bff, transparent: true, opacity: .6, toneMapped: false })); stageRing.rotation.x = -Math.PI / 2; stageRing.position.set(1.9, .02, 0); scene.add(stageRing);
+const awningTex = (a, b) => canvasTex(256, 64, (g, w, h) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? a : b; g.fillRect(i * 32, 0, 32, h); } g.fillStyle = '#0003'; g.fillRect(0, h - 10, w, 10); });
+const stallMats = [['#ff4f7b', '#fff1e6'], ['#3fb7ff', '#f2f8ff'], ['#ffb02e', '#fff6d9'], ['#7c5cff', '#efe9ff']].map(([a, b]) => new THREE.MeshStandardMaterial({ map: awningTex(a, b), emissive: 0xffffff, emissiveMap: awningTex(a, b), emissiveIntensity: .35, roughness: .6 }));
+const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3422, roughness: .8 });
+const glowFront = new THREE.MeshBasicMaterial({ color: 0xffc77a, toneMapped: false });
+for (const side of [-1, 1]) for (let i = 0; i < 6; i++) {
+  const g = new THREE.Group(); const z = -4 - i * 5.5, x = side * (5.6 + (i % 2) * .4);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.1, 1.8), woodMat); base.position.y = .55; base.receiveShadow = true; g.add(base);
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(2.8, .5), glowFront); front.position.set(0, .7, .91); g.add(front);
+  [-1.45, 1.45].forEach(px => { const p = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.8, .12), woodMat); p.position.set(px, 1.4, .8); g.add(p); });
+  const awn = new THREE.Mesh(new THREE.BoxGeometry(3.6, .12, 2.3), stallMats[(i + (side > 0 ? 2 : 0)) % 4]); awn.position.set(0, 2.85, .2); awn.rotation.x = .18; g.add(awn);
+  g.position.set(x, 0, z); g.rotation.y = -side * Math.PI / 2 + side * .25; scene.add(g);
+}
+// torii gate at the end of the street
+{ const red = new THREE.MeshStandardMaterial({ color: 0xe0352b, emissive: 0x5a0d08, roughness: .45 }), dark = new THREE.MeshStandardMaterial({ color: 0x1c1020, roughness: .6 });
+  const t = new THREE.Group(); [-2.6, 2.6].forEach(x => { const p = new THREE.Mesh(new THREE.CylinderGeometry(.28, .32, 7, 16), red); p.position.set(x, 3.5, 0); t.add(p); });
+  const top = new THREE.Mesh(new THREE.BoxGeometry(7.6, .5, .6), dark); top.position.y = 7.2; const top2 = new THREE.Mesh(new THREE.BoxGeometry(6.8, .4, .5), red); top2.position.y = 6.5; const mid = new THREE.Mesh(new THREE.BoxGeometry(6, .3, .4), red); mid.position.y = 5.5;
+  t.add(top, top2, mid); t.position.set(0, 0, -34); scene.add(t); }
+// string lights across the street (instanced, glowing)
+const BULBS = 180; const bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(.07, 8, 6), new THREE.MeshBasicMaterial({ toneMapped: false }), BULBS);
+{ const tmp = new THREE.Object3D(), col = new THREE.Color(); const pal = [0xfff0b0, 0xffb3d9, 0xa8e6ff, 0xffd27a, 0xc9b6ff]; let k = 0;
+  for (let s = 0; s < 6; s++) { const z = -2 - s * 5.5; for (let j = 0; j < 30 && k < BULBS; j++, k++) { const u = j / 29; tmp.position.set(-6 + u * 12, 4.2 - Math.sin(u * Math.PI) * .9, z); tmp.updateMatrix(); bulbs.setMatrixAt(k, tmp.matrix); bulbs.setColorAt(k, col.setHex(pal[(j + s) % pal.length]).multiplyScalar(1.5)); } }
+  scene.add(bulbs); }
+// fireflies
+const FLY = 220; const flyPos = new Float32Array(FLY * 3); const flies = [];
+for (let i = 0; i < FLY; i++) { const f = { x: rand(-9, 9), y: rand(.4, 5), z: rand(-30, 4), ph: rand(0, 7), sp: rand(.3, .9) }; flies.push(f); }
+const flyGeo = new THREE.BufferGeometry(); flyGeo.setAttribute('position', new THREE.BufferAttribute(flyPos, 3));
+scene.add(new THREE.Points(flyGeo, new THREE.PointsMaterial({ color: 0xfff3a0, size: .09, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
+
+// sparkle bursts (pooled points, no allocation mid-game)
+const SPK = 500; const spkPos = new Float32Array(SPK * 3), spkCol = new Float32Array(SPK * 3); const spk = Array.from({ length: SPK }, () => ({ on: false }));
+const spkGeo = new THREE.BufferGeometry(); spkGeo.setAttribute('position', new THREE.BufferAttribute(spkPos, 3)); spkGeo.setAttribute('color', new THREE.BufferAttribute(spkCol, 3));
+scene.add(new THREE.Points(spkGeo, new THREE.PointsMaterial({ size: .14, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
+let spkI = 0; function burst(p, color, n = 60, speed = 4) { const c = new THREE.Color(color); for (let k = 0; k < n; k++) { const s = spk[spkI = (spkI + 1) % SPK]; const th = rand(0, Math.PI * 2), ph = rand(-1, 1);
+  Object.assign(s, { on: true, x: p.x, y: p.y, z: p.z, vx: Math.cos(th) * speed * rand(.3, 1), vy: ph * speed * .8 + 1.5, vz: Math.sin(th) * speed * rand(.3, 1) * .6, life: rand(.6, 1.3), r: c.r * 1.6, g: c.g * 1.6, b: c.b * 1.6 }); } }
+
+// beam (one mesh, reused)
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, 1, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xaef4ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); scene.add(beam);
+
+// ---------------- spirits ----------------
+const spiritGeo = (() => { const pts = []; for (let i = 0; i <= 20; i++) { const a = i / 20 * Math.PI * .5; pts.push(new THREE.Vector2(Math.sin(a) * .62, .62 + Math.cos(a) * .62)); } pts.push(new THREE.Vector2(.64, .3), new THREE.Vector2(.7, .05), new THREE.Vector2(.55, -.08), new THREE.Vector2(0, -.02)); return new THREE.LatheGeometry(pts.reverse(), 40); })();
+const eyeGeo = new THREE.SphereGeometry(.085, 16, 12), hiGeo = new THREE.SphereGeometry(.03, 8, 6), cheekGeo = new THREE.CircleGeometry(.07, 16);
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0x170b2b }), hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff }), cheekMat = new THREE.MeshBasicMaterial({ color: 0xff7fae, transparent: true, opacity: .75 });
+const PALETTE = [0x7af0c8, 0xff9fd2, 0x9fd0ff, 0xffd27a, 0xc5a8ff, 0xa6ff8f, 0xffb08a];
+const HATS = ['leaf', 'bow', 'star', 'none'];
+function makeSpirit(color, scale = 1) {
+  const g = new THREE.Group(); const mat = new THREE.MeshStandardMaterial({ color: 0xa49fc4, emissive: color, emissiveIntensity: .12, roughness: .3, transparent: true, opacity: .93 });
+  const body = new THREE.Mesh(spiritGeo, mat); body.castShadow = true; g.add(body);
+  const eyes = new THREE.Group(); eyes.position.set(0, .74, 0); [-.2, .2].forEach(x => { const e = new THREE.Mesh(eyeGeo, eyeMat); e.position.set(x, 0, .6); const h = new THREE.Mesh(hiGeo, hiMat); h.position.set(.03, .035, .06); e.add(h); eyes.add(e); }); g.add(eyes);
+  [-.36, .36].forEach(x => { const c = new THREE.Mesh(cheekGeo, cheekMat); c.position.set(x, .58, .63); g.add(c); });
+  const hat = HATS[Math.floor(Math.random() * HATS.length)]; const hm = new THREE.MeshStandardMaterial({ color: hat === 'leaf' ? 0x4bd97a : hat === 'bow' ? 0xff4f8b : 0xffd84a, emissive: 0x332200, roughness: .4 });
+  if (hat === 'leaf') { const l = new THREE.Mesh(new THREE.ConeGeometry(.12, .4, 8), hm); l.position.set(.1, 1.36, 0); l.rotation.z = -.5; g.add(l); }
+  if (hat === 'bow') { [-1, 1].forEach(s => { const b = new THREE.Mesh(new THREE.ConeGeometry(.12, .24, 8), hm); b.position.set(.25 + s * .13, 1.18, .1); b.rotation.z = s * Math.PI / 2; g.add(b); }); }
+  if (hat === 'star') { const s = new THREE.Mesh(new THREE.OctahedronGeometry(.13), hm); s.position.set(0, 1.5, 0); const st = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .3), hm); st.position.set(0, 1.33, 0); g.add(s, st); }
+  g.scale.setScalar(scale); g.userData = { body, mat, eyes, color: new THREE.Color(color), awake: 0, sleepy: true };
+  return g;
+}
+function pictureCard(text) {
+  const tex = canvasTex(512, 384, (g, w, h) => { g.fillStyle = '#fffaf0'; g.beginPath(); g.roundRect(14, 14, w - 28, h - 28, 48); g.fill(); g.lineWidth = 12; g.strokeStyle = '#ffd86b'; g.stroke();
+    g.font = '170px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 12); });
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xd8d8d8, depthTest: false })); s.renderOrder = 5; s.scale.set(1.3, .975, 1); return s;
+}
+
+// ---------------- Elli (VRM + mocap, lip-sync to her real voice) ----------------
+let vrm = null; const elli = new THREE.Group(); elli.position.set(-1.9, 0, .4); scene.add(elli);
+const MIXAMO = { Hips:'hips', Spine:'spine', Spine1:'chest', Spine2:'upperChest', Neck:'neck', Head:'head', LeftShoulder:'leftShoulder', LeftArm:'leftUpperArm', LeftForeArm:'leftLowerArm', LeftHand:'leftHand',
+  RightShoulder:'rightShoulder', RightArm:'rightUpperArm', RightForeArm:'rightLowerArm', RightHand:'rightHand', LeftUpLeg:'leftUpperLeg', LeftLeg:'leftLowerLeg', LeftFoot:'leftFoot', LeftToeBase:'leftToes',
+  RightUpLeg:'rightUpperLeg', RightLeg:'rightLowerLeg', RightFoot:'rightFoot', RightToeBase:'rightToes' };
+function retarget(clip, root) {
+  const legacy = String(vrm.meta?.metaVersion ?? '').startsWith('0'); const tracks = []; const qi = new THREE.Quaternion(), qp = new THREE.Quaternion(), q = new THREE.Quaternion();
+  const srcHips = root.getObjectByName('mixamorigHips') || root.getObjectByName('mixamorig:Hips');
+  const hipsNode = vrm.humanoid.getNormalizedBoneNode('hips'); const restY = vrm.humanoid.normalizedRestPose?.hips?.position?.[1] ?? hipsNode.position.y;
+  const hipScale = srcHips?.position.y ? restY / srcHips.position.y : .01;
+  for (const tr of clip.tracks) {
+    const rig = tr.name.slice(0, tr.name.lastIndexOf('.')), prop = tr.name.slice(tr.name.lastIndexOf('.') + 1);
+    const bone = MIXAMO[rig.replace(/^.*\|/, '').replace(/^mixamorig[:_]?/, '')]; if (!bone) continue;
+    const node = vrm.humanoid.getNormalizedBoneNode(bone); if (!node) continue;
+    if (prop === 'quaternion') { const src = root.getObjectByName(rig.replace(/^.*\|/, ''));
+      if (src) { src.getWorldQuaternion(qi).invert(); src.parent ? src.parent.getWorldQuaternion(qp) : qp.identity(); } else { qi.identity(); qp.identity(); }
+      const v = new Float32Array(tr.values); for (let i = 0; i < v.length; i += 4) { q.fromArray(v, i).premultiply(qp).multiply(qi); if (legacy) { q.x *= -1; q.z *= -1; q.normalize(); } q.toArray(v, i); }
+      tracks.push(new THREE.QuaternionKeyframeTrack(`${node.name}.quaternion`, tr.times, v));
+    } else if (prop === 'position' && bone === 'hips') { const v = new Float32Array(tr.values); const [bx, by, bz] = [v[0], v[1], v[2]];
+      for (let i = 0; i < v.length; i += 3) { const dx = (v[i] - bx) * hipScale, dy = (v[i + 1] - by) * hipScale, dz = (v[i + 2] - bz) * hipScale;
+        v[i] = hipsNode.position.x + (legacy ? -dx : dx); v[i + 1] = hipsNode.position.y + dy; v[i + 2] = hipsNode.position.z + (legacy ? -dz : dz); }
+      tracks.push(new THREE.VectorKeyframeTrack(`${node.name}.position`, tr.times, v)); }
+  }
+  return new THREE.AnimationClip(clip.name, clip.duration, tracks);
+}
+let mixer = null; const acts = {}; let oneShot = null;
+const CLIPS = ['idle_stand', 'wave', 'silly_dancing', 'surprise_jump', 'ponder_moment', 'fireball', 'dance_victory', 'blow_a_kiss'];
+let companionName = '';
+async function loadElli() {
+  const loader = new GLTFLoader(); loader.register(p => new VRMLoaderPlugin(p));
+  const who = await SL.companion?.() ?? { name: '' }; companionName = who.name || '';
+  const gltf = await SL.loadCompanion(loader, e => { if (e.total) $('loadTxt').textContent = `${companionName || 'Your friend'} is coming… ${Math.round(e.loaded / e.total * 100)}%`; });
+  vrm = gltf.userData.vrm; VRMUtils.removeUnnecessaryVertices(gltf.scene); VRMUtils.combineSkeletons?.(gltf.scene); VRMUtils.rotateVRM0(vrm);
+  vrm.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; [].concat(o.material).forEach(m => { if (m.isMToonMaterial) { m.color?.multiplyScalar(.36); m.shadeColorFactor?.multiplyScalar(.36); } }); } });
+  vrm.scene.rotation.y = String(vrm.meta?.metaVersion ?? "").startsWith("0") ? Math.PI : 0; vrm.scene.scale.setScalar(1.3); elli.add(vrm.scene); elli.rotation.y = .38;
+  if (vrm.lookAt) vrm.lookAt.target = camera;
+  const fbx = new FBXLoader(); const mx = new THREE.AnimationMixer(vrm.scene);
+  await Promise.all(CLIPS.map(async n => { const root = await fbx.loadAsync(`/animations/${n}.fbx`); const raw = root.animations.find(c => c.tracks.length > 0); if (!raw) throw new Error('no_tracks:' + n); acts[n] = mx.clipAction(retarget(raw, root)); }));
+  CLIPS.slice(1).forEach(n => { acts[n].setLoop(THREE.LoopOnce); acts[n].clampWhenFinished = true; }); acts.idle_stand.play();
+  mx.addEventListener('finished', e => { if (oneShot && e.action === acts[oneShot]) { e.action.fadeOut(.25); acts.idle_stand.reset().fadeIn(.25).play(); oneShot = null; } });
+  mixer = mx; log('[elli] [loaded]', Object.keys(acts).join(','));
+}
+function move(name) { const a = acts[name]; if (!a || !mixer) return; Object.values(acts).forEach(x => x !== a && x.fadeOut(.2)); a.reset().fadeIn(.2).play(); oneShot = name; }
+function expr(name, v) { try { vrm?.expressionManager?.setValue(name, v); } catch { /* model without that expression */ } }
+
+// ---------------- game state ----------------
+const G = { state: 'loading', calm: false, coins: 0, onOwn: 0, streak: 0, presented: 0, friends: [], current: null, bossHp: 4, typed: '', given: '', hint: 0, attempt: 0, t0: 0, ready: false, talk: '', talkHelped: false };
+const BEST_KEY = 'spirit-night-best'; let best = 0; try { best = +localStorage.getItem(BEST_KEY) || 0; } catch { /* storage blocked */ }
+const queue = []; const state = {};   // per word: { solved:bool, needsReturn:bool, seen:n }
+Object.keys(WORDS).forEach(w => state[w] = { solved: false, seen: 0 });
+(SL.hasItems ? Object.keys(WORDS) : ['dormant', 'pardon', 'carnivore', 'charge']).forEach(w => queue.push({ word: w, phase: 'free' }));
+let spirit = null, card = null, boss = null;
+function refresh() { $('coins').textContent = `● ${G.coins}`; $('friends').textContent = `✦ ${G.friends.length}`; $('best').textContent = best ? '★'.repeat(Math.min(best, 8)) : ''; }
+let bigT; function big(s, ms = 1000) { $('big').textContent = s; $('big').classList.add('show'); clearTimeout(bigT); bigT = setTimeout(() => $('big').classList.remove('show'), ms); }
+
+// keyboard
+const ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+function buildKeys() { const k = $('keys'); k.innerHTML = '';
+  ROWS.forEach((r, i) => { const row = document.createElement('div'); row.className = 'row';
+    if (i === 2) row.append(keyBtn('🔊', 'k hear wide', hear));
+    [...r].forEach(ch => row.append(keyBtn(ch, 'k', () => typeLetter(ch))));
+    if (i === 2) row.append(keyBtn('⌫', 'k wide', back));
+    k.append(row); });
+  const row = document.createElement('div'); row.className = 'row'; row.append(keyBtn('✓', 'k go', submit)); k.append(row); }
+function keyBtn(label, cls, fn) { const b = document.createElement('button'); b.className = cls; b.textContent = label; b.addEventListener('pointerdown', e => { e.preventDefault(); fn(); }); return b; }
+addEventListener('keydown', e => { if (G.state !== 'type' || !G.ready || e.isComposing) return; const k = e.key.toLowerCase();
+  if (/^[a-z]$/.test(k)) typeLetter(k); else if (e.key === 'Backspace') back(); else if (e.key === 'Enter') submit(); });
+
+function renderSlots(glowAt = -1) { const w = G.current.word, el = $('slots'); el.innerHTML = '';
+  const gaps = G.hint >= 1 && G.current.word === 'carnivore' || G.hint >= 1 && G.current.word === 'dormant' ? WORDS[w].beats : [];
+  for (let i = 0; i < w.length; i++) { const d = document.createElement('div'); d.className = 'slot'; if (gaps.includes(i)) d.classList.add('gap');
+    const ch = G.typed[i]; if (i < G.given.length) { d.textContent = G.given[i]; d.classList.add('given'); } else if (ch) { d.textContent = ch; d.classList.add('fill'); } else if (G.hint >= 3) { d.textContent = w[i]; d.classList.add('ghost'); }
+    if (i === glowAt) d.classList.add('glow'); el.append(d); } }
+function typeLetter(ch) { if (!G.ready) return; if (G.typed.length >= G.current.word.length) return; G.typed += ch; sfx('tap', .5, rand(.95, 1.08)); renderSlots(); }
+function back() { if (!G.ready) return; if (G.typed.length <= G.given.length) return; G.typed = G.typed.slice(0, -1); renderSlots(); }
+function hear() { if (!G.current) return; const w = G.current.word; EV('audioRequested', { target: w, itemIndex: G.presented - 1, audio: { kind: 'word_and_sentence', clip: G.current.clip } }); say(G.current.clip).then(() => EV('audioPlayed', { target: w, audio: { clip: G.current.clip } })); }
+
+// ---------------- flow ----------------
+function nextItem() {
+  if (G.presented > Object.keys(WORDS).length * 3 + 14) { log('[guard] [stop] too many presentations'); return finish(); }   // hard exit guard
+  const item = queue.shift();
+  if (!item) { return Object.values(state).every(s => s.solved) && !boss ? startBoss() : finish(); }
+  G.current = item; G.presented++; G.hint = 0; G.talkHelped = false; G.attempt = 0; G.typed = ''; G.given = ''; G.ready = false; state[item.word].seen++;
+  item.clip = (item.phase === 'boss' || state[item.word].seen > 1 ? 's2-' : 's1-') + item.word;
+  if (item.phase !== 'boss') spawnSpirit(item); else boss.userData.mumble = 1;
+  setTimeout(async () => {
+    if (item.phase !== 'boss' && state[item.word].seen > 1) await say('back');
+    EV('targetPresented', { target: item.word, itemIndex: G.presented - 1, visibleState: { picture: true, answerShown: false, hintLevel: 0, phase: item.phase, keyboard: 'on-screen + physical' } });
+    G.state = 'listen'; move('ponder_moment'); await say(item.clip); EV('audioPlayed', { target: item.word, audio: { clip: item.clip, auto: true } });
+    openPanel();
+  }, item.phase === 'boss' ? 700 : 1500);
+}
+async function openPanel() { G.state = 'type'; G.calm = true; renderSlots(); $('panel').classList.add('show'); $('keys').classList.add('off'); await say('go'); G.ready = true; G.t0 = performance.now(); $('keys').classList.remove('off'); }
+function spawnSpirit(item) {
+  if (spirit) scene.remove(spirit);
+  spirit = makeSpirit(PALETTE[Math.floor(Math.random() * PALETTE.length)], .8); spirit.position.set(7, 2.2, -1); spirit.userData.target = new THREE.Vector3(1.9, .55, 0); scene.add(spirit);
+  card = pictureCard(WORDS[item.word].pics[item.phase === 'free' && state[item.word].seen <= 1 ? 0 : 1]); card.position.set(0, 1.7, 0); spirit.add(card);
+  sfx('whoosh', .6); setTimeout(() => sfx('giggle', .5), 500);
+}
+function submit() {
+  if (G.state !== 'type' || !G.ready) return; const w = G.current.word; const typed = G.typed;
+  if (typed.length < w.length) { renderSlots(typed.length); sfx('soft', .35); return; }   // not an attempt yet: show the empty slot
+  G.attempt++; const correct = typed === w; const ms = Math.round(performance.now() - G.t0);
+  EV('attemptRecorded', { target: w, itemIndex: G.presented - 1, attemptNumber: G.attempt, childAction: { typed }, result: { correct, hintLevel: G.hint, companionHelp: G.talkHelped, ms, phase: G.current.phase } });
+  log('[attempt]', w, typed, correct ? 'correct' : 'miss', 'hint=' + G.hint);
+  if (correct) return success();
+  miss(typed);
+}
+async function success() {
+  const w = G.current.word, independent = G.hint === 0 && !G.talkHelped;   // help from the companion's voice counts as help, like a hint
+  G.ready = false; G.state = 'feedback';
+  EV('targetCompleted', { target: w, itemIndex: G.presented - 1, result: { correct: true, independent, hintLevel: G.hint, attempts: G.attempt, phase: G.current.phase } });
+  $('keys').classList.add('off'); G.streak = independent ? G.streak + 1 : 0; G.coins += independent ? 5 : 2; if (independent) G.onOwn++; refresh();
+  if (G.streak >= 2) { sfx('combo', .6, 1 + G.streak * .05); big(`${G.streak} in a row!`, 900); }
+  if (independent) state[w].solved = true; else queue.splice(Math.min(2, queue.length), 0, { word: w, phase: G.current.phase });   // aided → returns after a gap
+  setTimeout(() => $('panel').classList.remove('show'), 500); G.calm = false;
+  if (G.current.phase === 'boss') { await bossHit(independent); }
+  else { wakeSpirit(); move(independent ? (Math.random() < .5 ? 'silly_dancing' : 'surprise_jump') : 'blow_a_kiss'); expr('happy', 1); setTimeout(() => expr('happy', 0), 1800);
+    await say(independent ? ['yes1', 'yes2', 'yes3', 'yes4'][Math.floor(Math.random() * 4)] : 'together'); }
+  setTimeout(nextItem, 900);
+}
+async function miss(typed) {
+  const w = G.current.word; let wrongAt = [...w].findIndex((c, i) => typed[i] !== c); if (wrongAt < 0) wrongAt = w.length - 1;
+  G.hint = Math.min(3, G.hint + 1); G.ready = false; sfx('soft', .4); G.streak = 0;
+  if (G.current.phase === 'boss') { boss.userData.mumble = 1; sfx('mumble', .4); }
+  if (G.hint === 1) { renderSlots(wrongAt); await say('close'); await say(WORDS[w].cue); G.typed = ''; renderSlots(wrongAt); }
+  else if (G.hint === 2) { const cut = WORDS[w].beats[0]; G.given = w.slice(0, cut); G.typed = G.given; renderSlots(Math.max(wrongAt, cut)); await say(WORDS[w].cue); }
+  else { G.given = ''; G.typed = ''; renderSlots(); await say('together'); }   // hint 3: the word is shown to copy; it returns later for unaided recall
+  G.ready = true; G.t0 = performance.now();
+}
+function wakeSpirit() {
+  const s = spirit; spirit = null; s.userData.sleepy = false; s.userData.wakeT = 0; if (card) { s.remove(card); card = null; }
+  sfx('awake', .8); sfx('coin', .5); burst(s.position.clone().add(new THREE.Vector3(0, .7, 0)), s.userData.color, 80, 4.5);
+  setTimeout(() => { G.friends.push(s); s.userData.orbit = { r: rand(1.2, 1.8), a: rand(0, 6.28), h: rand(.9, 2.6), sp: rand(.5, .9) }; s.scale.setScalar(.42); sfx('giggle', .5, 1.2); refresh(); }, 900);
+}
+// boss: the Mumble Cloud (co-op beam)
+function makeBoss() {
+  const g = new THREE.Group(); const m = new THREE.MeshStandardMaterial({ color: 0x6e6390, emissive: 0x2a1d5c, emissiveIntensity: .6, roughness: .8 });
+  [[0, 0, 0, 1], [-.9, -.2, 0, .75], [.9, -.15, 0, .8], [-.45, .55, -.1, .7], [.5, .5, -.1, .72], [0, -.4, .2, .8], [-1.5, -.45, -.1, .5], [1.5, -.4, -.1, .55]].forEach(([x, y, z, r]) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), m); s.position.set(x, y, z); s.castShadow = true; g.add(s); });
+  [-.32, .32].forEach(x => { const e = new THREE.Mesh(new THREE.SphereGeometry(.16, 16, 12), eyeMat); e.position.set(x, .15, .92); e.scale.y = .7; const brow = new THREE.Mesh(new THREE.BoxGeometry(.3, .06, .05), eyeMat); brow.position.set(0, .2, 0); brow.rotation.z = x > 0 ? .4 : -.4; e.add(brow); g.add(e); });
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(.18, .04, 8, 20, Math.PI), eyeMat); mouth.position.set(0, -.25, .98); mouth.rotation.z = Math.PI; g.add(mouth);
+  g.userData = { mat: m, mumble: 0, shake: 0, base: new THREE.Vector3(2.2, 2.3, -.6) }; g.position.set(2.2, 7, -.6); return g;
+}
+async function startBoss() {
+  G.state = 'boss-intro'; boss = makeBoss(); scene.add(boss); sfx('riser', .7); sfx('mumble', .7); bossBar(); $('bossbar').classList.add('show'); move('ponder_moment'); big('MUMBLE CLOUD!', 1400);
+  await say('boss');
+  const order = Object.keys(WORDS).sort(() => Math.random() - .5); order.forEach(w => queue.push({ word: w, phase: 'boss' })); log('[boss] [start]', order.join(','));
+  nextItem();
+}
+function bossBar() { const b = $('bossbar'); b.innerHTML = ''; for (let i = 0; i < 4; i++) { const d = document.createElement('div'); d.className = 'hp' + (i >= G.bossHp ? ' gone' : ''); b.append(d); } }
+async function bossHit(independent) {
+  move('fireball'); sfx('beam', .8); await new Promise(r => setTimeout(r, 450));
+  beamT = .9; beamLight.intensity = 30; burst(boss.position, 0xaef4ff, 120, 6); sfx('boom', .6); boss.userData.shake = .6; G.bossHp = Math.max(0, G.bossHp - 1); bossBar(); say('bosshit');
+  if (!independent) G.coins += 0; if (G.bossHp <= 0) { await new Promise(r => setTimeout(r, 900)); return defeatBoss(); }
+}
+async function defeatBoss() {
+  sfx('legendary', .8); burst(boss.position, 0xffd86b, 260, 8); for (let i = 0; i < 6; i++) { const s = makeSpirit(PALETTE[i % PALETTE.length], .35); s.userData.sleepy = false; s.userData.fly = { vx: rand(-2, 2), vy: rand(2, 4) }; s.position.copy(boss.position); scene.add(s); flyers.push(s); }
+  scene.remove(boss); $('bossbar').classList.remove('show'); G.coins += 10; refresh(); queue.length = 0;
+}
+const flyers = [];
+async function finish() {
+  if (G.state === 'win') return; G.state = 'win'; G.calm = false; $('panel').classList.remove('show'); move('dance_victory'); expr('happy', 1); sfx('fanfare', .8); sfx('finale', .7);
+  if (G.onOwn > best) { best = G.onOwn; try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* storage blocked */ } }
+  await say('win');
+  EV('activityCompleted', { result: { coinsEarned: G.coins, onHerOwn: G.onOwn, friends: G.friends.length, words: Object.fromEntries(Object.entries(state).map(([w, s]) => [w, { solvedOnOwn: s.solved, presentations: s.seen }])) } });
+  $('winStars').textContent = '★'.repeat(Math.min(G.onOwn, 8)); $('winTxt').textContent = `${G.friends.length} spirit friends · ● ${G.coins}`; $('win').classList.remove('hidden'); log('[finish]', G.coins, G.onOwn);
+}
+
+// ---------------- frame ----------------
+const clock = new THREE.Timer(); let beamT = 0, blinkT = 2, stepErrors = 0; const v3 = new THREE.Vector3(); const camPos = new THREE.Vector3(.1, 2.1, 8), camLook = new THREE.Vector3(.1, 1.3, 0);
+function frame() {
+  clock.update(); const dt = Math.min(clock.getDelta(), .05), t = clock.getElapsed(); const calm = G.calm ? .35 : 1;
+  if (mixer) mixer.update(dt);
+  if (vrm) { vrm.update(dt);
+    blinkT -= dt; const bl = blinkT < .12 ? Math.sin((blinkT / .12) * Math.PI) : 0; expr('blink', Math.max(0, bl)); if (blinkT < 0) blinkT = rand(2, 4.5);
+    let mouth = 0; if (speaking) { const d = lipBuf; analyser.getFloatTimeDomainData(d); let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] * d[i]; mouth = Math.min(1, Math.sqrt(s / (d.length / 4)) * 9); }
+    expr('aa', mouth); }
+  // fireflies
+  for (let i = 0; i < FLY; i++) { const f = flies[i]; flyPos[i * 3] = f.x + Math.sin(t * f.sp + f.ph) * .6; flyPos[i * 3 + 1] = f.y + Math.sin(t * f.sp * 1.3 + f.ph * 2) * .35; flyPos[i * 3 + 2] = f.z + Math.cos(t * f.sp + f.ph) * .6; }
+  flyGeo.attributes.position.needsUpdate = true;
+  // sparkles
+  for (let i = 0; i < SPK; i++) { const s = spk[i]; if (!s.on) { spkPos[i * 3 + 1] = -99; continue; } s.life -= dt; s.vy -= 4 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; if (s.life <= 0) s.on = false;
+    spkPos.set([s.x, s.y, s.z], i * 3); const k = Math.max(0, Math.min(1, s.life)); spkCol.set([s.r * k, s.g * k, s.b * k], i * 3); }
+  spkGeo.attributes.position.needsUpdate = true; spkGeo.attributes.color.needsUpdate = true;
+  // current spirit
+  if (spirit) { const u = spirit.userData; spirit.position.lerp(u.target, Math.min(1, dt * 2.2)); spirit.position.y = u.target.y + Math.sin(t * 2 * calm) * .12 + (spirit.position.x - u.target.x) * .1;
+    spirit.rotation.y = Math.sin(t * .8) * .25 - .3; u.eyes.scale.y = .28 + Math.max(0, Math.sin(t * 1.3)) * .1; u.body.scale.set(1 + Math.sin(t * 3) * .02, 1 - Math.sin(t * 3) * .02, 1); }
+  // friends orbit Elli
+  for (const s of G.friends) { const u = s.userData, o = u.orbit; if (u.wakeT !== undefined && u.wakeT < 1) { u.wakeT += dt * 1.5; u.mat.color.lerpColors(new THREE.Color(0xa49fc4), u.color, Math.min(1, u.wakeT)); u.mat.emissiveIntensity = .12 + Math.min(1, u.wakeT) * .16; u.eyes.scale.y = Math.min(1, .3 + u.wakeT); }
+    o.a += dt * o.sp; v3.set(elli.position.x + Math.cos(o.a) * o.r, o.h + Math.sin(t * 2 + o.a) * .15, elli.position.z - .9 + Math.sin(o.a) * o.r * .35); s.position.lerp(v3, Math.min(1, dt * 3)); s.rotation.y = -o.a; }
+  for (const s of flyers) { const f = s.userData.fly; s.position.x += f.vx * dt; s.position.y += f.vy * dt; s.rotation.y += dt * 3; }
+  // boss
+  if (boss) { const u = boss.userData; u.shake = Math.max(0, u.shake - dt); u.mumble = Math.max(0, u.mumble - dt * .8);
+    boss.position.lerp(v3.copy(u.base).add(new THREE.Vector3(Math.sin(t * .9) * .25, Math.sin(t * 1.4) * .15, 0)), Math.min(1, dt * 2)); boss.position.x += (Math.random() - .5) * u.shake * .5;
+    const sq = 1 + Math.sin(t * 9) * .04 * u.mumble; boss.scale.set(sq * (.75 + G.bossHp * .08), (2 - sq) * (.75 + G.bossHp * .08), 1); }
+  if (beamT > 0) { beamT -= dt; const a = v3.set(elli.position.x + .4, 1.5, elli.position.z), b = boss ? boss.position : a; const mid = a.clone().lerp(b, .5); beam.position.copy(mid); beam.scale.set(1 + Math.sin(t * 40) * .2, a.distanceTo(b), 1);
+    beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); beam.material.opacity = Math.min(1, beamT * 2); beamLight.position.copy(mid); beamLight.intensity = beamT * 30; } else { beam.material.opacity = 0; beamLight.intensity = 0; }
+  stageRing.material.opacity = .35 + Math.sin(t * 2) * .2; stageRing.visible = !!spirit;
+  // camera: wide for play, closer on Elli while she talks, shifted up while the keyboard is open
+  const z = THREE.MathUtils.clamp(3.6 / (Math.tan(THREE.MathUtils.degToRad(20)) * camera.aspect), 6.2, 10);
+  if (G.talk) { camPos.set(-.35, 1.8, 4.6); camLook.set(-.3, 1.5, 0); elli.rotation.y += (.22 - elli.rotation.y) * Math.min(1, dt * 4); }   // she turns to Ila and the camera comes to her face
+  else if (G.state === 'type') { camPos.set(-.05, 1.4, z - 1.15); camLook.set(-.05, .85, 0); }
+  else if (G.state === 'intro') { camPos.set(-.7, 1.95, z - 1.4); camLook.set(-.6, 1.45, 0); }
+  else if (G.state === 'win') { camPos.set(-1.2, 2, z - 1); camLook.set(-1.4, 1.5, 0); }
+  else { camPos.set(.1, 2.1, z); camLook.set(.1, 1.3, 0); }
+  if (!G.talk) elli.rotation.y += (.38 - elli.rotation.y) * Math.min(1, dt * 3);
+  if (G.talk === 'listening' && vrm) { const hp = vrm.humanoid.getNormalizedBoneNode('head').getWorldPosition(v3).project(camera); ear.style.left = ((hp.x + 1) / 2 * innerWidth + 60) + 'px'; ear.style.top = ((1 - hp.y) / 2 * innerHeight) + 'px'; }
+  camera.position.lerp(camPos, Math.min(1, dt * 2.2)); curLook.lerp(camLook, Math.min(1, dt * 2.2)); camera.lookAt(curLook);
+  if (!LITE || (window.__frames ?? 0) % 60 === 0) composer.render(); window.__frames = (window.__frames ?? 0) + 1;
+}
+const curLook = new THREE.Vector3(.1, 1.3, 0); camera.position.copy(camPos);
+function step() { try { frame(); } catch (e) { if (stepErrors++ < 5) console.error(' 🎮 [spirit-night] [frame] [failed]', e); } }
+if (LITE) setInterval(step, 16); else renderer.setAnimationLoop(step);
+
+// ---------------- boot: load, warm every shader, then show PLAY ----------------
+async function warmUp() {
+  const t0 = performance.now(); const s = makeSpirit(PALETTE[0]); const c = pictureCard('🌋😴'); s.add(c); s.position.set(1.9, .5, 0); const b = makeBoss(); b.position.set(2, 2, -1); scene.add(s, b);
+  beam.material.opacity = .5; burst(new THREE.Vector3(0, 1, 0), 0xffffff, 10);
+  try { await renderer.compileAsync(scene, camera); composer.render(); } catch (e) { console.warn(' 🎮 [spirit-night] [warmup] [failed]', e); }
+  scene.remove(s, b); beam.material.opacity = 0; log('[warmup] [compiled]', Math.round(performance.now() - t0) + 'ms');
+}
+buildKeys(); refresh();
+Promise.all([loadElli(), audioReady, document.fonts.ready]).then(warmUp).then(() => {
+  $('loadTxt').textContent = `Wake the sleepy spirits${companionName ? ' with ' + companionName : ''}`; $('start').classList.remove('hidden'); G.state = 'title'; log('[ready]');
+}).catch(e => { console.error(' 🎮 [spirit-night] [load] [failed]', e); $('loadTxt').textContent = 'Could not load: ' + e.message; });
+$('start').addEventListener('click', async () => {
+  if (G.state !== 'title') return; G.state = 'intro'; $('title').classList.add('hidden');
+  try { await AC.resume(); } catch (e) { console.warn(' 🎮 [spirit-night] [audio] [resume-failed]', e); }
+  startMusic(); EV('activityStarted', { visibleState: { words: Object.keys(WORDS).length } }); log('[start]');
+  startTalk(); move('wave'); await say('intro'); nextItem();
+});
+// ---------------- "Hey Elli": Ila talks to Elli (trial 11/11) ----------------
+const ear = $('ear'); let talk = null, endTalk = null;
+function hold() { if (!endTalk) talkIdle = new Promise(r => endTalk = r); }
+function release() { const r = endTalk; endTalk = null; r?.(); }
+function setTalk(v) { G.talk = v; ear.classList.toggle('on', v === 'listening'); $('panel').classList.toggle('talking', !!v); }   // keyboard steps aside so Ila sees Elli's face
+function startTalk() {
+  if (!window.CompanionTalk) { console.warn(' 🎮 [spirit-night] [talk] [client-missing]'); return; }
+  talk = CompanionTalk.start({
+    child: SL.childId, childName: '', companion: '', names: companionName ? [companionName] : [],
+    isSpeaking: () => speaking,
+    getContext: () => ({
+      game: 'Spirit Night: a night festival. Sleepy spirits float in holding a picture card; Ila wakes each one by typing the word it shows. Then the Mumble Cloud boss.',
+      screen: G.state, spiritsFreed: G.friends.length, coins: G.coins,
+      word: G.current && { answer: G.current.word, pictureClue: WORDS[G.current.word].pics, lettersTypedSoFar: G.typed, lettersGiven: G.given, hintLevel: G.hint, triesOnThisWord: G.attempt, phase: G.current.phase },
+      bossHp: G.current?.phase === 'boss' ? G.bossHp : undefined,
+    }),
+    onWake() { setTalk('listening'); sfx('pop', .6); expr('happy', .6); setTimeout(() => expr('happy', 0), 900); hold(); },
+    onSleep() { setTalk(''); release(); },
+    onThinking() { hold(); setTalk('thinking'); move('ponder_moment'); },
+    async onReply({ audio }) {
+      setTalk('speaking'); if (G.state === 'type' || G.state === 'listen') G.talkHelped = true;
+      const b = await AC.decodeAudioData(audio); await playVoice(b); setTalk('listening'); release();   // the game carries on; a follow-up still works for a few seconds
+    },
+    onFollowUp() { setTimeout(() => { if (G.talk === 'listening' && !talk.awake && !talk.busy) setTalk(''); }, 7200); },
+    onError() { setTalk(''); release(); },
+  });
+  window.__talk = talk;
+}
+// tap Elli to talk (works without a microphone)
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (!talk || !vrm) return; ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  if (ray.intersectObject(elli, true).length) { log('[talk] [tap]'); talk.wake(); }
+});
+$('again').addEventListener('click', () => location.reload());
+window.__g = G;

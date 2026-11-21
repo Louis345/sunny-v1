@@ -25,6 +25,6 @@ if(require.main===module){
     const cycle=replay?await replayPlannerRecoveryFromArgs(args):authorizePlannerRecoveryFromArgs(args);
     console.log(replay
       ? ` 🎮 [canonical-progression] [recovery] [replayed] child=${cycle.childId} homework=${cycle.homeworkId} revision=${cycle.revision}. Zero provider calls; catalog recommendations remain explicitly pending.`
-      : ` 🎮 [canonical-progression] [recovery] [queued] child=${cycle.childId} homework=${cycle.homeworkId} revision=${cycle.revision}. No provider called. The next normal startup can purchase this one authorized next-plan attempt.`);
+      : ` 🎮 [canonical-progression] [recovery] [queued] child=${cycle.childId} homework=${cycle.homeworkId} revision=${cycle.revision}. No provider called. Her next session start (or the next startup) purchases this one authorized next-plan attempt.`);
   })().catch(error=>{console.error(error instanceof Error?error.message:String(error));process.exitCode=1;});
 }

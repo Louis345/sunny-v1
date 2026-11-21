@@ -37,6 +37,7 @@ import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
 import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
 import { createPlaybackWatchdog } from "../utils/playbackWatchdog";
 import { createActionOutbox } from "../utils/actionOutbox";
+import { MIC_FRAME_SAMPLES, framesFor } from "../utils/micFrames";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -199,6 +200,8 @@ interface SessionState {
   reward: RewardEvent | null;
   error: string | null;
   errorFatal: boolean;
+  /** The server refused the session (fatal: true); retrying cannot help, a grown-up must fix it. */
+  errorNeedsGrownUp: boolean;
   warning: string | null;
   microphoneAvailable: boolean | null;
   loadingMessage: string | null;
@@ -271,7 +274,8 @@ function storyIllustrationPatch(
 const SILENT_MIC_DURATION_MS = 12000;
 const MICROPHONE_OPEN_TIMEOUT_MS = 5000;
 const AUDIBLE_MIC_RMS_THRESHOLD = 0.003;
-const AUDIBLE_MIC_FRAME_CONFIRMATION = 3;
+/** About 0.77 s of audible input confirms the mic works (was 3 × 256 ms frames). */
+const AUDIBLE_MIC_FRAME_CONFIRMATION = framesFor(768);
 
 function isVirtualMicrophoneLabel(label: string): boolean {
   return /\b(blackhole|virtual|loopback|soundflower|vb-audio|voicemeeter|aggregate)\b/i.test(label);
@@ -506,6 +510,7 @@ export function useSession(options?: UseSessionOptions) {
     reward: null,
     error: null,
     errorFatal: false,
+    errorNeedsGrownUp: false,
     warning: null,
     microphoneAvailable: null,
     loadingMessage: null,
@@ -731,7 +736,7 @@ export function useSession(options?: UseSessionOptions) {
         }));
         return;
       }
-      setStateRef.current((s) => ({ ...s, error: "Connection lost", errorFatal: true, warning: null }));
+      setStateRef.current((s) => ({ ...s, error: "Connection lost", errorFatal: true, errorNeedsGrownUp: false, warning: null }));
     };
 
     ws.onclose = () => {
@@ -753,6 +758,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Connection lost after three reconnect attempts",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           phase: "picker",
         }));
@@ -1566,10 +1572,13 @@ export function useSession(options?: UseSessionOptions) {
           // Only an explicit dead end stops the session; any other error is a warning and the board stays.
           const fatal = msg.fatal === true;
           const message = (msg.message as string) ?? "Unknown error";
+          if (fatal) console.error(` 🎮 [session-connection] [server-error] [fatal] reason=${message}`);
           setStateRef.current((s) => ({
             ...s,
             error: fatal ? message : null,
             errorFatal: fatal,
+            // A refusal needs a grown-up; a start failure the server marks retryable keeps Try again.
+            errorNeedsGrownUp: fatal && msg.retryable !== true,
             warning: fatal ? null : message,
             diagGameSessionReady: fatal ? false : s.diagGameSessionReady,
             phase:
@@ -1627,7 +1636,7 @@ export function useSession(options?: UseSessionOptions) {
         await ensureAudioContextRunning(audioCtx);
 
         const source = audioCtx.createMediaStreamSource(stream);
-        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        const processor = audioCtx.createScriptProcessor(MIC_FRAME_SAMPLES, 1, 1);
         processorRef.current = processor;
 
         const silence = audioCtx.createGain();
@@ -1749,6 +1758,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Microphone access denied",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           microphoneAvailable: false,
         }));
@@ -1996,6 +2006,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Connection timeout",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           phase: "picker",
           debugMode: false,
@@ -2085,6 +2096,7 @@ export function useSession(options?: UseSessionOptions) {
       reward: null,
       error: null,
       errorFatal: false,
+      errorNeedsGrownUp: false,
       warning: null,
       microphoneAvailable: null,
       loadingMessage: null,

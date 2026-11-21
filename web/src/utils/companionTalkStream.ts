@@ -98,6 +98,8 @@ export type CompanionTalkStreamDoneData = {
   companionCommands?: unknown[];
   activityRequests?: unknown[];
   visualSummary?: string;
+  /** BUGS.md S34: she asked to see herself; the kiosk sends her picture next. */
+  selfLook?: boolean;
   latencySpans?: {
     claudeMs?: number;
     toolFollowupMs?: number;

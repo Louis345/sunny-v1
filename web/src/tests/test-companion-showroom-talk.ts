@@ -14,6 +14,7 @@ import {
   getShowroomVideoPermissionFallbackMessage,
   getShowroomVideoChatLatencyBudget,
   inferShowroomVideoConversationIntent,
+  isWardrobeShoppingReactionCurrent,
   isShowroomActivityReactionCurrent,
   resolveShowroomTalkChildId,
   getShowroomTalkRequestedAnimation,
@@ -66,6 +67,134 @@ describe("CompanionShowroom talk mode", () => {
       callSource: "showroom",
       relationshipState: "previewing",
     });
+  });
+
+  it("includes exact shopping context in video-call turns", () => {
+    const shoppingContext = {
+      mode: "try_on" as const,
+      visitId: "visit-elli-web",
+      walletBalance: 80,
+      companionWish: "a celestial headpiece",
+      companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+      selectedItem: {
+        id: "royal-crown",
+        name: "Royal Crown",
+        price: 20,
+        category: "accessory" as const,
+        styleTags: ["gold", "royal"],
+        owned: true,
+        saved: false,
+        preferenceMatch: true,
+        opinionVerdict: "reject" as const,
+        opinionReasons: ["not feeling royal today"],
+        companionConsentsToWear: false,
+      },
+      ownedItemIds: ["royal-crown"],
+      savedItemIds: [],
+    };
+
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "aurora",
+        question: "Do you like it?",
+        mode: "video_call",
+        shoppingContext,
+      }),
+    ).toMatchObject({ shoppingContext });
+  });
+
+  it("marks automatic try-on reactions as store events instead of child questions", () => {
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "aurora",
+        question: "React naturally to the item that was just tried on.",
+        mode: "video_call",
+        shoppingEvent: {
+          type: "try_on_started",
+          itemId: "royal-crown",
+        },
+      }),
+    ).toMatchObject({
+      shoppingEvent: {
+        type: "try_on_started",
+        itemId: "royal-crown",
+      },
+    });
+  });
+
+  it("marks item review reactions as store events instead of child questions", () => {
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "aurora",
+        question: "Give a brief first impression of the selected item.",
+        mode: "video_call",
+        shoppingEvent: {
+          type: "item_reviewed",
+          itemId: "star-halo",
+        },
+      }),
+    ).toMatchObject({
+      shoppingEvent: {
+        type: "item_reviewed",
+        itemId: "star-halo",
+      },
+    });
+  });
+
+  it("drops a shopping reaction after the child changes item or store mode", () => {
+    const currentContext = {
+      mode: "review" as const,
+      visitId: "visit-1",
+      walletBalance: 100,
+      companionWish: "something cosmic",
+      companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+      selectedItem: {
+        id: "star-halo",
+        name: "Star Halo",
+        price: 25,
+        category: "accessory" as const,
+        styleTags: ["celestial"],
+        owned: false,
+        saved: false,
+        preferenceMatch: true,
+        opinionVerdict: "love" as const,
+        opinionReasons: ["matches the current wish"],
+        companionConsentsToWear: true,
+      },
+      ownedItemIds: [],
+      savedItemIds: [],
+    };
+
+    expect(
+      isWardrobeShoppingReactionCurrent(
+        "visit-1:review:item_reviewed:star-halo",
+        currentContext,
+        { type: "item_reviewed", itemId: "star-halo" },
+      ),
+    ).toBe(true);
+    expect(
+      isWardrobeShoppingReactionCurrent(
+        "visit-1:review:item_reviewed:royal-crown",
+        currentContext,
+        { type: "item_reviewed", itemId: "royal-crown" },
+      ),
+    ).toBe(false);
+    expect(
+      isWardrobeShoppingReactionCurrent(
+        "visit-1:try_on:try_on_started:star-halo",
+        currentContext,
+        { type: "try_on_started", itemId: "star-halo" },
+      ),
+    ).toBe(false);
   });
 
   it("gates the mic while the companion is speaking but not while the child is talking", () => {

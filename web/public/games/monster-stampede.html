@@ -327,6 +327,12 @@ function Lives({count,max}){
 /* ═══════════════════════════════════════════════════════════════
    APP
 ═══════════════════════════════════════════════════════════════ */
+/** Her one answer for a word: the word, or the word with her first wrong letter where she put it (never a fragment). */
+function wordAnswer(word, firstWrong) {
+  if (!firstWrong) return word;
+  return word.slice(0, firstWrong.index) + firstWrong.letter + word.slice(firstWrong.index + 1);
+}
+
 function App(){
   const [phase,setPhase]         = useState(STORYBOOK_PREVIEW&&STORYBOOK_FIXTURE_STATE==='complete'?'won':'intro');   // intro|playing|won|lost
   const [wordIdx,setWordIdx]     = useState(0);
@@ -347,6 +353,7 @@ function App(){
   const wordsCorrect = useRef(STORYBOOK_PREVIEW&&STORYBOOK_FIXTURE_STATE==='complete'?WORDS_RAW.slice():[]);
   const wordsWrong = useRef([]);
   const wrongCount = useRef(0);   // wrong taps on current word
+  const firstWrong = useRef(null); // her first wrong letter on this word: {index, letter}
 
   // Fixed monster emoji per session
   const monsterEmoji = useMemo(()=>MONSTERS[Math.floor(Math.random()*MONSTERS.length)],[]);
@@ -391,6 +398,7 @@ function App(){
     const word = WORDS_RAW[idx];
     if(!word) return;
     wrongCount.current = 0;
+    firstWrong.current = null;
     setTyped([]);
     setTiles(buildTiles(word));
     setMonsterScale(1);
@@ -438,12 +446,13 @@ function App(){
         setMonsterAnim('run');
         SE.monsterFlee();
         fireComp('correct_answer',{word,earned,wrongCount:wrongCount.current});
+        // One answer per word: right only with no wrong tap; otherwise the word with her first wrong letter in place.
         if(window.fireAttemptEvent) window.fireAttemptEvent({
           domain:'spelling',
           target:word,
-          attemptedValue:newTyped.join(''),
-          correct:true,
-          quality:wrongCount.current===0 ? 5 : 4,
+          attemptedValue:wordAnswer(word, firstWrong.current),
+          correct:firstWrong.current===null,
+          quality:firstWrong.current===null ? 5 : 2,
           scaffoldLevel:showHint ? 1 : 0
         });
         wordsCorrect.current.push(word);
@@ -494,14 +503,8 @@ function App(){
       }
 
       fireComp('wrong_answer',{word,tapped:tile.letter,expected,wrongCount:wrongCount.current});
-      if(window.fireAttemptEvent) window.fireAttemptEvent({
-        domain:'spelling',
-        target:word,
-        attemptedValue:[...typed, tile.letter].join(''),
-        correct:false,
-        quality:1,
-        scaffoldLevel:showHint ? 1 : 0
-      });
+      // A wrong tap is not an answer: the word's one answer is reported when the word is done.
+      if(firstWrong.current===null) firstWrong.current={index:nextIdx, letter:tile.letter};
       reportAction('wrong_letter',`Wrong letter tapped on Monster Stampede word ${wordIdx+1}/${WORDS_RAW.length}.`,{
         itemIndex:wordIdx,
         totalItems:WORDS_RAW.length,
@@ -535,8 +538,11 @@ function App(){
         struggleSignals:struggled ? ['wrong_tile_or_hint_needed'] : []
       };
     });
+    // A finished run has ended, won or lost, so a loss still completes the stop; only quitting leaves it open (2026-11-08).
     const result={
       completed:won,
+      ended:true,
+      won,
       accuracy:wordsCorrect.current.length/WORDS_RAW.length,
       wordsCorrect:wordsCorrect.current,
       wordsStruggled:wordsWrong.current,
@@ -557,6 +563,7 @@ function App(){
       targetResults,
     };
     reportState(won?`Won! ${score} pts, ${wordsCorrect.current.length}/${WORDS_RAW.length} words.`:`Lost. ${score} pts.`,result);
+    console.log(` 🎮 [monster-stampede] [run-ended] [${won?'won':'lost'}]`);
     if(window.GameBridge?.awardCurrency) window.GameBridge.awardCurrency(score,'monster_stampede');
     setTimeout(()=>{ if(window.sendNodeComplete) window.sendNodeComplete(result); },2000);
   },[score]);

@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDeepgramVideoCallStt } from "../useDeepgramVideoCallStt";
+import { framesFor } from "../../utils/micFrames";
 
 const OPEN = 1;
 const CONNECTING = 0;
@@ -179,8 +180,8 @@ describe("useDeepgramVideoCallStt", () => {
     ws.send.mockClear();
 
     act(() => {
-      processors[0]!.onaudioprocess?.(audioEventWithRms(0.2));
-      processors[0]!.onaudioprocess?.(audioEventWithRms(0.2));
+      // About 0.2 s of her voice over the companion (64 ms frames since 2026-11-21).
+      for (let frame = 0; frame < framesFor(192); frame += 1) processors[0]!.onaudioprocess?.(audioEventWithRms(0.2));
     });
 
     expect(onBargeIn).toHaveBeenCalledTimes(1);

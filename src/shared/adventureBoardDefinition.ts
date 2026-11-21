@@ -48,7 +48,7 @@ export const journeySequenceSchema=z.object({
   title:id, opening:z.array(id).max(32).describe("Activity ids every child plays first, in order."),
   choice:z.object({purpose:id.describe("The question she reads on the choice screen, written to her in a few friendly words, for example: Which way do you want to practice? It is never about her and never explains your reasoning; put that in each option's hypothesis."),label:id.describe("Short name of the choice portal on the map."),options:z.array(z.object({id,label:id,hypothesis:id,nodeIds:z.array(id).min(1).max(32)}).strict()).min(2).max(8)}).strict().optional(),
   closing:z.array(id).max(32).describe("Activity ids every child plays after the choice, in order."),
-  singlePathReason:id.optional(), endpointLabel:id,
+  singlePathReason:id.optional(), endpointLabel:id.describe("Name of the finish portal; never a stop's name."),
 }).strict();
 export type JourneySequence=z.infer<typeof journeySequenceSchema>;
 export const JOURNEY_SEQUENCE_TOOL_SCHEMA=z.toJSONSchema(journeySequenceSchema,{io:'input'});
@@ -78,7 +78,10 @@ export function expandJourneySequence(input:unknown,nodes:ReadonlyArray<{id:stri
   if(inline.length)portals.filter(portal=>inline.includes(portal.id)).forEach(portal=>shared.add(portal.activityNodeId!));
   if(options.length)portals.push({id:'choice',label:sequence.choice!.label,kind:'choice'});
   const closing=place(sequence.closing,'p:',new Set([...shared,...branchNodeIds]));
-  portals.push({id:'end',label:sequence.endpointLabel,kind:'endpoint'});
+  // The finish reads as the finish: a label that repeats a stop's name ("Final Trophy Check Complete") becomes "Finish".
+  const endLabel=sequence.endpointLabel,repeats=portals.find(portal=>portal.kind==='activity'&&endLabel.toLowerCase().startsWith(portal.label.toLowerCase()));
+  if(repeats)console.log(` 🎮 [planner] [journey] [endpoint-label-repeats-stop] label=${JSON.stringify(endLabel)} stop=${repeats.activityNodeId} using=Finish`);
+  portals.push({id:'end',label:repeats?'Finish':endLabel,kind:'endpoint'});
   for(const nodeId of titles.keys())if(!placed.has(nodeId))console.log(` 🎮 [planner] [journey] [node-unused] node=${nodeId}`);
   return adventureJourneySchema.parse({version:2,title:sequence.title,rationale:sequence.singlePathReason??sequence.choice?.purpose??sequence.title,rootPathId:'root',portals,
     paths:[{id:'root',portalIds:['start',...opening,...inline,...(options.length?['choice']:[]),...closing,'end']},...options.map(row=>({id:`option:${row.option.id}`,portalIds:row.portalIds}))],
@@ -228,16 +231,34 @@ function withCollapsedChoices(definition:AdventureJourneyDefinition, selections:
   return taken;
 }
 
+/** A fork she played past is decided: an untapped choice takes the first option whose games are all done
+ * (owner, 2026-11-20: she played both fork games from the board and the Quest behind the fork stayed locked). */
+function withPlayedChoices(definition:AdventureJourneyDefinition, selections:Readonly<Record<string,string>>, completed:readonly string[]):Record<string,string> {
+  const paths = new Map(definition.paths.map(path => [path.id,path.portalIds]));
+  const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  const taken = {...selections};
+  for (const choice of definition.choices) if (!taken[choice.id]) {
+    const played = choice.options.find(option => { const ids = (paths.get(option.pathId) ?? []).map(id => portals.get(id)?.activityNodeId).filter(Boolean);
+      return ids.length > 0 && ids.every(id => completed.includes(id!)); });
+    if (played) taken[choice.id] = played.id;
+  }
+  return taken;
+}
+
 /** Sole interpretation of selected order; completed instruments survive a route switch. */
 export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):{activityNodeId?:string;portalId?:string;choiceId?:string;complete:boolean} {
   const choices = new Map(definition.choices.map(choice => [choice.portalId,choice]));
   for (const [choiceId,optionId] of Object.entries(chosen)) if (!definition.choices.some(choice => choice.id === choiceId && choice.options.some(option => option.id === optionId))) throw new Error(`choice_option_missing:${choiceId}:${optionId}`);
-  const selections = withCollapsedChoices(definition,chosen,notReady);
+  const selections = withCollapsedChoices(definition,withPlayedChoices(definition,chosen,completed),notReady);
   const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
   if (!execution) throw new Error('journey_selection_incompatible');
   // A not-ready activity is never played, so the path passes over it.
   const done = new Set([...completed,...notReady]);
   const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  // Every stop on a whole route is done: the board is finished, even if she never tapped the fork (BUGS.md 2026-11-13).
+  const routeDone = journeyExecutions(definition).some(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value)
+    && candidate.portalIds.every(portalId => { const id = portals.get(portalId)?.activityNodeId; return !id || done.has(id); }));
+  if (routeDone) return {complete:true};
   for (const portalId of execution.portalIds) {
     const choice = choices.get(portalId);
     if (choice && !selections[choice.id]) return {portalId,choiceId:choice.id,complete:false};
@@ -245,6 +266,18 @@ export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Re
     if (activityNodeId && !done.has(activityNodeId)) return {portalId,activityNodeId,complete:false};
   }
   return {complete:true};
+}
+
+/** Stops left on her path before the board is finished (owner, 2026-11-07: show how close the call is). Follows the
+ * chosen route, or the first compatible route while a choice is open; a not-ready stop is passed over. */
+export function journeyStopsLeft(definition:AdventureJourneyDefinition, chosen:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):number {
+  const selections = withCollapsedChoices(definition,withPlayedChoices(definition,chosen,completed),notReady);
+  const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
+  if (!execution) return 0;
+  const done = new Set([...completed,...notReady]);
+  const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  const left = new Set(execution.portalIds.map(portalId => portals.get(portalId)?.activityNodeId).filter((id): id is string => Boolean(id) && !done.has(id!)));
+  return left.size;
 }
 
 /** A remembered selection on an unchosen branch remains history, not a visible fork.

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { strictBudget } from "./plannerTransport";
-import { DEFAULT_TOOL_LOOP_CAPS, plannerToolDefinitions, runPlannerToolLoop, type PlannerTool } from "./plannerToolLoop";
+import { DEFAULT_TOOL_LOOP_CAPS, STRICT_RETRY_AFTER_RUNS, plannerToolDefinitions, runPlannerToolLoop, type PlannerTool } from "./plannerToolLoop";
 
 type State = { added: string[]; finished: boolean };
 const tools: PlannerTool<State>[] = [
@@ -123,5 +123,65 @@ describe("planner tool loop", () => {
     const definitions = plannerToolDefinitions([{ name: "bounded", description: "d", schema: z.object({ n: z.number().min(0).max(1), list: z.array(z.string().min(1)).min(2).max(4) }).strict(), run: () => ({ ok: true, result: null }) }]);
     expect(strictBudget(definitions).unsupported).toEqual([]);
     expect(JSON.stringify(definitions[0].input_schema)).toContain("From 0 to 1.");
+  });
+  // 2026-11-10, Ila's evening: her board ended and the next one never came. The 11/10 batch's new decide fields list
+  // every game she played and every word as allowed values; after 8 boards the provider refused the strict tools
+  // ("The compiled grammar is too large") in 0.5 s, nothing retried, and she waited 15 minutes on "next board coming".
+  // The human caught it (she sat waiting); the log had the 400 but no alert; the lab's fixtures are a few games, never
+  // a real child's history. Invariant: that refusal degrades to the same tools unlocked (every answer is still checked
+  // by code and mistakes go back to the model), once; any other refusal still fails.
+  it("retries once with unlocked tools when the provider says the strict grammar is too large", async () => {
+    const script = scripted(reply({ name: "add", input: { word: "sign" } }, { name: "finish", input: { title: "Board" } }));
+    const requests: any[] = [];
+    const send = async (request: any) => {
+      requests.push(structuredClone(request));
+      if (request.tools.some((tool: any) => tool.strict)) throw Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools."}}'), { status: 400 });
+      return script.send(request);
+    };
+    const result = await run(send);
+    expect(result.stats.stop).toBe("finished");
+    expect(result.state.added).toEqual(["sign"]);
+    expect(requests).toHaveLength(2);
+    expect(requests[1].tools.some((tool: any) => tool.strict)).toBe(false);
+    // Unlocked tools still check every answer.
+    const loose = scripted(reply({ name: "add", input: { word: "zebra" } }), reply({ name: "add", input: { word: "sign" } }, { name: "finish", input: { title: "Board" } }));
+    const again = await run(async (request: any) => request.tools.some((tool: any) => tool.strict) ? send(request) : loose.send(request));
+    expect(again.stats.errors).toBe(1);
+  });
+
+  // 2026-11-14 (P5): 80186e9e remembered a too-large stage for the whole server life, so once 4bc19c54 made the
+  // next-board grammar small again a long-running kiosk still sent every board unlocked. Invariant: the memory expires;
+  // after STRICT_RETRY_AFTER_RUNS unlocked starts the stage tries its strict tools again (and still retries once on refusal).
+  it("a stage remembered as too large starts unlocked only for a few runs, then tries strict again", async () => {
+    const tooLarge = () => Object.assign(new Error("400 The compiled grammar is too large"), { status: 400 });
+    let refuse = true;
+    const firstStrict: boolean[] = [];
+    const runOnce = async () => {
+      let first = true;
+      const script = scripted(reply({ name: "add", input: { word: "sign" } }, { name: "finish", input: { title: "Board" } }));
+      return runPlannerToolLoop<State>({ label: "expiring-memory", prompt: "FACTS", model: "claude-sonnet-5", maxTokens: 1000, tools, state: { added: [], finished: false }, finished: state => state.finished,
+        send: async (request: any) => {
+          const strict = request.tools.some((tool: any) => tool.strict);
+          if (first) { firstStrict.push(strict); first = false; }
+          if (strict && refuse) throw tooLarge();
+          return script.send(request);
+        } });
+    };
+    await runOnce();
+    for (let i = 0; i < STRICT_RETRY_AFTER_RUNS; i += 1) await runOnce();
+    expect(firstStrict).toEqual([true, ...Array(STRICT_RETRY_AFTER_RUNS).fill(false)]);
+    refuse = false;
+    const locked = await runOnce();
+    expect(firstStrict.at(-1)).toBe(true);
+    expect(locked.stats.stop).toBe("finished");
+    // Still strict next time once the provider accepts it.
+    await runOnce();
+    expect(firstStrict.at(-1)).toBe(true);
+  });
+
+  it("does not retry any other provider refusal", async () => {
+    let sent = 0;
+    await expect(run(async () => { sent += 1; throw Object.assign(new Error("400 invalid_request_error: messages: field required"), { status: 400 }); })).rejects.toThrow("field required");
+    expect(sent).toBe(1);
   });
 });

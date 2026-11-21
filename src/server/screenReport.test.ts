@@ -106,3 +106,16 @@ it("tells Elli a check word gets the child's own try before any spelling help", 
 it("accepts the kiosk's resting screen", () => {
   expect(normalizeScreenReport({ screen: "resting" })).toEqual({ screen: "resting" });
 });
+
+// 2026-11-15 human catch (W8): "Elli, look at your dress" — she could not see what she was wearing and denied it.
+// The kiosk reports the look it draws, so she knows what her own body shows; names are quoted data.
+it("tells her what she is wearing on the child's screen, from the kiosk's own report", () => {
+  const report = normalizeScreenReport({ screen: "board", boardId: "b2", companionLook: { outfit: "Sky Ribbon Dress", accessory: "Cat Ears" } })!;
+  expect(report.companionLook).toEqual({ outfit: "Sky Ribbon Dress", accessory: "Cat Ears" });
+  const text = describeScreenForCompanion({ report, boards, activityContext: "", activityNodeId: undefined });
+  expect(text).toContain(`On her screen you are wearing: "Sky Ribbon Dress", accessory "Cat Ears".`);
+  const plain = describeScreenForCompanion({ report: normalizeScreenReport({ screen: "board", boardId: "b2", companionLook: { outfit: "", accessory: "" } })!, boards, activityContext: "", activityNodeId: undefined });
+  expect(plain).toContain("On her screen you are wearing: your own clothes, no accessory.");
+  expect(describeScreenForCompanion({ report: normalizeScreenReport({ screen: "board", boardId: "b2" })!, boards, activityContext: "", activityNodeId: undefined })).not.toContain("wearing");
+  expect(normalizeScreenReport({ screen: "board", companionLook: { outfit: "x\ny".repeat(100), accessory: 3 } })!.companionLook!.outfit).not.toContain("\n");
+});

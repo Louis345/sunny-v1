@@ -1,6 +1,7 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __resetAdventureMapSessionsForTests,
   buildDiagMapSession,
@@ -89,64 +90,39 @@ function minimalCreatorProfile(): LearningProfile {
 }
 
 describe("buildDiagMapSession SM-2 due words (Audit 2)", () => {
-  const creatorDir = path.join(process.cwd(), "src", "context", "creator");
-  const creatorBankPath = path.join(creatorDir, "word_bank.json");
-  const creatorLpPath = path.join(creatorDir, "learning_profile.json");
-  let bankHadFile = false;
-  let bankPrevious: string | null = null;
-  let lpHadFile = false;
-  let lpPrevious: string | null = null;
+  // I2: this test used to write the tracked src/context/creator files (care plan,
+  // catalog, homework, active plan). It now runs against a temp context root.
+  let contextRoot = "";
+
+  beforeEach(() => {
+    contextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-diag-due-words-"));
+    vi.stubEnv("SUNNY_CONTEXT_ROOT", contextRoot);
+  });
 
   afterEach(() => {
     __resetAdventureMapSessionsForTests();
     vi.unstubAllEnvs();
-    if (bankHadFile && bankPrevious !== null) {
-      fs.mkdirSync(path.dirname(creatorBankPath), { recursive: true });
-      fs.writeFileSync(creatorBankPath, bankPrevious, "utf8");
-    } else if (fs.existsSync(creatorBankPath)) {
-      const b = readWordBank("creator");
-      b.words = b.words.filter((w) => w.word !== "diag-sm2-audit");
-      if (b.words.length === 0) {
-        fs.rmSync(creatorBankPath, { force: true });
-      } else {
-        writeWordBank("creator", b);
-      }
-    }
-    if (lpHadFile && lpPrevious !== null) {
-      fs.mkdirSync(path.dirname(creatorLpPath), { recursive: true });
-      fs.writeFileSync(creatorLpPath, lpPrevious, "utf8");
-    } else if (fs.existsSync(creatorLpPath)) {
-      fs.rmSync(creatorLpPath, { force: true });
-    }
-    bankHadFile = false;
-    bankPrevious = null;
-    lpHadFile = false;
-    lpPrevious = null;
+    fs.rmSync(contextRoot, { recursive: true, force: true });
   });
 
   it("word-builder and boss get dueWords; coin-counter empty", () => {
-    bankHadFile = fs.existsSync(creatorBankPath);
-    bankPrevious = bankHadFile ? fs.readFileSync(creatorBankPath, "utf8") : null;
-    lpHadFile = fs.existsSync(creatorLpPath);
-    lpPrevious = lpHadFile ? fs.readFileSync(creatorLpPath, "utf8") : null;
     writeLearningProfile("creator", minimalCreatorProfile());
     const bank = readWordBank("creator");
     const today = new Date().toISOString().slice(0, 10);
-    if (!bank.words.some((w) => w.word === "diag-sm2-audit")) {
-      bank.words.push({
-        word: "diag-sm2-audit",
-        addedAt: new Date().toISOString(),
-        source: "test",
-        homeworkPriority: true,
-        testDate: "2099-01-01",
-        tracks: { spelling: createFreshSM2Track(today) },
-      });
-    }
+    bank.words.push({
+      word: "diag-sm2-audit",
+      addedAt: new Date().toISOString(),
+      source: "test",
+      homeworkPriority: true,
+      testDate: "2099-01-01",
+      tracks: { spelling: createFreshSM2Track(today) },
+    });
     writeWordBank("creator", bank);
     vi.stubEnv("SUNNY_SUBJECT", "diag");
     const { mapState } = buildDiagMapSession();
     expect(mapState.nodes.find((n) => n.id === "n-wb")?.words).toContain("diag-sm2-audit");
     expect(mapState.nodes.find((n) => n.id === "n-coins")?.words).toEqual([]);
     expect(mapState.nodes.find((n) => n.id === "n-castle")?.words).toContain("diag-sm2-audit");
+    expect(fs.existsSync(path.join(contextRoot, "creator", "word_bank.json"))).toBe(true);
   });
 });

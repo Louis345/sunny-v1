@@ -27,6 +27,9 @@ import {
 import { planSession } from "../engine/learningEngine";
 import { getChildChart } from "../profiles/childChart";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
+import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
+import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import { getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
 import { computeProgression } from "../engine/progression";
 import {
@@ -57,7 +60,7 @@ import {
 import { generateCanvasCapabilitiesManifest } from "./canvas/registry";
 import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
-import { isBoardBeingPrepared, startMaxDurationTimer } from "./session-triggers";
+import { boardBeingBuilt, startMaxDurationTimer } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import type { VoiceLatencyMark } from "./voiceTurnLatency";
 import { mathProblem, resetMathProbeSession } from "../agents/elli/tools/mathProblem";
@@ -490,6 +493,25 @@ export function assertHomeworkSessionAssignment(opts: {
   }
 }
 
+/**
+ * BUGS.md S19: an owner-approved Planner retry is decided when her next session opens, not only at the
+ * next server startup. Only a retry a person approved is bought here (never a plain block), and
+ * advanceCanonicalCycleFromEvidence joins a decision already in flight, so there is one per homework.
+ */
+export function resumeApprovedPlannerRetry(cycle: LearningCycleRecordV2 | null | undefined): Promise<LearningCycleRecordV2> | null {
+  if (!cycle || !["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)
+    || cycle.decisionHistory.at(-1)?.eventType !== "planner_retry_authorized") return null;
+  const { childId, homeworkId } = cycle;
+  console.log(` 🎮 [session-bootstrap] [approved-retry] [deciding] child=${childId} homework=${homeworkId}`);
+  const run = advanceCanonicalCycleFromEvidence({ childId, homeworkId })
+    .then(() => prepareSuccessorBoard({ childId, homeworkId }));
+  run.then(
+    (prepared) => console.log(` 🎮 [session-bootstrap] [approved-retry] [done] child=${childId} homework=${homeworkId} lifecycle=${prepared.lifecycle}`),
+    (error: unknown) => console.error(` 🎮 [session-bootstrap] [approved-retry] [deferred] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`),
+  );
+  return run;
+}
+
 export async function runSessionStart(
   session: any,
   hooks: SessionStartHooks = {},
@@ -551,6 +573,7 @@ export async function runSessionStart(
       console.log(
         `  🎮 [session-bootstrap] [assignment-validation] [accepted] child=${homeworkChild} homework=${session.options?.homeworkId ?? "legacy"}`,
       );
+      void resumeApprovedPlannerRetry(chart.learningCycle)?.catch(() => undefined);
     }
     let homeworkPayload: Awaited<ReturnType<typeof loadHomeworkPayload>> | null =
       null;
@@ -1556,8 +1579,8 @@ This is a safe space to test everything.
     }, () => {
       try {
         const limitChildId = String(session.chartChildId ?? homeworkChild).toLowerCase();
-        const homeworkId = getChildChart(limitChildId).learningCycle?.homeworkId;
-        return Boolean(homeworkId) && isBoardBeingPrepared(getMathGenerationStatus(limitChildId, homeworkId!)?.phase);
+        const cycle = getChildChart(limitChildId).learningCycle;
+        return Boolean(cycle?.homeworkId) && boardBeingBuilt(cycle, getMathGenerationStatus(limitChildId, cycle!.homeworkId));
       } catch (err) {
         console.error("  🎮 [session-limit] [board-status] [unavailable]", err);
         return false;

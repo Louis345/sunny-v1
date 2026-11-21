@@ -115,12 +115,15 @@ describe("activity tool catalog", () => {
       hideWordDuringResponse: false,
       requiresCapturedResponse: true,
     });
+    // BUGS.md S31 (Ila, 2026-11-18: "If I don't do it five seconds, I'll just get it wrong"): every memory-mode
+    // game ran a fixed 8-second clock a developer chose, which pushed her to rush. Why the human caught it: she
+    // said so. Why logs missed it: the clock is a normal setting. Why the lab missed it: this test pinned 8 s as
+    // the default. Rule: no clock unless the Planner sets one (showTimer, timerSeconds) from her evidence.
     expect(getActivityCapabilityModeConfig("word-radar", "hidden_word_recall")).toEqual({
       recallMode: "hidden_word_recall",
       inputMode: "whole-word",
       speakStyle: "option-b",
-      showTimer: true,
-      timerSeconds: 8,
+      showTimer: false,
       hideWordDuringResponse: true,
       requiresCapturedResponse: true,
     });

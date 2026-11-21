@@ -4,7 +4,7 @@ import {choiceJourneyFixture,linearJourneyFixture} from '../scripts/fixtures/aut
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -34,8 +34,13 @@ import { generateCanonicalProgressionArtifact, prepareSuccessorBoard } from "./c
 const CHILD = "boardkid";
 const HW = "hw-successor";
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 function root(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-successor-boards-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-successor-boards-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 function items(ids: string[], role: "fresh_checkpoint" | "practice" = "fresh_checkpoint") {
@@ -520,7 +525,10 @@ describe("successor boards (contract 21)", () => {
     cycle = getLearningCycle(CHILD, HW, { rootDir })!;
     expect(cycle.lifecycle).toBe("baseline_evaluating");
     const untaken = "reef:route-reef";
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === untaken)?.lock).toMatchObject({ reason: "route-not-taken", label: "Not taken" });
+    // One pipeline (owner, 2026-11-08): on spelling and math an untaken route's built stop stays open as practice;
+    // a subject that still orders its path shows it as not taken.
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === untaken)?.state).toBe("available");
+    expect(projectLearningCycle({ ...cycle, domain: "reading" }).adventureBoard.nodes.find((node) => node.id === untaken)?.lock).toMatchObject({ reason: "route-not-taken", label: "Not taken" });
   });
 });
 

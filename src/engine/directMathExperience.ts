@@ -13,7 +13,7 @@ import http from "node:http";
 import path from "node:path";
 import os from "node:os";
 import { resolveChildContextDir, resolveContextRoot } from "../utils/contextRoot";
-import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, recordJourneyCapture, assertMathControlsVisible, type JourneyCapture, type MathJourney, type MathJourneyStep, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
+import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, recordJourneyCapture, assertMathControlsVisible, findMathLabelCollisions, MATH_LABEL_CANVAS_PROBE, type MathLabelCollision, type JourneyCapture, type MathJourney, type MathJourneyStep, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
 import type { ChildChart } from "../profiles/childChart";
 import { assignmentPlannerContent, type AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 import type { ActiveSessionPlan, AIContentCatalogItem } from "../context/schemas/learningProfile";
@@ -44,6 +44,7 @@ import { withInitialBoard } from "./learningBoardInstances";
 import { runPlannerToolLoop } from "./plannerToolLoop";
 import { providerTurnSender } from "./plannerToolProvider";
 import { spellingTeachingToolkit } from "./spellingTeachingTools";
+import { pastWeeksLine, pastWeeksTool, type PastWeeksArchive } from "./pastWeeks";
 
 export type DirectActivity = {
   id: string;
@@ -1252,7 +1253,12 @@ const PLANNER_CARD_FIELDS=["activityId","label","purposes","skillTargets","bestF
 export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
   const evidence=packet.discoveryEvidence as unknown as {summary?:{coverage?:unknown;spellingTargets?:Array<{word:string;itemId:string}>};observations?:Array<{observationId:string;itemId?:string;childResponse?:string;result?:{correct?:boolean};assistance?:{status?:string}}>;history?:{constructs?:Record<string,{observations?:Array<{observationId:string;result?:{correct?:boolean};childResponse?:string}>;evaluations?:Array<{evaluationId:string}>}>}}|undefined;
   const wordByItem=new Map((evidence?.summary?.spellingTargets??[]).map(target=>[target.itemId,target.word]));
-  const history=Object.entries(evidence?.history?.constructs??{}).filter(([,entry])=>(entry.observations?.length??0)+(entry.evaluations?.length??0)>0);
+  // Trim (owner, 2026-11-07): full history for this list's words only; every earlier word becomes one summary line.
+  const listConstructs=new Set((evidence?.summary?.spellingTargets as Array<{constructId?:string}>|undefined??[]).map(target=>target.constructId).filter(Boolean));
+  const withHistory=Object.entries(evidence?.history?.constructs??{}).filter(([,entry])=>(entry.observations?.length??0)+(entry.evaluations?.length??0)>0);
+  const history=listConstructs.size?withHistory.filter(([construct])=>listConstructs.has(construct)):withHistory;
+  const earlier=listConstructs.size?withHistory.filter(([construct])=>!listConstructs.has(construct)):[];
+  const earlierAnswers=earlier.flatMap(([,entry])=>entry.observations??[]);
   return {
     homework:packet.capturedHomework,childChart:packet.childChart,masteryContext:packet.masteryContext,
     activityCatalog:(packet.activityCatalog as unknown as Array<Record<string,unknown>&{activityId:string;domains?:string[];capabilityModes?:Array<{id:string;label:string;purpose?:string;config?:unknown}>}>)
@@ -1260,6 +1266,9 @@ export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
       .map(card=>({...Object.fromEntries(PLANNER_CARD_FIELDS.filter(key=>card[key]!==undefined).map(key=>[key,card[key]])),capabilityModes:(card.capabilityModes??[]).map(mode=>({id:mode.id,label:mode.label,purpose:mode.purpose,config:mode.config}))})),
     evaluation:(evidence?.observations??[]).map(row=>({observationId:row.observationId,word:wordByItem.get(row.itemId??"")??null,typed:row.childResponse??null,correct:row.result?.correct??null,assisted:row.assistance?.status!==undefined&&row.assistance.status!=="unassisted"})),
     ...(evidence?.summary?.coverage?{coverage:evidence.summary.coverage}:{}),
+    // Contract 54: words the opening chose not to check are unknown; a later check is how they get a baseline.
+    ...((evidence?.summary?.coverage as {notCheckedItemIds?:string[]}|undefined)?.notCheckedItemIds?.length?{notCheckedYet:(evidence!.summary!.coverage as {notCheckedItemIds:string[]}).notCheckedItemIds.map(id=>wordByItem.get(id)??id)}:{}),
+    ...(earlier.length?{earlierWords:{words:earlier.length,answers:earlierAnswers.length,correct:earlierAnswers.filter(row=>row.result?.correct===true).length}}:{}),
     ...(history.length?{history:Object.fromEntries(history.map(([construct,entry])=>[construct,{observations:(entry.observations??[]).map(row=>({observationId:row.observationId,typed:row.childResponse??null,correct:row.result?.correct??null})),evaluations:(entry.evaluations??[]).map(row=>row.evaluationId)}]))}:{}),
   };
 }
@@ -2039,6 +2048,8 @@ type LearningPlannerInput = {
   /** Concept ids already on record for this child, so the Planner reuses instead of rephrasing. */
   priorConceptIds?: string[];
   rawResponseFile?: string;
+  /** Her earlier weeks, for the Teaching board (owner, 2026-11-10): one line in the question, the rest behind read_past_weeks. */
+  pastWeeks?: PastWeeksArchive;
   maxTokens?: number;
 };
 export function askLearningPlanner(input:LearningPlannerInput & {domain:"spelling";packet:AssignmentPlanningPacket}):Promise<NativePlannedProgram>;
@@ -2056,7 +2067,7 @@ export async function askLearningPlanner(input:LearningPlannerInput):Promise<Mat
   if(native){
     const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
     const saved=directory?readReceivedMathProviderStage(directory,'targeted-planner') as Anthropic.Messages.Message|undefined:undefined;
-    if(!directory||saved===undefined)return askSpellingTeachingThroughTools({client,model,packet:packet!,rawResponseFile:input.rawResponseFile,started});
+    if(!directory||saved===undefined)return askSpellingTeachingThroughTools({client,model,packet:packet!,rawResponseFile:input.rawResponseFile,started,pastWeeks:input.pastWeeks});
     const {requestHash}=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts','targeted-planner.stage.json'),'utf8'));
     const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
     const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as {model:string;messages:Array<{content:unknown}>};
@@ -2191,11 +2202,12 @@ Homework and child-chart context:
 ${JSON.stringify(compactPlannerFacts(packet))}`;
 }
 /** Teaching board through the small locked tools; the finished order is saved beside its turns. */
-async function askSpellingTeachingThroughTools(input:{client:Anthropic;model:string;packet:AssignmentPlanningPacket;rawResponseFile?:string;started:number}):Promise<NativePlannedProgram> {
+async function askSpellingTeachingThroughTools(input:{client:Anthropic;model:string;packet:AssignmentPlanningPacket;rawResponseFile?:string;started:number;pastWeeks?:PastWeeksArchive}):Promise<NativePlannedProgram> {
   const kit=spellingTeachingToolkit(input.packet);
   const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
-  const loop=await runPlannerToolLoop({label:"spelling-teaching",prompt:spellingTeachingToolPrompt(input.packet),model:input.model,maxTokens:16000,
-    tools:kit.tools,state:kit.initialState(),finished:kit.finished,
+  const past=input.pastWeeks?.weeks.length?input.pastWeeks:undefined;
+  const loop=await runPlannerToolLoop({label:"spelling-teaching",prompt:`${spellingTeachingToolPrompt(input.packet)}${past?`\n${pastWeeksLine(past)}`:""}`,model:input.model,maxTokens:16000,
+    tools:past?[...kit.tools,pastWeeksTool<Parameters<typeof kit.finished>[0]>(past)]:kit.tools,state:kit.initialState(),finished:kit.finished,
     send:providerTurnSender({label:"spelling-teaching",stagePrefix:"targeted-planner-tools",draftDir:directory,client:input.client})});
   // No finished board means nothing to publish: generation stays paused with this reason.
   if(!kit.finished(loop.state))throw new Error(`learning_planner_tools_unfinished:${loop.stats.stop}`);
@@ -3227,6 +3239,7 @@ async function openDirectArtifactPage(input: {
   port: number;
 }): Promise<void> {
   await input.page.addInitScript(`window.__sunnyMessages=[];window.addEventListener("message",event=>window.__sunnyMessages.push(event.data));`);
+  await input.page.addInitScript(MATH_LABEL_CANVAS_PROBE);
   const launchPath = NODE_REGISTRY["generated-baseline"]?.getUrl?.({
     id: input.artifact.nodeId,
     type: "generated-baseline",
@@ -3431,10 +3444,14 @@ export async function runDirectBrowserSmokeCheck(input: {
       const page = await browser.newPage({ viewport });
       const viewportCaptures: JourneyCapture[] = [];
       const errors: string[] = [];
+      // Numbers and operator labels must not touch (BUGS.md 2026-11-10 evening); measured on each problem's screen.
+      const labelCollisions = new Map<string, MathLabelCollision>();
+      const checkLabels = async () => { for (const row of await findMathLabelCollisions(page)) labelCollisions.set(`${row.a}|${row.b}|${JSON.stringify(row.boxA)}`, row); };
       page.on("pageerror", error => errors.push(error.message));
       try {
         await openDirectArtifactPage({ page, artifact, port: address.port });
         await assertMathControlsVisible(page);
+        await checkLabels();
         await verifyMathControlJourney(page, {
           completionType: "node_complete",
           itemIds: artifact.itemIds,
@@ -3445,6 +3462,7 @@ export async function runDirectBrowserSmokeCheck(input: {
             .map(item => [item.itemId, item.word])),
           journey: creatorManifest?.journey.map((item) => ({ itemId: item.itemId, steps: item.steps })),
           captureState: async (request) => {
+            await checkLabels();
             const recorded = await recordJourneyCapture(page, {
               outputDir: screenshotDir,
               filePrefix: `${artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_")}-${viewport.name}`,
@@ -3475,6 +3493,7 @@ export async function runDirectBrowserSmokeCheck(input: {
       } catch (error) {
         failures.push(`${artifact.nodeId}:${viewport.name}:${error instanceof Error ? error.message : String(error)}`);
       } finally {
+        if (labelCollisions.size) failures.push(`${artifact.nodeId}:${viewport.name}:math_labels_touching:these numbers or operator labels touch or overlap, so they read as one number; give each its own space: ${JSON.stringify([...labelCollisions.values()].slice(0, 5))}`);
         failures.push(...errors.map(error => `${artifact.nodeId}:${viewport.name}:browser_error:${error}`));
         if (failures.some(failure => failure.startsWith(`${artifact.nodeId}:${viewport.name}:`))) {
           const target = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi,"_")}-${viewport.name}-failure.png`);

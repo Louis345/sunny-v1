@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { COMPANION_DEFAULTS, type CompanionConfig } from "../../../src/shared/companionTypes";
-import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
+import { LUMIPUFF_MONSTER } from "../../../src/shared/capturedMonsterCatalog";
 import { SparkOrbLearningShell } from "../components/SparkOrbLearningShell";
 
 const playSparkOrbSfxMock = vi.hoisted(() => vi.fn());
@@ -12,6 +12,7 @@ vi.mock("../components/CompanionLayer", () => ({
 
 vi.mock("../utils/sparkOrbSfx", () => ({
   playSparkOrbSfx: playSparkOrbSfxMock,
+  startSparkOrbPullTone: () => null,
 }));
 
 const elliCompanion: CompanionConfig = {

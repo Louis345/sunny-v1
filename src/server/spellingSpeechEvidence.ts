@@ -43,6 +43,17 @@ export function markCurrentSpellingSupport(assessment: SpellingAssessmentState |
   return matches;
 }
 
+/** She asked for help on the word on screen (contract 54): record it as helped now, whatever the companion then
+ * says, and let the companion teach that word. Returns whether help was granted. */
+export function grantSpellingHelpOnRequest(assessment: SpellingAssessmentState | undefined, snapshot: CurrentBoardSnapshot | null): boolean {
+  if (!assessment || !snapshot || snapshot.itemId !== assessment.itemId) return false;
+  if (!assessment.supportIds.length) assessment.supportIds.push(`support:${snapshot.sessionId}:${assessment.itemId}`);
+  assessment.helpRequested = true;
+  if (snapshot.spellingTarget) snapshot.spellingSupportMode = "pronunciation_model";
+  console.log(` 🎮 [spelling-assessment] [help-on-request] [granted] item=${assessment.itemId} recorded=assisted`);
+  return true;
+}
+
 /** Typed audio receipt is separate from responses, engagement and academic conclusions. */
 export function recordSpellingAudio(childId: string, sessionId: string, assessment: SpellingAssessmentState, playbackId: string, rates: unknown, delivered: boolean): void {
   if (delivered) assessment.lastStimulusRates = Array.isArray(rates) && rates.length ? [...rates] as number[] : null;

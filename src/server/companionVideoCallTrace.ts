@@ -41,7 +41,16 @@ export type CompanionVideoCallTraceEventName =
   | "handsfree_rearm_skipped"
   | "activity_context_changed"
   | "conversation_mode_changed"
-  | "activity_phase_changed";
+  | "activity_phase_changed"
+  | "wardrobe_store_mounted"
+  | "wardrobe_item_reviewed"
+  | "wardrobe_try_on_started"
+  | "wardrobe_voice_requested"
+  | "wardrobe_store_exited"
+  | "companion_tool_rejected"
+  | "shopping_speech_retry"
+  | "shopping_speech_guard_failed"
+  | "speech_dropped_while_busy";
 
 export type CompanionVideoCallLikelyCause =
   | "none"

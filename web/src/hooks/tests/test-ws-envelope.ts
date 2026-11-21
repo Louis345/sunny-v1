@@ -7,6 +7,7 @@ vi.mock("../../components/Canvas", () => ({
 
 import { useSession } from "../useSession";
 import { useAdventureState } from "../useAdventureState";
+import { MIC_FRAME_SAMPLES, framesFor } from "../../utils/micFrames";
 
 const OPEN = 1;
 const CONNECTING = 0;
@@ -291,6 +292,49 @@ describe("WS envelope vs canvas payload type", () => {
     expect(result.current.state.error).toBe("Session already active");
   });
 
+  // 2026-11-08 human catch (Reina math): the server rejected the session (assignment-validation, fatal: true),
+  // the kiosk showed "Sunny lost the connection" + "Try again", and retrying could never succeed. Logs had the
+  // rejection; no lab separated a server refusal (a grown-up must fix it) from a dropped socket (retry helps).
+  it("marks a fatal server rejection as needing a grown-up, but not a dropped connection", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("reina", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const ws = wsInstances[0]!;
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "error", fatal: true, message: "That assignment is no longer ready. Return to the child picker." }) } as MessageEvent));
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.errorNeedsGrownUp).toBe(true);
+  });
+
+  // 2026-11-14 (AI-caught reviewing S7a): every session-start failure, including a voice-provider outage, is sent
+  // fatal; a retry can fix those, so the server marks them retryable and the kiosk keeps Try again.
+  it("keeps Try again for a fatal start failure the server marks retryable", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const ws = wsInstances[0]!;
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "error", fatal: true, retryable: true, code: "session_start_failed", message: "Voice session could not start. Please try again." }) } as MessageEvent));
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.errorNeedsGrownUp).toBe(false);
+  });
+
+  it("keeps a dropped connection retryable: reconnect exhaustion does not ask for a grown-up", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const original = wsInstances[0]!;
+    act(() => original.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    act(() => {
+      original.readyState = 3;
+      original.onclose?.();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.errorNeedsGrownUp).toBe(false);
+  });
+
   it("fails visibly after three reconnected sockets open but never acknowledge session startup", async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useSession());
@@ -390,12 +434,13 @@ describe("WS envelope vs canvas payload type", () => {
     });
     expect(result.current.state.warning).toMatch(/not hearing any sound/i);
 
-    const audibleSamples = new Float32Array(4096).fill(0.05);
+    const audibleSamples = new Float32Array(MIC_FRAME_SAMPLES).fill(0.05);
     const audibleFrame = {
       inputBuffer: { getChannelData: () => audibleSamples },
     } as unknown as AudioProcessingEvent;
     act(() => {
-      for (let frame = 0; frame < 3; frame += 1) {
+      // About 0.77 s of audible input confirms the mic (64 ms frames since 2026-11-21).
+      for (let frame = 0; frame < framesFor(768); frame += 1) {
         micProcessor?.onaudioprocess?.(audibleFrame);
       }
       wsInstances[0]!.onmessage?.({

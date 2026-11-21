@@ -208,4 +208,20 @@ describe("POST /api/companions/:companionId/talk/stream", () => {
     const commands = done?.companionCommands as unknown[];
     expect(commands.length).toBe(1);
   });
+
+  // Owner, 2026-11-21 (Nuance Labs comparison): Claude took 1.3–2.0 s to start each FaceTime reply. Why the human caught
+  // it: a side-by-side call felt slow. Why logs missed it: cache use was never logged on this route. Why the lab missed
+  // it: no test checked that the cached part of the prompt stays the same from one turn to the next.
+  it("keeps the cached opening of the prompt identical across turns of one call, and times the context build", async () => {
+    const base = { childId: "ila", mode: "video_call", showroomTheme: "crystal", callSource: "dev_preview", relationshipState: "selected" };
+    await postStream({ ...base, question: "hi elli!", conversationIntent: "social" });
+    const second = await postStream({ ...base, question: "can you see my dress?", conversationIntent: "visual", lastVisualSummary: "a blue dress" });
+    const [first, next] = anthropicState.streamCalls.map((call) => call.system as Array<{ text: string; cache_control?: unknown }>);
+    expect(first[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(next[0].text).toBe(first[0].text);
+    expect(first[0].text).not.toContain("Conversation intent");
+    expect(next.slice(1).map((block) => block.text).join("\n")).toContain("Conversation intent: visual.");
+    const done = parseSseFrames(second.body).find((frame) => frame.event === "done")?.data;
+    expect(typeof (done?.latencySpans as Record<string, unknown>).contextMs).toBe("number");
+  });
 });

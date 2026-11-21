@@ -166,12 +166,11 @@ describe("package.json runtime launcher scripts", () => {
     expect(pkg.scripts["sunny:ingest:spelling"]).toContain("--domain spelling");
     expect(pkg.scripts["sunny:ingest:spelling"]).not.toContain("--child");
     expect(pkg.scripts["sunny:ingest:reading"]).toContain("--domain reading");
+    // One pipeline for every subject (owner, 2026-11-08): math goes through the homework intake, like spelling.
     expect(pkg.scripts["sunny:ingest:math"]).toBe(
-      "npx tsx src/scripts/ingestMathDirect.ts",
+      "npx tsx src/scripts/ingestHomework.ts --domain math",
     );
-    expect(pkg.scripts["sunny:ingest:math"]).not.toContain(
-      "sunny:ingest:homework",
-    );
+    expect(pkg.scripts["sunny:ingest:math"]).not.toContain("ingestMathDirect");
   });
 
   it('contains script "sunny:diag"', () => {

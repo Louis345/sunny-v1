@@ -133,6 +133,12 @@ function cmuPronunciations(word: string): string[] {
   return pronunciations;
 }
 
+/** Syllables in the lexicon's first pronunciation (one stress digit per vowel); unknown words count as long. */
+function cmuSyllables(word: string): number {
+  const value = (cmuDictionary as Record<string, string>)[word.toLowerCase().replace(/[^a-z']/g, "")];
+  return value ? (value.match(/[012]/g) ?? []).length : Number.POSITIVE_INFINITY;
+}
+
 function cmuPronunciationEquivalent(heard: string, expected: string): boolean {
   if (!/^[a-z']+$/.test(heard) || !/^[a-z']+$/.test(expected)) return false;
   const heardPronunciations = cmuPronunciations(heard);
@@ -153,9 +159,11 @@ export function areDistinctWordsPronunciationEquivalent(a: string, b: string): b
   }
   const knownHomophone = normalizeSttHomophone(cleanA) === normalizeSttHomophone(cleanB);
   if (!knownHomophone && cleanA.includes("'") !== cleanB.includes("'")) return false;
+  // Real lexicon homophones are short everyday words (sea/see); a long "sound-alike" such as caterpiller is a
+  // variant or brand form the lexicon happens to list, and on a spelling check it is a miss (BUGS.md S24).
   return (
     knownHomophone ||
-    cmuPronunciationEquivalent(cleanA, cleanB)
+    (cmuSyllables(cleanB) <= 2 && cmuPronunciationEquivalent(cleanA, cleanB))
   );
 }
 
