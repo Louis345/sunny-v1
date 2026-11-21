@@ -39,7 +39,7 @@ const CHILDREN: Record<string, ChildSetup> = {
   reina: {
     sayName: "Ray-nah",
     world: "a wrestling championship under arena lights: ring announcer energy, takedowns, pins, belts, personal records.",
-    announcerVoice: "nPczCjzI2devNBz1zQrb",
+    announcerVoice: "cgSgspJ2msm6clMCkdW9", // same announcer as Ila (owner, 2026-11-21)
     companionVoiceEnv: "ELEVENLABS_VOICE_ID_REINA",
     sibling: "Ila",
   },
