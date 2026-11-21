@@ -37,6 +37,7 @@ import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
 import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
 import { createPlaybackWatchdog } from "../utils/playbackWatchdog";
 import { createActionOutbox } from "../utils/actionOutbox";
+import { MIC_FRAME_SAMPLES, framesFor } from "../utils/micFrames";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -273,7 +274,8 @@ function storyIllustrationPatch(
 const SILENT_MIC_DURATION_MS = 12000;
 const MICROPHONE_OPEN_TIMEOUT_MS = 5000;
 const AUDIBLE_MIC_RMS_THRESHOLD = 0.003;
-const AUDIBLE_MIC_FRAME_CONFIRMATION = 3;
+/** About 0.77 s of audible input confirms the mic works (was 3 × 256 ms frames). */
+const AUDIBLE_MIC_FRAME_CONFIRMATION = framesFor(768);
 
 function isVirtualMicrophoneLabel(label: string): boolean {
   return /\b(blackhole|virtual|loopback|soundflower|vb-audio|voicemeeter|aggregate)\b/i.test(label);
@@ -1634,7 +1636,7 @@ export function useSession(options?: UseSessionOptions) {
         await ensureAudioContextRunning(audioCtx);
 
         const source = audioCtx.createMediaStreamSource(stream);
-        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        const processor = audioCtx.createScriptProcessor(MIC_FRAME_SAMPLES, 1, 1);
         processorRef.current = processor;
 
         const silence = audioCtx.createGain();
