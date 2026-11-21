@@ -117,3 +117,21 @@ it("names her school test date at start-up, or says it is unknown", async () => 
   expect(log.mock.calls.flat().join("\n")).toContain("test-date=2026-11-30");
   log.mockRestore();
 });
+
+// BUGS.md S47 (human-caught 2026-11-20 02:18 UTC): Elli told Ila "Sunny's having trouble saving answers… your parent's
+// been told". Her answers were saved. The cause: three refused saves from an old spelling homework (11/11–11/12) were
+// still held, so every turn's facts said Sunny cannot save right now, and they always added that the parent was told,
+// though no alert is sent (the owner turned alerts off). Why the human caught it: only a person hears Elli say it.
+// Why logs missed it: the facts were correct about the file, just not about now. Why the lab missed it: no test aged a
+// held answer or checked the parent claim against an alert that was really sent.
+it("tells her companion only about saves failing now, on this homework, and never claims the parent was told", () => {
+  const f = fixture();
+  holdCompletion({ ...f.completion, homeworkId: "old-homework", error: "learning_cycle_instrument_unknown_item:x" }, { rootDir: f.rootDir });
+  expect(sunnyHealthFacts(f.childId, { rootDir: f.rootDir })).toBe("");
+  holdCompletion({ ...f.completion, error: "disk full" }, { rootDir: f.rootDir });
+  const tomorrow = new Date(Date.now() + 26 * 3_600_000);
+  expect(sunnyHealthFacts(f.childId, { rootDir: f.rootDir, now: tomorrow })).toBe("");
+  const facts = sunnyHealthFacts(f.childId, { rootDir: f.rootDir });
+  expect(facts).toContain("1 finished game is held");
+  expect(facts).not.toMatch(/parent/i);
+});

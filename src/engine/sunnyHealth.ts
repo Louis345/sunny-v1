@@ -92,13 +92,29 @@ export async function raiseParentAlert(input: { childId: string; kind: string; t
   }
 }
 
-/** What her companion knows about Sunny itself, as facts. Empty when nothing is wrong. */
-export function sunnyHealthFacts(childId: string, opts: Opts = {}): string {
-  const problems = readJson<Problem[]>(problemsFile(childId, opts), []);
-  const held = readJson<Held[]>(heldFile(childId, opts), []);
+/** A failed save older than this is history, not "right now" (S47). */
+const FRESH_PROBLEM_MS = 12 * 3_600_000;
+
+/**
+ * What her companion knows about Sunny itself, as facts. Empty when nothing is wrong now. Only problems from the last
+ * 12 hours on her current homework count, and it never says the parent was told: no alert reaches a parent today
+ * (BUGS.md S47, 2026-11-20: three refused saves from an old homework made Elli say saving was broken and the parent knew).
+ */
+export function sunnyHealthFacts(childId: string, opts: Opts & { now?: Date } = {}): string {
+  const now = (opts.now ?? new Date()).getTime();
+  const fresh = (at: string) => now - Date.parse(at) <= FRESH_PROBLEM_MS;
+  const homeworkId = (() => {
+    try { return (getChildChart(childId, { rootDir: opts.rootDir }).learningCycle ?? getLatestLearningCycle(childId, { rootDir: opts.rootDir }))?.homeworkId; }
+    catch { return undefined; }
+  })();
+  const allHeld = readJson<Held[]>(heldFile(childId, opts), []);
+  const held = allHeld.filter(row => fresh(row.heldAt) && (!homeworkId || row.homeworkId === homeworkId));
+  const problems = readJson<Problem[]>(problemsFile(childId, opts), [])
+    .filter(row => row.kind === "seal" || (held.length > 0 && fresh(row.at)));
+  if (allHeld.length > held.length) console.log(` 🎮 [sunny-health] [facts] [stale-skipped] child=${childId} held=${allHeld.length - held.length}`);
   if (!problems.length && !held.length) return "";
   return ["[Sunny's own state]",
-    `Sunny cannot save her answers right now (${problems.map(row => `${row.text}, since ${row.at.slice(11, 16)} UTC`).join("; ") || "saving failed"}).`,
+    `Sunny cannot save her answers right now (${problems.map(row => `${row.text}, since ${row.at.slice(0, 16).replace("T", " ")} UTC`).join("; ") || "saving failed"}).`,
     held.length ? `${held.length} finished game${held.length === 1 ? " is" : "s are"} held: kept safe, not yet saved, and replayed once saving works.` : "",
-    "Her parent has been told. Whether this session's answers will count is not known yet."].filter(Boolean).join("\n");
+    "Whether this session's answers will count is not known yet."].filter(Boolean).join("\n");
 }
