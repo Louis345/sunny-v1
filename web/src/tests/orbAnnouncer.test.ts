@@ -16,6 +16,7 @@ function fakeAudio(msToNextBeat = 200) {
   const loaded = new Set<string>();
   const played: Array<{ key: string; at: number }> = [];
   const ducks: boolean[] = [];
+  const spoken: Array<{ text: string; at: number }> = [];
   const audio: AnnouncerAudio = {
     loadExtra: vi.fn(async (sounds: Record<string, string>) => {
       Object.keys(sounds).forEach((key) => loaded.add(key));
@@ -26,8 +27,9 @@ function fakeAudio(msToNextBeat = 200) {
     has: (key) => loaded.has(key),
     duck: (on) => ducks.push(on),
     msToNextBeat: () => msToNextBeat,
+    say: (text) => spoken.push({ text, at: Date.now() }),
   };
-  return { audio, played, ducks };
+  return { audio, played, ducks, spoken };
 }
 
 afterEach(() => {
@@ -63,9 +65,28 @@ describe("orb announcer player", () => {
     const { audio, played } = fakeAudio();
     const announcer = await OrbAnnouncer.load("ila", audio);
     expect(announcer!.sayWord("Pardon")).toBeGreaterThan(0);
-    expect(announcer!.sayWord("carnival")).toBe(false);
     vi.advanceTimersByTime(1000);
     expect(played.map((entry) => entry.key)).toEqual(["ann:slot-word-pardon"]);
+  });
+
+  it("a word with no recording (a new week's word) is still spoken, in line behind the announcer, never over it", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => BANK })));
+    const { audio, spoken } = fakeAudio(0);
+    const announcer = await OrbAnnouncer.load("ila", audio, () => Date.now());
+    const start = Date.now();
+    announcer!.call({ event: "catch", creatureId: "glowmoth" });
+    const doneMs = announcer!.sayWord("Festival");
+    expect(doneMs).toBeGreaterThan(2 * 500);
+    vi.advanceTimersByTime(999);
+    expect(spoken).toEqual([]);
+    vi.advanceTimersByTime(400);
+    expect(spoken.map((entry) => entry.text)).toEqual(["festival"]);
+    expect(spoken[0].at - start).toBeGreaterThanOrEqual(2 * 500);
+    // A double tap while she is still hearing it is dropped.
+    announcer!.sayWord("festival");
+    vi.advanceTimersByTime(3000);
+    expect(spoken).toHaveLength(1);
   });
 
   it("one voice at a time: the word waits for the intro to finish instead of talking over it", async () => {

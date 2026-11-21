@@ -8,6 +8,8 @@ export interface AnnouncerAudio {
   has(key: string): boolean;
   duck(on: boolean): void;
   msToNextBeat(): number;
+  /** The device voice, for a word this week's bank has no recording of. */
+  say(text: string): void;
 }
 
 const KEY = (id: string) => `ann:${id}`;
@@ -16,6 +18,8 @@ const MAX_BEAT_WAIT_MS = 450;
 const GAP_S = 0.08;
 /** A clip asked for again within this long after it ends is a repeat, not a request. */
 const REPEAT_GUARD_MS = 800;
+/** About how long the device voice takes to say one word. */
+const SPOKEN_WORD_MS = 1100;
 
 /**
  * Plays the week's recorded announcer bank: the shared picker chooses the clips, this lands them on
@@ -71,14 +75,32 @@ export class OrbAnnouncer {
   }
 
   /**
-   * The companion says the practice word (her recorded voice). Returns how many ms until she has finished
-   * saying it (the card times the chunks from then), or false when this week has no clip for it.
+   * The companion says the practice word: her recorded voice, or the device voice when this week has no clip
+   * for it (a new week's word), in line like every other line. Returns how many ms until it has been said
+   * (the card times the chunks from then).
    */
   sayWord(word: string): number | false {
-    const key = KEY(`slot-word-${word.toLowerCase()}`);
-    if (!this.audio.has(key)) return false;
-    this.enqueue([key], `word:${word.toLowerCase()}`, false);
-    return Math.max(0, (this.lastEnds.get(key) ?? this.now()) - this.now());
+    const spoken = word.toLowerCase();
+    const key = KEY(`slot-word-${spoken}`);
+    if (this.audio.has(key)) this.enqueue([key], `word:${spoken}`, false);
+    else this.enqueueSpoken(spoken);
+    return Math.max(0, (this.lastEnds.get(this.audio.has(key) ? key : `say:${spoken}`) ?? this.now()) - this.now());
+  }
+
+  /** A word in the device voice, behind whatever the announcer is saying; a repeat is dropped like a clip. */
+  private enqueueSpoken(word: string): void {
+    const now = this.now();
+    const id = `say:${word}`;
+    const last = this.lastEnds.get(id);
+    if (last !== undefined && now <= last + REPEAT_GUARD_MS) {
+      console.log(` 🎮 [announcer] [repeat] [dropped] say:${word}`);
+      return;
+    }
+    const at = Math.max(now, this.busyUntil);
+    this.timers.push(window.setTimeout(() => this.audio.say(word), at - now));
+    this.busyUntil = at + SPOKEN_WORD_MS;
+    this.lastEnds.set(id, this.busyUntil);
+    console.log(` 🎮 [announcer] [say] [device-voice] word=${word} inMs=${Math.round(at - now)}`);
   }
 
   /** One of the game's own cues in the announcer's voice ("ready" = Ready? Go!). False when the bank lacks it. */
