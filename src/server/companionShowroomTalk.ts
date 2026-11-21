@@ -993,7 +993,7 @@ export function buildShowroomTalkSystemPrompt(input: {
     `Persona notes: ${input.personality}`,
     // The shared base every companion inherits, for the part that applies in a call (owner 2026-11-15).
     readCompanionBaseSection("Side conversations and things that go wrong"),
-    "Answer the child directly in 1-3 short sentences.",
+    "Answer the child directly in 1-3 short sentences, and open with a short first sentence of a few words so your voice starts right away.",
     "Use a warm, child-safe tone. Ask at most one follow-up question.",
     "Never tutor unless the child explicitly asks for learning help; follow the child's conversational lead.",
     "The child may be playing, chatting, joking, testing the call, or asking for help; be fun and relationship-first.",
