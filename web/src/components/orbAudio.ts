@@ -41,6 +41,8 @@ export class OrbAudio {
   private effects: GainNode | null = null;
   private buffers = new Map<string, AudioBuffer>();
   private loops: AudioBufferSourceNode[] = [];
+  /** The announcer clips now playing, so the companion can cut them off. */
+  private voiceSources = new Set<AudioBufferSourceNode>();
   private loopStarts = new Map<string, { start: number; duration: number }>();
   private bedGains = new Map<string, { gain: GainNode; base: number }>();
   private filter: BiquadFilterNode | null = null;
@@ -142,6 +144,10 @@ export class OrbAudio {
       gain.gain.value = options.volume ?? 1;
       source.connect(gain).connect(this.effects);
       source.start();
+      if (key.startsWith("ann:")) {
+        this.voiceSources.add(source);
+        source.onended = () => this.voiceSources.delete(source);
+      }
     } catch (error) {
       console.warn(` 🎮 [orb-audio] [play] [failed] key=${key}`, error);
     }
@@ -165,6 +171,19 @@ export class OrbAudio {
     } catch (error) {
       console.warn(` 🎮 [orb-audio] [loop] [failed] key=${key}`, error);
     }
+  }
+
+  /** Stop the announcer's voice now (its clips and the device voice); music and effects keep playing. */
+  stopVoice(): void {
+    this.voiceSources.forEach((source) => {
+      try {
+        source.stop();
+      } catch {
+        // already stopped
+      }
+    });
+    this.voiceSources.clear();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
   }
 
   /** Music dips while a line is spoken, like the Fable game. */

@@ -28,6 +28,7 @@ function fakeAudio(msToNextBeat = 200) {
     duck: (on) => ducks.push(on),
     msToNextBeat: () => msToNextBeat,
     say: (text) => spoken.push({ text, at: Date.now() }),
+    stopVoice: () => undefined,
   };
   return { audio, played, ducks, spoken };
 }

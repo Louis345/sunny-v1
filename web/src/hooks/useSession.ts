@@ -38,6 +38,7 @@ import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
 import { createPlaybackWatchdog } from "../utils/playbackWatchdog";
 import { createActionOutbox } from "../utils/actionOutbox";
 import { MIC_FRAME_SAMPLES, framesFor } from "../utils/micFrames";
+import { voiceFloor } from "../utils/voiceFloor";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -440,6 +441,7 @@ export function useSession(options?: UseSessionOptions) {
     playbackCanceledRef.current = true;
     audioQueueRef.current = [];
     isPlayingRef.current = false;
+    voiceFloor.companionEnded();
     serverDoneRef.current = false;
     activePlaybackRequestIdRef.current = null;
     completedPlaybackRef.current = false;
@@ -1814,12 +1816,15 @@ export function useSession(options?: UseSessionOptions) {
           void playNextChunkRunnerRef.current().catch(error => console.error(" 🎮 [session-audio] [gap-resume] [failed]", error));
           return;
         }
+        // Her reply is over: the floor is free for the announcer again.
+        voiceFloor.companionEnded();
         finalizePlaybackRef.current();
       }, 150);
       return;
     }
 
     isPlayingRef.current = true;
+    voiceFloor.companionStarted();
     const chunk = audioQueueRef.current.shift()!;
 
     try {
@@ -1884,6 +1889,7 @@ export function useSession(options?: UseSessionOptions) {
       currentSourceRef.current = null;
     }
     isPlayingRef.current = false;
+    voiceFloor.companionEnded();
     if (browserTtsDebounceRef.current) {
       clearTimeout(browserTtsDebounceRef.current);
       browserTtsDebounceRef.current = null;
@@ -1907,6 +1913,7 @@ export function useSession(options?: UseSessionOptions) {
       currentSourceRef.current = null;
     }
     isPlayingRef.current = false;
+    voiceFloor.companionEnded();
     if (browserTtsDebounceRef.current) {
       clearTimeout(browserTtsDebounceRef.current);
       browserTtsDebounceRef.current = null;
