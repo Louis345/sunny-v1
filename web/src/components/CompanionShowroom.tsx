@@ -463,6 +463,16 @@ export function resolveShowroomSpeechGesturePlan(
 
 export const SHOWROOM_CARD_REVEAL_DELAY_MS = 1400;
 
+/**
+ * Whether a swipe, an arrow key or the ◀ ▶ buttons may switch to another companion. Never during a call: switching
+ * tore down Ila's earned call 0.5 s after it started listening (BUGS.md S42, 2026-11-20).
+ */
+export function canSwitchShowroomCompanion(input: {
+  companionCount: number; spotlightOpen: boolean; picking: boolean; callOpen: boolean;
+}): boolean {
+  return input.companionCount > 1 && !input.spotlightOpen && !input.picking && !input.callOpen;
+}
+
 export function shouldRunShowroomSlotLoop(
   slot: SlotName,
   active: boolean,
@@ -6750,9 +6760,15 @@ export function CompanionShowroom({
     return () => window.cancelAnimationFrame(frame);
   }, [current?.id, showroomAvatarSwitching]);
 
+  const switchAllowed = canSwitchShowroomCompanion({
+    companionCount: entries.length, spotlightOpen, picking, callOpen: showroomVideoChatOpen,
+  });
   const cycle = useCallback(
     (direction: -1 | 1) => {
-      if (entries.length <= 1 || spotlightOpen || picking) return;
+      if (!canSwitchShowroomCompanion({ companionCount: entries.length, spotlightOpen, picking, callOpen: showroomVideoChatOpen })) {
+        if (showroomVideoChatOpen) console.log(` 🎮 [companion-showroom] [switch] [blocked] reason=call_open direction=${direction}`);
+        return;
+      }
       stopSpeech();
       resetShowroomTalk();
       setShowroomTalkOpen(false);
@@ -6780,6 +6796,7 @@ export function CompanionShowroom({
       picking,
       resetShowroomTalk,
       selectShowroomCompanionIndex,
+      showroomVideoChatOpen,
       spotlightOpen,
       stopShowroomVideoChatCamera,
       stopSpeech,
@@ -7849,7 +7866,7 @@ export function CompanionShowroom({
         type="button"
         aria-label="Previous companion"
         onClick={() => cycle(-1)}
-        disabled={entries.length <= 1 || spotlightOpen || picking}
+        disabled={!switchAllowed}
         style={showroomArrowButtonStyle(activeTheme, "left")}
       >
         ◀
@@ -7859,7 +7876,7 @@ export function CompanionShowroom({
         type="button"
         aria-label="Next companion"
         onClick={() => cycle(1)}
-        disabled={entries.length <= 1 || spotlightOpen || picking}
+        disabled={!switchAllowed}
         style={showroomArrowButtonStyle(activeTheme, "right")}
       >
         ▶
