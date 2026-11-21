@@ -2,6 +2,7 @@ import WebSocket from "ws";
 import { sanitizeForTTS } from "./session-state";
 import type { VoiceLatencyMark } from "./voiceTurnLatency";
 import { pronounceForTts } from "./ttsPronunciation";
+import { FAST_START_GENERATION_CONFIG, endsSentence } from "./elevenLabsFastStart";
 
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
@@ -194,7 +195,7 @@ export class WsTtsBridge {
       ws.on("open", () => {
         clearTimeout(handshakeDeadline);
         opened = true;
-        console.log("  🔊 TTS model: eleven_flash_v2_5");
+        console.log(` 🎮 [tts] [connect] [open] model=eleven_flash_v2_5 first_chunk_chars=${FAST_START_GENERATION_CONFIG.chunk_length_schedule[0]}`);
         if (this.elevenWs !== ws) {
           ws.close();
           resolve();
@@ -208,6 +209,7 @@ export class WsTtsBridge {
             text: " ",
             voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: this.activeSpeechRate },
             xi_api_key: this.apiKey,
+            generation_config: FAST_START_GENERATION_CONFIG,
             ...(previousText && { previous_text: previousText }),
             ...(locators && {
               pronunciation_dictionary_locators: locators,
@@ -275,6 +277,7 @@ export class WsTtsBridge {
       JSON.stringify({
         text: toSend,
         ...(trigger && { try_trigger_generation: true }),
+        ...(trigger && endsSentence(trimmed) && { flush: true }),
       })
     );
     this.buffer = "";

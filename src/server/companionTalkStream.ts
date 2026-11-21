@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import { sanitizeForTTS } from "./session-state";
 import { pronounceForTts } from "./ttsPronunciation";
+import { FAST_START_GENERATION_CONFIG, endsSentence } from "./elevenLabsFastStart";
 
 /**
  * Streaming leg of the companion talk pipeline: sentence-buffered text goes to
@@ -68,7 +69,7 @@ export const createElevenLabsPcmSpeaker: CreateCompanionTalkSpeaker = ({
     if (!buffer || stopped) return;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const toSend = sanitizeForTTS(normalizeForTTS(buffer)) + " ";
-    ws.send(JSON.stringify({ text: toSend, try_trigger_generation: true }));
+    ws.send(JSON.stringify({ text: toSend, try_trigger_generation: true, ...(endsSentence(toSend.trimEnd()) && { flush: true }) }));
     buffer = "";
     hasFlushed = true;
   };
@@ -92,6 +93,7 @@ export const createElevenLabsPcmSpeaker: CreateCompanionTalkSpeaker = ({
             text: " ",
             voice_settings: { stability: 0.5, similarity_boost: 0.75 },
             xi_api_key: apiKey,
+            generation_config: FAST_START_GENERATION_CONFIG,
           }),
         );
         wsReady = true;
