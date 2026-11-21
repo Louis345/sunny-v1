@@ -61,7 +61,13 @@ export class WsTtsBridge {
 
   beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false, launchToken?: string): void {
     if (this.playbackOwner?.requestId !== requestId) {
-      if (this.playbackOwner || this.wsReady && this.activeSpeechRate !== this.getSpeechRate({itemId,launchToken})) this.stop();
+      // A socket warmed up after the last reply finished has said nothing yet: the new reply keeps it (Reina's 11/21
+      // log showed two opens per turn). One that already carried words belongs to the old reply and is cut off.
+      const warmedForThisReply = this.elevenWs !== null && !this.hasFlushedThisTurn && this.audioChunksThisTurn === 0
+        && this.trackTerminal(this.elevenWs).outcome === undefined;
+      const rateChanged = this.wsReady && this.activeSpeechRate !== this.getSpeechRate({itemId,launchToken});
+      if (rateChanged || (this.playbackOwner && !warmedForThisReply)) this.stop();
+      else if (this.playbackOwner) console.log(` 🎮 [session-audio] [owner] [kept-warm-socket] request=${requestId}`);
       this.audioChunksThisTurn = 0;
       this.audioRatesThisTurn = new Set();
     }

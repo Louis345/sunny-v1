@@ -89,4 +89,29 @@ describe("the companion's voice starts on her first short phrase", () => {
     speaker.sendText("I love that, ");
     expect(messages(0).slice(1).some((message) => message.flush === true)).toBe(false);
   });
+
+  // Reina's 11/21 session log: every reply opened the ElevenLabs socket twice. The end-of-turn prewarm opened one, then
+  // the new reply's owner change stopped it and opened another, about 0.3–0.7 s later. Why logs showed it: two
+  // [tts] [connect] [open] lines per turn. Why the lab missed it: no test followed a prewarm into the next reply.
+  it("homework: the next reply keeps the socket that was warmed up for it", async () => {
+    const bridge = await homeworkBridge();
+    bridge.beginPlayback("companion:session:1");
+    bridge.sendText("First reply.");
+    sockets[0].readyState = 3; // ElevenLabs closed it when that reply finished
+    const warming = bridge.connect(); // the end-of-turn prewarm for her next reply
+    sockets[1].emit("open");
+    await warming;
+    bridge.beginPlayback("companion:session:2");
+    bridge.sendText("Second reply.");
+    expect(sockets).toHaveLength(2);
+    expect(messages(1).some((message) => String(message.text).includes("Second reply"))).toBe(true);
+  });
+
+  it("homework: a reply that already spoke is still cut off when the next one starts", async () => {
+    const bridge = await homeworkBridge();
+    bridge.beginPlayback("companion:session:1");
+    bridge.sendText("Still talking.");
+    bridge.beginPlayback("companion:session:2");
+    expect(messages(0).some((message) => message.type === "clear")).toBe(true);
+  });
 });
