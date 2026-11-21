@@ -3,7 +3,7 @@
 The rule used for every line: **keep** it before the merge if it can break her records, her study time, or what Elli
 tells her is true. **Park** it until after the merge if it is cosmetic, wardrobe, a design idea, or internal tidying
 (owner: "cosmetic bugs found by the kids are fine; never let records or study time break").
-Nothing here is decided until the owner marks it.
+Nothing here is decided until the owner marks it. **Superseded 2026-11-21 by `ship-59.md`.**
 
 ## The checklists we have
 
@@ -40,8 +40,8 @@ With those three changes, today's session would score 12 of 15 = 80%: a pass. Th
 
 | # | What | Why keep |
 |---|---|---|
-| S42 High | FaceTime cut off right after hello; cause unknown | The call is her earned reward; we can't tell why it ended. Minimum: log what ended each call, and no end in the first 10 s |
-| S47 High | Elli made up a cause ("your parent's been told") | What Elli tells her must be true (must-never N3) |
+| S42 High | FaceTime cut off right after hello; cause unknown (11/21: cause logging shipped 82c42024; see ship-59.md A4) | The call is her earned reward; we can't tell why it ended. Minimum: log what ended each call, and no end in the first 10 s |
+| S47 High | Elli made up a cause ("your parent's been told") (11/21: fixed 5dbbb256, Saori proof in ship-59.md B) | What Elli tells her must be true (must-never N3) |
 | S40 + S41 | Banner covers the rule sign she needs; portrait covers a game button | She needs the rule to answer: one rule, nothing covers a game piece, with a layout test |
 | E11 | The 11/6 graded tests were never entered | Needs your photos; graded tests are a merge condition |
 
