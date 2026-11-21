@@ -1,5 +1,8 @@
 import { motion } from "framer-motion";
 
+/** Where the level card ends (16 px from the top plus its ~72 px height), so badges below it never cover it. */
+export const LEVEL_CARD_BOTTOM_PX = 88;
+
 export function XPBar({
   level,
   xp,

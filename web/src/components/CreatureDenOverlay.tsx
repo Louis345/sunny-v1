@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { DenState } from "../../../src/shared/creatureDenRules";
 import { CreatureDen } from "./CreatureDen";
 import { fetchCreatures, sendDenAction } from "../utils/creatureApi";
+import { LEVEL_CARD_BOTTOM_PX } from "./XPBar";
 
 /** The Den button on her map (owner, 2026-11-08): shown once she has caught a creature. */
 export function DenButton({ creatureCount, onOpen }: { creatureCount: number; onOpen: () => void }) {
@@ -11,7 +12,8 @@ export function DenButton({ creatureCount, onOpen }: { creatureCount: number; on
       type="button"
       data-testid="den-button"
       onClick={onOpen}
-      className="fixed left-4 top-3 z-40 rounded-full bg-black/60 px-4 py-2 text-sm font-black text-white shadow-lg"
+      className="fixed left-4 z-40 rounded-full bg-black/60 px-4 py-2 text-sm font-black text-white shadow-lg"
+      style={{ top: LEVEL_CARD_BOTTOM_PX + 10 }}
     >
       <span aria-hidden="true">🌳 </span>
       {`Den · ${creatureCount}`}
