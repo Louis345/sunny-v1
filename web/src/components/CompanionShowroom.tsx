@@ -49,6 +49,7 @@ import {
   detectCompanionVideoCallLoop,
   emitCompanionVideoCallTrace,
   speechDroppedWhileBusy,
+  callEndPayload,
 } from "../utils/companionVideoCallTrace";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 import { applyPreparedAccessoryFit, applyReferenceAccessoryFit, retainIntrinsicAccessories } from "../lib/wardrobeAccessoryFit";
@@ -5944,6 +5945,8 @@ export function CompanionShowroom({
 
   /** Whether the companion already smiled at her voice this turn; reset when her words are answered. */
   const reactedToHerVoiceRef = useRef(false);
+  /** When the open call started, so its end can say how long it lasted (S42). */
+  const callStartedAtRef = useRef<number | null>(null);
   const handleDeepgramVideoCallFinalTranscript = useCallback(
     (text: string) => {
       if (!showroomVideoChatOpen || !current) return;
@@ -6336,6 +6339,7 @@ export function CompanionShowroom({
     console.log(
       ` 🎮 [showroom-video-chat] started child=${event.childId} companion=${event.companionId} room=${event.showroomTheme}`,
     );
+    callStartedAtRef.current = Date.now();
     void emitCompanionVideoCallTrace({
       traceId,
       eventName: "call_started",
@@ -6426,12 +6430,16 @@ export function CompanionShowroom({
       talkChildId,
 	  ]);
 
-  const closeShowroomVideoChat = useCallback(() => {
+  const closeShowroomVideoChat = useCallback((cause = "unnamed") => {
+    const ended = callEndPayload(cause, callStartedAtRef.current, Date.now());
+    console.log(` 🎮 [showroom-video-chat] [call-ended] cause=${ended.cause} secondsIn=${ended.secondsIn ?? "unknown"}${ended.early ? " early=true" : ""}`);
+    callStartedAtRef.current = null;
     emitShowroomVideoCallTrace({
       eventName: "call_ended",
       payload: {
         cameraState: showroomVideoChatCameraState,
         phase: showroomVideoCallPhase,
+        ...ended,
       },
     });
     clearTimers();
@@ -6567,11 +6575,11 @@ export function CompanionShowroom({
   }, [companionRecognition, current]);
 
   const closeShowroomVideoChatNow = closeShowroomVideoChat;
-  const endShowroomVideoChatWithFarewell = useCallback(() => {
+  const endShowroomVideoChatWithFarewell = useCallback((cause: string) => {
     // An earned call always ends on her own map, however it ends (BUGS.md 2026-11-07).
     const earnedChildId = earnedCallWallet?.childId;
     const closeShowroomVideoChat = () => {
-      closeShowroomVideoChatNow();
+      closeShowroomVideoChatNow(cause);
       if (!earnedChildId) return;
       console.log(` 🎮 [call-clock] [return-to-map] child=${earnedChildId}`);
       window.location.assign(`/?child=${encodeURIComponent(earnedChildId)}`);
@@ -6693,7 +6701,7 @@ export function CompanionShowroom({
     setWardrobeShoppingContext(null);
     wardrobeShoppingContextRef.current = null;
     if (shouldEndShoppingCall) {
-      closeShowroomVideoChat();
+      closeShowroomVideoChat("wardrobe_store_closed");
     } else {
       videoChatContinuousListenRef.current = true;
       scheduleVideoChatHandsFreeRearm("wardrobe_store_closed");
@@ -8167,7 +8175,7 @@ export function CompanionShowroom({
 	          }}
 	          onGoodbye={() => {
 	            console.log(` 🎮 [call-clock] [goodbye] child=${talkChildId}`);
-	            endShowroomVideoChatWithFarewell();
+	            endShowroomVideoChatWithFarewell("call_clock_goodbye");
 	          }}
 	        />
 	      )}
@@ -8279,7 +8287,7 @@ export function CompanionShowroom({
 	          void startShowroomVideoChatCamera();
 	        }}
 	        onStopCamera={stopShowroomVideoChatCamera}
-	        onEnd={endShowroomVideoChatWithFarewell}
+	        onEnd={() => endShowroomVideoChatWithFarewell("hang_up_button")}
 	      />
 
 	      <AnimatePresence>

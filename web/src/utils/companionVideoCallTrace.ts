@@ -293,3 +293,9 @@ export function speechDroppedWhileBusy(phase: string, text: string): { eventName
   if (!transcript || (phase !== "thinking" && phase !== "speaking")) return null;
   return { eventName: "speech_dropped_while_busy", payload: { phase, transcript, chars: transcript.length } };
 }
+
+/** Why a call ended and how long it lasted; an end in the first 10 seconds is early (BUGS.md S42). */
+export function callEndPayload(cause: string, startedAt: number | null, now: number): { cause: string; secondsIn: number | null; early: boolean } {
+  const secondsIn = startedAt === null ? null : Math.round((now - startedAt) / 1000);
+  return { cause, secondsIn, early: secondsIn !== null && secondsIn < 10 };
+}
