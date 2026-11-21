@@ -40,7 +40,8 @@ export type CompanionVideoCallTraceEventName =
   | "wardrobe_store_exited"
   | "companion_tool_rejected"
   | "shopping_speech_retry"
-  | "shopping_speech_guard_failed";
+  | "shopping_speech_guard_failed"
+  | "speech_dropped_while_busy";
 
 export type CompanionVideoCallTraceInput = {
   traceId: string;
@@ -284,4 +285,11 @@ export async function emitCompanionVideoCallTrace(input: CompanionVideoCallTrace
       body: JSON.stringify(event),
     },
   );
+}
+
+/** Her words that arrived while the companion was thinking or speaking, as a trace event, so they are never lost silently. */
+export function speechDroppedWhileBusy(phase: string, text: string): { eventName: "speech_dropped_while_busy"; payload: { phase: string; transcript: string; chars: number } } | null {
+  const transcript = text.trim();
+  if (!transcript || (phase !== "thinking" && phase !== "speaking")) return null;
+  return { eventName: "speech_dropped_while_busy", payload: { phase, transcript, chars: transcript.length } };
 }

@@ -48,6 +48,7 @@ import {
   createCompanionVideoCallTurnId,
   detectCompanionVideoCallLoop,
   emitCompanionVideoCallTrace,
+  speechDroppedWhileBusy,
 } from "../utils/companionVideoCallTrace";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 import { applyPreparedAccessoryFit, applyReferenceAccessoryFit, retainIntrinsicAccessories } from "../lib/wardrobeAccessoryFit";
@@ -5939,7 +5940,15 @@ export function CompanionShowroom({
     (text: string) => {
       if (!showroomVideoChatOpen || !current) return;
       const transcript = text.trim();
-      if (!transcript || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) return;
+      if (!transcript) return;
+      if (shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
+        const dropped = speechDroppedWhileBusy(showroomTalkPhaseRef.current, transcript);
+        if (dropped) {
+          console.log(` 🎮 [showroom-video-chat] [speech] [dropped-while-busy] phase=${dropped.payload.phase} chars=${dropped.payload.chars}`);
+          emitShowroomVideoCallTrace({ ...dropped, turnId: currentVideoCallTurnIdRef.current ?? undefined });
+        }
+        return;
+      }
       const traceTurnId = nextShowroomVideoTurnId();
       currentVideoCallTurnIdRef.current = traceTurnId ?? null;
       const loop = detectCompanionVideoCallLoop({
