@@ -403,6 +403,7 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
   "companion_tool_rejected",
   "shopping_speech_retry",
   "shopping_speech_guard_failed",
+  "speech_dropped_while_busy",
 ]);
 
 function isValidChild(name: string): name is ChildName {

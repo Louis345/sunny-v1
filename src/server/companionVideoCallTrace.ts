@@ -49,7 +49,8 @@ export type CompanionVideoCallTraceEventName =
   | "wardrobe_store_exited"
   | "companion_tool_rejected"
   | "shopping_speech_retry"
-  | "shopping_speech_guard_failed";
+  | "shopping_speech_guard_failed"
+  | "speech_dropped_while_busy";
 
 export type CompanionVideoCallLikelyCause =
   | "none"
