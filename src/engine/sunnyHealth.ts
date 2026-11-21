@@ -103,11 +103,12 @@ const FRESH_PROBLEM_MS = 12 * 3_600_000;
 export function sunnyHealthFacts(childId: string, opts: Opts & { now?: Date } = {}): string {
   const now = (opts.now ?? new Date()).getTime();
   const fresh = (at: string) => now - Date.parse(at) <= FRESH_PROBLEM_MS;
-  const homeworkId = (() => {
+  const allHeld = readJson<Held[]>(heldFile(childId, opts), []);
+  // Read her chart only when something is held, so a normal turn keeps its single chart snapshot.
+  const homeworkId = allHeld.length === 0 ? undefined : (() => {
     try { return (getChildChart(childId, { rootDir: opts.rootDir }).learningCycle ?? getLatestLearningCycle(childId, { rootDir: opts.rootDir }))?.homeworkId; }
     catch { return undefined; }
   })();
-  const allHeld = readJson<Held[]>(heldFile(childId, opts), []);
   const held = allHeld.filter(row => fresh(row.heldAt) && (!homeworkId || row.homeworkId === homeworkId));
   const problems = readJson<Problem[]>(problemsFile(childId, opts), [])
     .filter(row => row.kind === "seal" || (held.length > 0 && fresh(row.at)));
