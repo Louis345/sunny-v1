@@ -5,6 +5,7 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 import { assertPublishedBoardsImmutable } from "./learningBoardInstances";
 import { getLatestLearningCycle, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 import { recordCanonicalNodeCompletion } from "./learningCycleRuntime";
+import { schoolTestFacts } from "./schoolTestObjective";
 
 /**
  * Sunny's own health (2026-11-10, Reina's test morning: 37 answers refused and lost, nobody told). Sunny checks that
@@ -28,15 +29,18 @@ function setProblem(childId: string, kind: Problem["kind"], text: string | undef
 }
 
 /** Before she sits down: every published board of her current homework must still match its seal. */
-export function runStartupCheck(childIds: string[], opts: Opts = {}): Array<{ childId: string; ok: boolean; boards: number; problem?: string }> {
+export function runStartupCheck(childIds: string[], opts: Opts = {}): Array<{ childId: string; ok: boolean; boards: number; testDate?: string | null; problem?: string }> {
   return childIds.map(childId => {
     try {
-      const cycle = getChildChart(childId, { rootDir: opts.rootDir }).learningCycle ?? getLatestLearningCycle(childId, { rootDir: opts.rootDir });
+      const chart = getChildChart(childId, { rootDir: opts.rootDir });
+      const cycle = chart.learningCycle ?? getLatestLearningCycle(childId, { rootDir: opts.rootDir });
       if (!cycle) { console.log(` 🎮 [startup-check] [passed] child=${childId} boards=0 reason=no_current_homework`); return { childId, ok: true, boards: 0 }; }
       assertPublishedBoardsImmutable(cycle, cycle);
       setProblem(childId, "seal", undefined, opts);
-      console.log(` 🎮 [startup-check] [passed] child=${childId} homework=${cycle.homeworkId} boards=${cycle.boards?.length ?? 0}`);
-      return { childId, ok: true, boards: cycle.boards?.length ?? 0 };
+      // The school test date she is practising toward, so a missing one shows on every start (owner, 2026-11-21).
+      const testDate = schoolTestFacts(chart.homework, cycle.homeworkId)?.testDate ?? null;
+      console.log(` 🎮 [startup-check] [passed] child=${childId} homework=${cycle.homeworkId} boards=${cycle.boards?.length ?? 0} test-date=${testDate ?? "unknown"}`);
+      return { childId, ok: true, boards: cycle.boards?.length ?? 0, testDate };
     } catch (error) {
       const problem = error instanceof Error ? error.message : String(error);
       setProblem(childId, "seal", `her saved record no longer matches its seal (${problem})`, opts);

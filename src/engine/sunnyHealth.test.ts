@@ -99,3 +99,21 @@ it("reseals boards after an approved repair, records why, and lets her answers s
   expect(log).toContain("owner-approved sweater table repair");
   expect(sunnyHealthFacts(f.childId, { rootDir: f.rootDir })).toBe("");
 });
+
+// Owner, 2026-11-21: Reina's new math board looked like it had no test date (a display copy was empty) and the owner
+// asked for a guard so a missing date is never found by accident. The start check names each child's school test date,
+// or says it is unknown, on every start and deploy.
+it("names her school test date at start-up, or says it is unknown", async () => {
+  const f = fixture();
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  expect(runStartupCheck([f.childId], { rootDir: f.rootDir })[0]).toMatchObject({ ok: true, testDate: null });
+  expect(log.mock.calls.flat().join("\n")).toContain("test-date=unknown");
+  const { resolveChildContextDir } = await import("../utils/contextRoot");
+  const file = path.join(resolveChildContextDir(f.childId, { rootDir: f.rootDir }), "homework", "current.json");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ activeByDomain: { spelling: { homeworkId: f.homeworkId, testDate: "2026-11-30" } } }));
+  log.mockClear();
+  expect(runStartupCheck([f.childId], { rootDir: f.rootDir })[0]).toMatchObject({ ok: true, testDate: "2026-11-30" });
+  expect(log.mock.calls.flat().join("\n")).toContain("test-date=2026-11-30");
+  log.mockRestore();
+});
