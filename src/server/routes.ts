@@ -252,6 +252,7 @@ import {
 import {
   buildShowroomClaudeMessages,
   buildShowroomTalkSystemPrompt,
+  cacheableShowroomSystem,
   createShowroomCompanionActivityRequest,
   createShowroomCompanionActCommand,
   createShowroomTalkCompletedEvent,
@@ -2837,6 +2838,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       };
 
       const latencySpans: {
+        contextMs?: number;
         claudeMs?: number;
         toolFollowupMs?: number;
         ttsMs?: number;
@@ -2897,6 +2899,13 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         speaker?.stop();
       });
 
+      // Open the voice socket first, while her facts are read and Claude thinks.
+      const speakerReady = speaker
+        ? speaker.connect().catch((err: unknown) => {
+            console.warn(" 🔴 [companion-talk-stream] tts_prewarm_failed", err);
+          })
+        : Promise.resolve();
+
       try {
         const showroomPersonality = readShowroomPersonality(
           companion.id,
@@ -2942,10 +2951,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ...getShowroomRelationshipTools(),
           ...getShowroomSelfLookTools({ mode: talk.mode, visualSnapshot: talk.visualSnapshot }),
         ];
-        // Static per call; caching cuts time-to-first-token on later turns.
-        const cachedSystem: Anthropic.TextBlockParam[] = [
-          { type: "text", text: system, cache_control: { type: "ephemeral" } },
-        ];
+        // The stable part is cached (tools + persona/rules); this turn's facts follow uncached.
+        const cachedSystem = cacheableShowroomSystem(system);
         const talkModel = talk.activityReaction
           ? process.env.SUNNY_COMPANION_GAME_MODEL || GAME_GRADE_HAIKU_MODEL
           : COMPANION_TALK_SONNET_MODEL;
@@ -2958,14 +2965,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ttsEnabled,
         });
 
-        // Prewarm the TTS socket while Claude thinks.
-        const speakerReady = speaker
-          ? speaker.connect().catch((err: unknown) => {
-              console.warn(" 🔴 [companion-talk-stream] tts_prewarm_failed", err);
-            })
-          : Promise.resolve();
-
         const claudeStartedAt = Date.now();
+        latencySpans.contextMs = claudeStartedAt - talkTraceStartedAt;
         let firstTokenAt: number | undefined;
         let streamedText = "";
         const messageStream = client.messages.stream({
@@ -2999,6 +3000,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
 
         const msg = await messageStream.finalMessage();
         latencySpans.claudeMs = Date.now() - claudeStartedAt;
+        const usage = msg.usage;
+        console.log(` 🎮 [companion-talk-stream] [prompt-cache] [${(usage?.cache_read_input_tokens ?? 0) > 0 ? "hit" : "miss"}] model=${talkModel} read=${usage?.cache_read_input_tokens ?? 0} created=${usage?.cache_creation_input_tokens ?? 0} input=${usage?.input_tokens ?? 0} contextMs=${latencySpans.contextMs} firstTokenMs=${latencySpans.firstTokenMs ?? "none"}`);
         await speakerReady;
 
         const companionActToolUseBlocks = msg.content

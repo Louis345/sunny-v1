@@ -1,3 +1,4 @@
+import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { readCompanionBaseSection } from "../companions/loader";
 import { sideTalkAnthropicTool } from "./companionSideTalk";
@@ -935,6 +936,28 @@ export function resolveShowroomTalkRequest(
   };
 }
 
+/** The last line of the part of the call prompt that stays the same all call: Claude caches everything up to it. */
+const STABLE_PROMPT_END = "The message text must contain only the words spoken aloud; no stage directions, labels, or commentary.";
+
+/**
+ * The call prompt as two system blocks: the part that stays the same all call (persona, rules), cached, then this
+ * turn's facts (intent, clock, memory, what she showed), not cached. One changing line used to void the whole cache
+ * (owner, 2026-11-21: FaceTime replies took 1.3–2.0 s to start).
+ */
+export function cacheableShowroomSystem(system: string): Anthropic.TextBlockParam[] {
+  const end = system.indexOf(STABLE_PROMPT_END);
+  if (end < 0) {
+    console.warn(" 🎮 [companion-talk-stream] [prompt-cache] [no-split] stable end line missing; caching whole prompt");
+    return [{ type: "text", text: system, cache_control: { type: "ephemeral" } }];
+  }
+  const cut = end + STABLE_PROMPT_END.length;
+  const turn = system.slice(cut).trim();
+  return [
+    { type: "text", text: system.slice(0, cut), cache_control: { type: "ephemeral" } },
+    ...(turn ? [{ type: "text" as const, text: turn }] : []),
+  ];
+}
+
 export function buildShowroomTalkSystemPrompt(input: {
   companionId: string;
   companionName: string;
@@ -985,7 +1008,7 @@ export function buildShowroomTalkSystemPrompt(input: {
     "Always answer in one response: first write the words you say aloud as plain message text, then call companionAct for the matching gesture in that same response. Never wait for tool results before speaking.",
     "Never send a tool-only response when the child asked you something or a spoken line is expected; the spoken text comes first, the tool call comes second.",
     "Only leave the message text empty when the child is quietly working and silence is genuinely better.",
-    "The message text must contain only the words spoken aloud; no stage directions, labels, or commentary.",
+    STABLE_PROMPT_END,
   ];
   if (input.conversationIntent) {
     lines.push(`Conversation intent: ${input.conversationIntent}.`);
