@@ -152,7 +152,7 @@ export function playSynth(label: string, run: (context: AudioContext, out: Audio
 /** One recorded sound file at the sensory sheet's volume; false when silent or unavailable. */
 export function playSfxFile(
   src: string,
-  options: { label: string; volume?: number; rate?: number; sensory?: SensoryProfile },
+  options: { label: string; volume?: number; rate?: number; sensory?: SensoryProfile; onEnded?: () => void },
 ): boolean {
   const sheet = options.sensory ?? sensory;
   if (!soundOn(sheet) || typeof Audio === "undefined") return false;
@@ -161,9 +161,16 @@ export function playSfxFile(
     const softness = sheet.soundBrightness === "soft" ? 0.8 : 1;
     audio.volume = Math.max(0, Math.min(1, (options.volume ?? 0.85) * sheet.soundVolume * softness));
     audio.playbackRate = options.rate ?? 1;
+    if (options.onEnded) {
+      audio.onended = options.onEnded;
+      audio.onerror = options.onEnded;
+    }
     const result = audio.play();
     if (result && typeof result.catch === "function") {
-      void result.catch((error: unknown) => console.warn(" 🎮 [sfx] [file] [blocked]", { label: options.label, src, error }));
+      void result.catch((error: unknown) => {
+        console.warn(" 🎮 [sfx] [file] [blocked]", { label: options.label, src, error });
+        options.onEnded?.();
+      });
     }
     return true;
   } catch (error) {

@@ -5,6 +5,7 @@ import {
   creatureStateOf,
   denStateOf,
   dismissPlanSidekick,
+  giveBirthdayGift,
   feedPlanCreature,
   recallPlanSidekick,
   recordBoardFinishedForCreatures,
@@ -16,10 +17,11 @@ import {
 import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import { getChildChart } from "../profiles/childChart";
 import { mirrorCompanionCareToLearningProfile, saveCompanionCarePlan } from "../profiles/companionCarePlan";
-import type { CompanionCarePlan, PendingCreatureEncounter } from "../shared/companionCareTypes";
+import type { CompanionCarePlan, GiftQuestion, PendingCreatureEncounter } from "../shared/companionCareTypes";
 import type { DenFoodId } from "../shared/creatureDenRules";
 import type { CreatureScene } from "../shared/creatureEncounters";
 import { kioskSkyClockInput, seasonOf, skyMoodForTime } from "../shared/skyClock";
+import { familyDay } from "../utils/familyCalendar";
 
 /**
  * Her creatures on the server (owner, 2026-11-08). The companion plan is the one place they are saved;
@@ -88,6 +90,62 @@ export function awardCreatureEncounterOnCompletion(
     return found ?? undefined;
   } catch (error) {
     console.error(` 🎮 [learning-cycle-route] [creature-encounter] [deferred] ${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  }
+}
+
+const GIFT_QUESTION_LIMIT = 6;
+
+/** The finished stop's own questions, ready to ask again in the orb game: words to spell, or problems with one answer. */
+function giftQuestionsFor(node: LearningCycleRecordV2["nodes"][number]): GiftQuestion[] {
+  const contract = node.evidenceContract ?? ({} as Partial<LearningCycleRecordV2["nodes"][number]["evidenceContract"]>);
+  const words: GiftQuestion[] = Object.values(contract.spellingItems ?? {})
+    .filter((item) => item.word)
+    .map((item) => ({ id: item.id, kind: "spelling", prompt: item.word, answer: item.word }));
+  const problems: GiftQuestion[] = Object.values(contract.itemContracts ?? {}).flatMap((item): GiftQuestion[] => {
+    if (item.response.mode === "numeric") return [{ id: item.id, kind: "math", prompt: item.prompt, answer: String(item.response.expected) }];
+    if (item.response.mode === "selection") {
+      const right = item.response.options.find((option) => option.correct);
+      return right ? [{ id: item.id, kind: "math", prompt: item.prompt, answer: right.label, choices: item.response.options.map((option) => option.label) }] : [];
+    }
+    return [];
+  });
+  return [...words, ...problems].slice(0, GIFT_QUESTION_LIMIT);
+}
+
+/**
+ * Her birthday gift (owner, 2026-11-21): on her birthday, the first stop she finishes opens Orb Catcher with that
+ * stop's questions and a Starwhal to catch, once. A stop where the Planner placed its own creature keeps that one.
+ */
+export function awardBirthdayGiftOnCompletion(
+  cycle: LearningCycleRecordV2,
+  nodeId: string,
+  opts: { now?: Date; birthDate?: string } = {},
+): PendingCreatureEncounter | undefined {
+  try {
+    const node = cycle.nodes.find((row) => row.nodeId === nodeId);
+    if (!node || node.state !== "completed" || node.creatureEncounter) return undefined;
+    const now = opts.now ?? new Date();
+    const birthDate = "birthDate" in opts ? opts.birthDate : getChildChart(cycle.childId).demographics?.birthDate;
+    const today = familyDay(now);
+    if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || today.slice(5) !== birthDate.slice(5)) return undefined;
+    let encounter: PendingCreatureEncounter | null = null;
+    save(cycle.childId, (plan) => {
+      const given = giveBirthdayGift(plan, {
+        year: Number(today.slice(0, 4)),
+        boardId: boardIdFor(cycle, nodeId),
+        stopId: nodeId,
+        questions: giftQuestionsFor(node),
+        nowIso: now.toISOString(),
+      });
+      encounter = given.encounter;
+      return given.plan;
+    });
+    const found = encounter as PendingCreatureEncounter | null;
+    console.log(` 🎮 [learning-cycle-route] [birthday-gift] [${found ? "given" : "already-played"}] child=${cycle.childId} node=${nodeId}`);
+    return found ?? undefined;
+  } catch (error) {
+    console.error(` 🎮 [learning-cycle-route] [birthday-gift] [deferred] ${error instanceof Error ? error.message : String(error)}`);
     return undefined;
   }
 }

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import "./CreatureEncounter.css";
 import { CREATURE_CATALOG } from "../../../src/shared/capturedMonsterCatalog";
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
+import { BirthdayOrbGift } from "./BirthdayOrbGift";
 import { CreatureEncounterReveal } from "./CreatureEncounterReveal";
+import type { GiftQuestion } from "../../../src/shared/companionCareTypes";
 import { SparkOrbLearningShell } from "./SparkOrbLearningShell";
 import { resolveCreatureEncounter } from "../utils/creatureApi";
 
@@ -123,7 +125,7 @@ export function ChestThenCreature({
   onFinish,
 }: {
   renderChest: ((collect: () => void) => ReactNode) | null;
-  encounter: { encounterId: string; creatureId: string; charges: number; isNew: boolean } | null;
+  encounter: { encounterId: string; creatureId: string; charges: number; isNew: boolean; gift?: "birthday"; questions?: GiftQuestion[] } | null;
   childId: string;
   companion: CompanionConfig | null;
   onFinish: () => void;
@@ -136,6 +138,7 @@ export function ChestThenCreature({
   if (!chestDone && renderChest) {
     return <>{renderChest(() => (creatureReady ? setChestDone(true) : onFinish()))}</>;
   }
+  if (creatureReady && encounter!.gift === "birthday") return <BirthdayOrbGift childId={childId} encounter={encounter!} companion={companion!} onDone={onFinish} />;
   if (creatureReady) return <LiveCreatureEncounter childId={childId} encounter={encounter!} companion={companion!} onDone={onFinish} />;
   return null;
 }

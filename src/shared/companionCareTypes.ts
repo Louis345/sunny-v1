@@ -116,6 +116,18 @@ export interface PendingCreatureEncounter {
   isNew: boolean;
   reason: string;
   rolledAt: string;
+  /** A one-time gift (owner, 2026-11-21: her birthday), not a Planner-placed board reward. */
+  gift?: "birthday";
+  /** Gift only: the questions of the stop she just finished, asked again to load the orbs (practice, never evidence). */
+  questions?: GiftQuestion[];
+}
+
+export interface GiftQuestion {
+  id: string;
+  kind: "spelling" | "math";
+  prompt: string;
+  answer: string;
+  choices?: string[];
 }
 
 /**

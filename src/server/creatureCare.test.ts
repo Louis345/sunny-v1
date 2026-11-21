@@ -1,6 +1,6 @@
 import express from "express";
 import type { AddressInfo } from "node:net";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createStarterCompanionCarePlan } from "../engine/companionCareEngine";
 import { creatureHistoryOf, denStateOf } from "../engine/creatureCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
@@ -17,7 +17,7 @@ vi.mock("../profiles/companionCarePlan", () => ({
   mirrorCompanionCareToLearningProfile: vi.fn(),
   loadCompanionCarePlanForChart: vi.fn(),
 }));
-import { awardCreatureEncounterOnCompletion, countBoardForCreatures } from "./creatureCare";
+import { awardBirthdayGiftOnCompletion, awardCreatureEncounterOnCompletion, countBoardForCreatures } from "./creatureCare";
 import { setupRoutes } from "./routes";
 
 const servers: ReturnType<ReturnType<typeof express>["listen"]>[] = [];
@@ -129,5 +129,71 @@ describe("creature routes", () => {
     expect((await call("POST", "/api/creatures/den", { childId: "demo-pashley", action: "sell" })).status).toBe(400);
     expect((await call("POST", "/api/creatures/den", { childId: "demo-pashley", action: "feed", creatureId: "lumipuff", foodId: "gold_bar" })).status).toBe(400);
     expect(saved).toHaveLength(0);
+  });
+});
+
+describe("birthday gift: Orb Catcher with the words she just practiced (owner, 2026-11-21)", () => {
+  const BIRTHDAY = new Date("2026-11-21T15:00:00Z");
+  const spellingStop = (marked = false) =>
+    ({
+      childId: "demo-pashley",
+      homeworkId: "hw",
+      nodes: [{
+        nodeId: "hw:n1", role: "baseline", state: "completed",
+        ...(marked ? { creatureEncounter: { reason: "near secure" } } : {}),
+        evidenceContract: { spellingItems: {
+          a: { domain: "spelling", id: "a", wordId: "w1", word: "carnival" },
+          b: { domain: "spelling", id: "b", wordId: "w2", word: "pardon" },
+        } },
+      }],
+    }) as never;
+  const mathStop = () =>
+    ({
+      childId: "demo-pashley",
+      homeworkId: "hw",
+      nodes: [{
+        nodeId: "hw:n1", role: "baseline", state: "completed",
+        evidenceContract: { itemContracts: {
+          m1: { id: "m1", prompt: "Half of $8?", response: { mode: "numeric", expected: 4, unit: "$" } },
+          m2: { id: "m2", prompt: "Which is half of 10?", response: { mode: "selection", options: [{ id: "x", label: "5", correct: true }, { id: "y", label: "2", correct: false }] } },
+          m3: { id: "m3", prompt: "Explain why", response: { mode: "explanation", rubric: ["r"] } },
+        } },
+      }],
+    }) as never;
+  const opts = { now: BIRTHDAY, birthDate: "2017-11-21" };
+  beforeEach(() => vi.stubEnv("SUNNY_FAMILY_TIME_ZONE", "America/New_York"));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("on her birthday, the stop she finishes opens a gift: a Starwhal and her own words to load the orbs", () => {
+    const gift = awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", opts);
+    expect(gift).toMatchObject({ encounterId: "birthday:2026", creatureId: "starwhal", gift: "birthday" });
+    expect(gift?.questions).toEqual([
+      { id: "a", kind: "spelling", prompt: "carnival", answer: "carnival" },
+      { id: "b", kind: "spelling", prompt: "pardon", answer: "pardon" },
+    ]);
+    expect(creatureHistoryOf(saved.at(-1)!).seenIds).toContain("starwhal");
+  });
+
+  it("only once: it waits until she plays it, and never comes back after", async () => {
+    const first = awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", opts);
+    expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", opts)).toEqual(first);
+    const done = await call("POST", "/api/creatures/encounter", { childId: "demo-pashley", encounterId: "birthday:2026", outcome: "caught" });
+    expect(done.body).toEqual({ ok: true, duplicate: false });
+    expect(denStateOf(saved.at(-1)!).creatures.map((creature) => creature.creatureId)).toContain("starwhal");
+    expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", opts)).toBeUndefined();
+  });
+
+  it("no gift on any other day, without a birthday on file, or where the Planner placed its own creature", () => {
+    expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", { ...opts, now: new Date("2026-11-22T15:00:00Z") })).toBeUndefined();
+    expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", { ...opts, birthDate: undefined })).toBeUndefined();
+    expect(awardBirthdayGiftOnCompletion(spellingStop(true), "hw:n1", opts)).toBeUndefined();
+    expect(saved).toHaveLength(0);
+  });
+
+  it("a math stop gives its own problems: a number answer, or the choices she saw", () => {
+    expect(awardBirthdayGiftOnCompletion(mathStop(), "hw:n1", opts)?.questions).toEqual([
+      { id: "m1", kind: "math", prompt: "Half of $8?", answer: "4" },
+      { id: "m2", kind: "math", prompt: "Which is half of 10?", answer: "5", choices: ["5", "2"] },
+    ]);
   });
 });

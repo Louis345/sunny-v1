@@ -15,7 +15,7 @@ import {
   type CreatureEncounterHistory,
   type CreatureScene,
 } from "../shared/creatureEncounters";
-import type { CompanionCarePlan, CreaturePlanState, PendingCreatureEncounter } from "../shared/companionCareTypes";
+import type { CompanionCarePlan, CreaturePlanState, GiftQuestion, PendingCreatureEncounter } from "../shared/companionCareTypes";
 
 /**
  * Her creatures inside the companion plan (owner, 2026-11-08): the one place the den, what she has seen,
@@ -173,6 +173,39 @@ export function rollPlacedCreatureEncounter(
       },
       input.nowIso,
     ),
+  };
+}
+
+/**
+ * Her birthday gift (owner, 2026-11-21): once a year, a Starwhal waits behind the stop she just finished, and the
+ * orbs load from that stop's own questions. A gift, not a board reward: the Planner places board encounters.
+ */
+export function giveBirthdayGift(
+  plan: CompanionCarePlan,
+  input: { year: number; boardId: string; stopId: string; questions: GiftQuestion[]; nowIso: string },
+): { plan: CompanionCarePlan; encounter: PendingCreatureEncounter | null } {
+  const state = creatureStateOf(plan);
+  const encounterId = `birthday:${input.year}`;
+  const prior = state.pending.find((entry) => entry.encounterId === encounterId);
+  if (prior) return { plan, encounter: { ...prior } };
+  if (state.resolvedEncounterIds.includes(encounterId)) return { plan, encounter: null };
+  const creatureId = "starwhal";
+  const encounter: PendingCreatureEncounter = {
+    encounterId,
+    boardId: input.boardId,
+    stopId: input.stopId,
+    creatureId,
+    charges: Math.max(3, input.questions.length),
+    isNew: !state.den.creatures.some((creature) => creature.creatureId === creatureId),
+    reason: "birthday_gift",
+    rolledAt: input.nowIso,
+    gift: "birthday",
+    questions: input.questions,
+  };
+  console.log(` 🎮 [creature-care] [birthday-gift] [given] year=${input.year} stop=${input.stopId} questions=${input.questions.length}`);
+  return {
+    encounter,
+    plan: withCreatures(plan, { ...state, seenIds: keep(state.seenIds, creatureId), pending: [...state.pending, encounter] }, input.nowIso),
   };
 }
 

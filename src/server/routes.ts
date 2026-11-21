@@ -7,7 +7,7 @@ import { takeCompanionHelpItemIds } from "./companionItemHelp";
 import { retroThenDecide } from "../engine/retroBeforeDecision";
 import { writeSessionHandoff } from "../engine/sessionHandoff";
 import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall } from "./bossDropAward";
-import { awardCreatureEncounterOnCompletion, countBoardForCreatures, registerCreatureRoutes } from "./creatureCare";
+import { awardBirthdayGiftOnCompletion, awardCreatureEncounterOnCompletion, countBoardForCreatures, registerCreatureRoutes } from "./creatureCare";
 import type { CoinOffer } from "../shared/companionCareTypes";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
@@ -1197,7 +1197,10 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const nodeChest = finishedForReward ? awardNodeChestOnCompletion(finalCycle, nodeId) : undefined;
       // A creature appears only where the Planner placed one (owner, 2026-11-08); boards count toward milestones.
       if (becameCompleted && !practiceContinuation && boardFinishedForCall(finalCycle.lifecycle)) countBoardForCreatures(finalCycle, nodeId);
-      const creatureEncounter = finishedForReward ? awardCreatureEncounterOnCompletion(finalCycle, nodeId) : undefined;
+      // Her birthday gift (owner, 2026-11-21): the first stop she finishes on her birthday opens Orb Catcher, once.
+      const creatureEncounter = finishedForReward
+        ? awardCreatureEncounterOnCompletion(finalCycle, nodeId) ?? awardBirthdayGiftOnCompletion(finalCycle, nodeId)
+        : undefined;
       const award = finishedForReward && !nodeChest
         ? reconcileCompanionCareCurrencyAward({
             childId,
