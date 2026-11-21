@@ -1998,6 +1998,12 @@ export function shouldGateShowroomTalkMic(phase: string): boolean {
   return phase === "thinking" || phase === "speaking";
 }
 
+/** A soft smile when she starts talking on a call, once per turn, never while the companion thinks or speaks (owner, 2026-11-21). */
+export function listeningReaction(input: { reactedThisTurn: boolean; phase: string }): { emote: "happy"; intensity: number; durationMs: number } | null {
+  if (input.reactedThisTurn || shouldGateShowroomTalkMic(input.phase)) return null;
+  return { emote: "happy", intensity: 0.35, durationMs: 1200 };
+}
+
 export function shouldPlayShowroomListeningGesture(
   source: ShowroomTalkMode | undefined,
   opts: { quiet?: boolean } = {},
@@ -5936,6 +5942,8 @@ export function CompanionShowroom({
   );
   videoChatHandsFreeRearmRef.current = scheduleVideoChatHandsFreeRearm;
 
+  /** Whether the companion already smiled at her voice this turn; reset when her words are answered. */
+  const reactedToHerVoiceRef = useRef(false);
   const handleDeepgramVideoCallFinalTranscript = useCallback(
     (text: string) => {
       if (!showroomVideoChatOpen || !current) return;
@@ -5949,6 +5957,7 @@ export function CompanionShowroom({
         }
         return;
       }
+      reactedToHerVoiceRef.current = false;
       const traceTurnId = nextShowroomVideoTurnId();
       currentVideoCallTurnIdRef.current = traceTurnId ?? null;
       const loop = detectCompanionVideoCallLoop({
@@ -6010,10 +6019,16 @@ export function CompanionShowroom({
 
   const handleDeepgramVideoCallInterimTranscript = useCallback((text: string) => {
     if (!text.trim()) return;
+    const reaction = listeningReaction({ reactedThisTurn: reactedToHerVoiceRef.current, phase: showroomTalkPhaseRef.current });
+    if (reaction) {
+      reactedToHerVoiceRef.current = true;
+      playCurrentCompanionEmote(reaction);
+      console.log(` 🎮 [showroom-video-chat] [listening] [smiled] phase=${showroomTalkPhaseRef.current}`);
+    }
     if (!shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
       setShowroomTalkPhase("listening");
     }
-  }, []);
+  }, [playCurrentCompanionEmote]);
 
   const handleDeepgramVideoCallBargeIn = useCallback(() => {
     console.log(" 🎮 [showroom-video-chat] deepgram_barge_in");
