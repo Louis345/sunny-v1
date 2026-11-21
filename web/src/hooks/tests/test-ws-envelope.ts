@@ -7,6 +7,7 @@ vi.mock("../../components/Canvas", () => ({
 
 import { useSession } from "../useSession";
 import { useAdventureState } from "../useAdventureState";
+import { MIC_FRAME_SAMPLES, framesFor } from "../../utils/micFrames";
 
 const OPEN = 1;
 const CONNECTING = 0;
@@ -433,12 +434,13 @@ describe("WS envelope vs canvas payload type", () => {
     });
     expect(result.current.state.warning).toMatch(/not hearing any sound/i);
 
-    const audibleSamples = new Float32Array(4096).fill(0.05);
+    const audibleSamples = new Float32Array(MIC_FRAME_SAMPLES).fill(0.05);
     const audibleFrame = {
       inputBuffer: { getChannelData: () => audibleSamples },
     } as unknown as AudioProcessingEvent;
     act(() => {
-      for (let frame = 0; frame < 3; frame += 1) {
+      // About 0.77 s of audible input confirms the mic (64 ms frames since 2026-11-21).
+      for (let frame = 0; frame < framesFor(768); frame += 1) {
         micProcessor?.onaudioprocess?.(audibleFrame);
       }
       wsInstances[0]!.onmessage?.({
