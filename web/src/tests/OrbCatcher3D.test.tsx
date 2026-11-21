@@ -99,3 +99,26 @@ it("a right answer closes the card and loads the orb (Ready? Go!)", () => {
   expect(screen.queryByTestId("orb-3d-question")).not.toBeInTheDocument();
   expect(screen.getByText(/Ready\? Go!/)).toBeInTheDocument();
 });
+
+describe("a math problem with no choices (her homework's number answers)", () => {
+  it("asks her to type the number, never shows the answer as a button", async () => {
+    const { QuestionCard } = await import("../components/OrbCatcher3D");
+    const onAnswer = vi.fn();
+    render(<QuestionCard question={{ id: "m1", kind: "math", prompt: "Half of $8?", answer: "4" }} feedback={null} hinted={false} audio={null} onAnswer={onAnswer} />);
+    expect(screen.queryByRole("button", { name: "4" })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Type the answer"), { target: { value: "4" } });
+    fireEvent.submit(screen.getByLabelText("Type the answer").closest("form")!);
+    expect(onAnswer).toHaveBeenCalledWith(expect.objectContaining({ id: "m1" }), "4");
+  });
+});
+
+describe("math answers match the number, not the way she writes it", () => {
+  it("$4, 4.00 and 4 are all four; spelling still matches the word", async () => {
+    const { sameAnswer } = await import("../components/OrbCatcher3D");
+    const half = { id: "m1", kind: "math" as const, prompt: "Half of $8?", answer: "4" };
+    expect(["4", "$4", " 4.00 ", "4¢"].every((given) => sameAnswer(half, given))).toBe(true);
+    expect(sameAnswer(half, "5")).toBe(false);
+    expect(sameAnswer({ id: "s", kind: "spelling", prompt: "pardon", answer: "pardon" }, "Pardon")).toBe(true);
+    expect(sameAnswer({ id: "s", kind: "spelling", prompt: "pardon", answer: "pardon" }, "pardn")).toBe(false);
+  });
+});

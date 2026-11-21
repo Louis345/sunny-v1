@@ -70,6 +70,15 @@ export interface OrbQuestion {
   missedBefore?: boolean;
 }
 
+/** Whether her answer is right: the same word, or for math the same number however she wrote it ($4, 4.00). */
+export function sameAnswer(question: OrbQuestion, given: string): boolean {
+  const plain = (text: string) => text.trim().toLowerCase();
+  if (plain(given) === plain(question.answer)) return true;
+  if (question.kind !== "math") return false;
+  const number = (text: string) => Number(text.replace(/[$¢,\s]/g, ""));
+  return Number.isFinite(number(given)) && given.trim() !== "" && number(given) === number(question.answer);
+}
+
 export interface OrbCatcher3DProps {
   creature: CapturedMonsterConfig;
   throws: number;
@@ -132,7 +141,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
 
   const answer = (question: OrbQuestion, given: string) => {
     const audio = audioRef.current;
-    const right = given.trim().toLowerCase() === question.answer.trim().toLowerCase();
+    const right = sameAnswer(question, given);
     const hinted = hintFor === question.id;
     const offBeat = audio?.offBeat() ?? null;
     // On the beat = within 15% of a beat either side (about 1 answer in 3 by chance, more when she times it).
@@ -927,8 +936,22 @@ export function QuestionCard({
       ) : (
         <>
           <div style={{ fontSize: 44, fontWeight: 950, textAlign: "center", transform: "scale(calc(1 + var(--pulse, 0) * .04))" }}>{question.prompt}</div>
+          {question.choices?.length ? null : (
+            // Her homework's number answers: she types the number (showing it as a button would give it away).
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (typed.trim()) onAnswer(question, typed.trim());
+              }}
+              style={{ display: "flex", gap: 10 }}
+            >
+              <input aria-label="Type the answer" autoFocus inputMode="decimal" value={typed} onChange={(event) => setTyped(event.currentTarget.value)} autoComplete="off"
+                style={{ flex: 1, minWidth: 0, minHeight: 56, borderRadius: 16, border: "2px solid #ffffff3a", background: "#ffffff12", color: "white", textAlign: "center", font: "900 30px Lexend, system-ui, sans-serif" }} />
+              <button type="submit" style={{ ...button, background: "linear-gradient(180deg,#ffe680,#ffc21a)", color: "#231400" }}>{submitLabel}</button>
+            </form>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-            {(question.choices ?? [question.answer]).filter((choice) => !hinted || choice !== (question.choices ?? []).find((option) => option !== question.answer)).map((choice) => (
+            {(question.choices ?? []).filter((choice) => !hinted || choice !== (question.choices ?? []).find((option) => option !== question.answer)).map((choice) => (
               <button key={choice} type="button" aria-label={choice} onClick={() => onAnswer(question, choice)}
                 style={{ ...button, fontSize: 30, padding: "16px 10px", background: "linear-gradient(180deg,#ffffff2e,#ffffff14)", color: "white", transform: "scale(calc(1 + var(--pulse, 0) * .07))", boxShadow: "0 0 calc(var(--pulse, 0) * 22px) rgba(255,230,128,.55)" }}>
                 {choice}
