@@ -41,6 +41,8 @@ export class WsTtsBridge {
   private readonly terminals = new WeakMap<WebSocket, StreamTerminal>();
   private browserWs: WebSocket;
   private voiceId: string;
+  private readonly companionVoiceId: string;
+  private narratorVoiceId?: string;
   private elevenWs: WebSocket | null = null;
   private apiKey: string;
   /** When true, skip ElevenLabs — console-only TTS lines; no audio to browser. */
@@ -59,7 +61,17 @@ export class WsTtsBridge {
   private audioRatesThisTurn = new Set<number>();
   private playbackOwner?: { requestId: string; itemId?: string; launchToken?: string };
 
+  /** Game speech (activity playback) is read in this voice; her replies keep the companion's own voice. */
+  useNarratorVoice(voiceId: string): void { this.narratorVoiceId = voiceId; }
+
   beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false, launchToken?: string): void {
+    const voice = activity && this.narratorVoiceId ? this.narratorVoiceId : this.companionVoiceId;
+    if (voice !== this.voiceId) {
+      // A socket is bound to one voice: the narrator never speaks through a socket warmed in her voice, or back.
+      if (this.elevenWs || this.connectingPromise) this.stop();
+      this.voiceId = voice;
+      console.log(` 🎮 [session-audio] [voice] [${activity ? "narrator" : "companion"}] request=${requestId}`);
+    }
     if (this.playbackOwner?.requestId !== requestId) {
       // A socket warmed up after the last reply finished has said nothing yet: the new reply keeps it (Reina's 11/21
       // log showed two opens per turn). One that already carried words belongs to the old reply and is cut off.
@@ -91,6 +103,7 @@ export class WsTtsBridge {
   constructor(browserWs: WebSocket, voiceId: string, private readonly streamDeadlineMs = STREAM_DEADLINE_MS) {
     this.browserWs = browserWs;
     this.voiceId = voiceId;
+    this.companionVoiceId = voiceId;
     this.disabled = process.env.TTS_ENABLED === "false";
     if (this.disabled) {
       this.apiKey = "";
