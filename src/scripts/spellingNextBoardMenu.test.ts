@@ -8,11 +8,11 @@ import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
 import type { RecordedToolLab } from "./fixtures/recordedToolPlanner";
-import { closeStuckFinishedBoard, getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
+import { closeStuckFinishedBoard, getLearningCycle, projectLearningCycle, savePaintedNodeArtwork, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { currentBoardInstance, successorResumeAction } from "../engine/learningBoardInstances";
 import { completeDiscoveryEvaluation } from "../engine/adaptiveMathDiscovery";
 import { MAX_NEW_PICTURES_PER_BOARD, prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
-import { readPictureLibrary } from "../engine/pictureLibrary";
+import { readPictureLibrary, savePictureLibrary } from "../engine/pictureLibrary";
 import * as canvas from "../engine/adventureBoardCanvas";
 import * as runtime from "../engine/learningCycleRuntime";
 
@@ -235,6 +235,25 @@ it("gives every new stop a picture from her library, painting only what is missi
   expect(shown.length).toBeGreaterThan(0);
   for (const node of shown) expect(node.thumbnailUrl, node.id).toMatch(/node-picture-ila-/);
   expect(readPictureLibrary(childId, opts)).toHaveLength(MAX_NEW_PICTURES_PER_BOARD);
+}, 120000);
+
+// Audit 11/22 (Saori, seen): on Ila's math boards 6–9, 16 of 17 stops showed one picture. A new practice or mystery stop
+// borrows the stop before it's picture, and the painter skipped any stop whose borrowed picture was already a painted
+// one, silently. So after her first painted board only Quest and Boss got new pictures. Why the human caught it: the
+// map looked the same every day. Why the logs missed it: the skip logged nothing. Why the lab missed it: every lab
+// board started from icons, never from a board that already had painted pictures.
+it("decides a picture for every new stop even when the stop before it already had a painted one", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const borrowed = "/generated/direct-math/node-picture-ila-earlier.jpeg";
+  savePictureLibrary(childId, [{ path: borrowed, prompt: "an earlier painted stop", keywords: ["earlier"], kind: "activity", homeworkId, createdAt: "2026-11-15T00:00:00Z" }], opts);
+  for (const node of getLearningCycle(childId, homeworkId, opts)!.nodes) savePaintedNodeArtwork(childId, homeworkId, node.nodeId, borrowed, opts);
+  const log = vi.spyOn(console, "log");
+  const after = await prepareSuccessorBoard({ childId, homeworkId, paintPicture: async (_prompt, filename) => `/generated/direct-math/${filename}` }, opts);
+  const board = after.boards!.find(row => row.kind === "successor")!;
+  const withPrompt = after.nodes.filter(node => board.nodeIds.includes(node.nodeId) && node.artwork.prompt);
+  const decided = log.mock.calls.map(call => String(call[0])).filter(line => /\[picture-library\] \[(reused|painted|icon-kept)\]/.test(line));
+  expect(withPrompt.length).toBeGreaterThan(0);
+  for (const stop of withPrompt) expect(decided.some(line => line.includes(`node=${stop.nodeId} `)), stop.nodeId).toBe(true);
 }, 120000);
 
 it("keeps a stop's icon when its picture cannot be painted, and still publishes the board", async () => {

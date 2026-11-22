@@ -61,11 +61,17 @@ const pictureKind = (role: LearningCycleNodeContract["role"]): PictureKind =>
 async function paintSuccessorPictures(input: { childId: string; homeworkId: string; nodeIds: readonly string[]; paint: (prompt: string, filename: string) => Promise<string> }, opts: LearningCycleRepositoryOptions): Promise<void> {
   const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
   if (!cycle) return;
-  const stops = cycle.nodes
-    .filter(node => input.nodeIds.includes(node.nodeId) && node.artwork.prompt && node.artwork.status === "placeholder" && !isLibraryPicture(node.artwork.localPath))
-    .map(node => ({ nodeId: node.nodeId, kind: pictureKind(node.role), prompt: node.artwork.prompt! }));
-  if (!stops.length) return;
   const library = readPictureLibrary(input.childId, opts);
+  // A stop owns its picture only when the library painted it for this stop's own prompt. A borrowed painted picture
+  // (the stop before it's) is not hers: before 11/22 those stops were skipped, so boards repeated one picture.
+  const owns = (node: (typeof cycle.nodes)[number]) => library.some(entry => entry.path === node.artwork.localPath && entry.prompt === node.artwork.prompt);
+  const stops = cycle.nodes
+    .filter(node => input.nodeIds.includes(node.nodeId) && node.artwork.prompt && (node.artwork.status === "placeholder" || isLibraryPicture(node.artwork.localPath)) && !owns(node))
+    .map(node => ({ nodeId: node.nodeId, kind: pictureKind(node.role), prompt: node.artwork.prompt! }));
+  if (!stops.length) {
+    console.log(` 🎮 [picture-library] [board] [nothing-to-paint] homework=${input.homeworkId} stops=${input.nodeIds.length}`);
+    return;
+  }
   const plan = planBoardPictures({ stops, library, childNames: [input.childId], maxNew: MAX_NEW_PICTURES_PER_BOARD });
   const added: PictureLibraryEntry[] = [];
   let reused = 0, painted = 0, failed = 0;
