@@ -13,6 +13,7 @@ import { OrbAudio } from "./orbAudio";
 import { loadCompanion } from "./orbCompanion";
 import { MEADOW_PACK, type OrbThemePack } from "./orbThemePacks";
 import { syllables } from "../utils/syllables";
+import { releaseCompanionRenderer } from "../lib/releaseCompanionRenderer";
 
 /**
  * Storybook prototype (owner, 2026-11-11): the orb catcher as a real 3D scene in Three.js, the engine the
@@ -693,8 +694,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       audio.dispose();
       audioRef.current = null;
       composer.dispose();
-      renderer.dispose();
-      mount.removeChild(renderer.domElement);
+      releaseCompanionRenderer(renderer, "orb-3d");
       console.log(" 🎮 [orb-3d] [scene] [disposed]");
     };
   }, [creature, timeOfDay, season, companionVrmUrl, theme, announcerChildId]);

@@ -13,6 +13,7 @@ import { OrbAudio } from "./orbAudio";
 import { loadCompanion } from "./orbCompanion";
 import { MEADOW_PACK, type OrbThemePack } from "./orbThemePacks";
 import { MusicButton, QuestionCard, readMusicPref, type OrbQuestion } from "./OrbCatcher3D";
+import { releaseCompanionRenderer } from "../lib/releaseCompanionRenderer";
 
 /**
  * Storybook prototype (owner, 2026-11-11): practice catches the creature, mastery hatches it. The caught
@@ -541,8 +542,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
       audio.dispose();
       audioRef.current = null;
       composer.dispose();
-      renderer.dispose();
-      mount.removeChild(renderer.domElement);
+      releaseCompanionRenderer(renderer, "egg");
       console.log(" 🎮 [egg] [scene] [disposed]");
     };
   }, [creature, timeOfDay, season, companionVrmUrl, theme, announcerChildId]);
