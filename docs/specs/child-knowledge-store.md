@@ -54,5 +54,8 @@ Today that knowledge is scattered and partly lost:
   - a `child_said` fact is never presented as true
   - no clinical text reaches a companion prompt
 
+## Next, on top of this store: the parent study plan (owner 11/22)
+Sunny tells the parent what to do and when, the way a spaced-repetition app does: "Today: 15 min on rounding to hundreds. Tomorrow morning: 5-min review before the test. Nothing needed until Thursday." The plan is built from each skill's recent accuracy on her own first tries, the school test date, spacing, and what helped before. The AI decides; code supplies the facts and records each recommendation with its outcome, so the plan itself gets calibrated.
+
 ## Not in this PR
 Embeddings and vector search. Start with SQL and text search over the rows, and add embeddings only if search misses. Ranked review sessions come after, on top of the same store.
