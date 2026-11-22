@@ -27,7 +27,7 @@ Three read-only agents produced this audit, split by where scripts come from: ki
 - [ ] Pronunciation help lines ("I can help. Try breaking X into…"). `src/server/session-manager.ts:1835-1837`, `sessionTextHelpers.ts:90`, spoken directly with no model call. Fix: send the help intent, word and cue to the companion.
 - [ ] Scheduled check-in `words`, spoken minutes later word for word. `companion-bridge.ts:148-152`, `companionCheckIn.ts:26`. Fix: when the timer fires, run a fresh model turn.
 - [ ] Worksheet question replayed word for word on resume. `session-manager.ts:675` ← `activeCanvasActivity.ts:186`. Borderline, since it's homework content.
-- [ ] Game `narration_request` text passed straight to her voice. `game-event-handler.ts:410-442`, `map-coordinator.ts:336-375`. Fix: pass-through only for assessment words and marked recordings.
+- [x] Game `narration_request` text passed straight to her voice. `game-event-handler.ts:410-442`, `map-coordinator.ts:336-375`. Fix: pass-through only for assessment words and marked recordings. Done: a narrator voice reads only on-screen text and test words; other game lines reach her as facts (`gameNarrationRoute.ts`).
 
 **Games**
 - [ ] Orb Catcher and Egg Hatch device-voice lines when no recording exists ("Shake it off, champ", "Listen.", "This one is just you. Ready? Go!"):
@@ -48,9 +48,9 @@ Three read-only agents produced this audit, split by where scripts come from: ki
   Fix: personality decides length and initiative.
 - [ ] Clock, coin and homework sales pitch in the call prompt:
   - `companionShowroomTalk.ts:1036, 1040, 1046-1053`
-  - `companionShowroomTalk.ts:1132-1138` ("finishing another board earns more coins")
+  - [x] `companionShowroomTalk.ts:1132-1138` ("finishing another board earns more coins"): the clock and coin pitch is gone; she speaks of time only at time_up, in her own words.
 
-  Fix: earnedBy only if she asks; time only at time_up.
+  Fix: earnedBy only if she asks; time only at time_up. Still open: the `Earned by:` line.
 - [ ] Thin, tutor-only personas (all nine `personality.md`). Drafts: `docs/drafts/companion-voices-draft.md` (owner approves; Princess needs a British ElevenLabs voice).
 - [ ] `companion-base.md` says "She is eight". The twins turned 9 on 2026-11-21.
 
@@ -66,4 +66,5 @@ Three read-only agents produced this audit, split by where scripts come from: ki
 Error toasts, "Perfect!" badges, Tamagotchi mood bubbles (`vrrTypes.ts:66-77`), reward descriptions, adult/preview-mode opening lines.
 
 ## Done so far
+- 2026-11-22: narrator voice for game speech; game chat becomes a companion fact; server XState voice floor (narrator waits for her, the child stops both); no repeated narrator line in a game; no coin pitch in calls; short-turn default in `companion-base.md`. Guard: `src/server/voiceGuard.test.ts` lists every door into either voice; a new door fails until reviewed. Doors still carrying scripted words, each an open item above: pronunciation help lines, worksheet replay, empty-reply fallback; the scheduled check-in still speaks her earlier words verbatim (now always in her own voice).
 - 2026-11-22 afe2af70: no time talk in a call's first 30 s; warning at 30 s left.
