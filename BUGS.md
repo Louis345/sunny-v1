@@ -91,7 +91,7 @@ Why the human caught it: until today no screen let anyone put an unapproved item
 
 ### Internal
 - [x] I1 (fixed 2026-11-14; CI green again from 2b1e376c) CI is red on every push since 11/13 (~15 tests: the cook-off contract tests, the spelling browser and next-board runs, the math probe contract, the clock picture)
-- [ ] I2 Tests write into real folders and leave temp folders behind (11/10 night, *(Oct)*) — real-folder writes fixed and guarded on `fix/i2` (11/14); temp leftovers per full run 288 → 139 → 106 (`fix/p5`: each run gets its own temp dir, removed after; the everyday run fails above 120), rest of the suites still open
+- [x] I2 (fixed 11/22: each test file now removes the sunny-* temp folders it made and logs ` 🎮 [test-guard] [temp-dirs-cleaned] file=… count=…`; leftovers per full run 116 → 0, ceiling 0; 542 files / 5,385 tests green) Tests write into real folders and leave temp folders behind (11/10 night, *(Oct)*) — real-folder writes fixed and guarded on `fix/i2` (11/14); temp leftovers per full run 288 → 139 → 106 (`fix/p5`: each run gets its own temp dir, removed after; the everyday run fails above 120), rest of the suites still open
 - [x] I3 (fixed 2026-11-14 on `fix/p5`; layout flake not reproduced locally, watch CI) Two flaky tests under load (11/07, *(Oct)*)
 - [x] I4 Game sound has five owners (11/08) — fixed 11/14 on fix/p3, not yet heard on Saori; dressing-room power-up/ringtone synths still own their context
 - [ ] I5 Speed Catcher is not a node type; three games have no kiosk handler; lists still copied by hand (11/08)

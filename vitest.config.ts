@@ -8,6 +8,7 @@ export default defineConfig({
     // Fails the run if any test leaves a change in a real child's src/context folder.
     // Gives the run its own temp dir and fails if suites leave more sunny-* folders in it than the ceiling (I2).
     globalSetup: ["src/tests/realChildContextGuard.ts", "src/tests/tempLeakGuard.ts"],
+    setupFiles: ["src/tests/tempCleanupPerFile.ts"],
     environment: "node",
     ...testSelection(tierFromEnv(), [
       "src/tests/test-six-tools.ts",

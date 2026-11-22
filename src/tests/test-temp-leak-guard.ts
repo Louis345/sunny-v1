@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { countLeftSunnyTempDirs, startTempLeakGuard } from "./tempLeakGuard";
+import { countLeftSunnyTempDirs, removeTempDirsMadeSince, startTempLeakGuard } from "./tempLeakGuard";
 
 // I2 (11/14): about 40 suites left sunny-* folders in the system temp dir after every run and nothing counted them.
 // Why the human caught it: the temp dir held thousands of sunny-* folders. Why the logs missed it: no run reported
@@ -36,5 +36,19 @@ describe("temp leak guard", () => {
     const guard = startTempLeakGuard({ env, ceiling: 1 });
     fs.mkdirSync(path.join(env.TMPDIR!, "sunny-left-1"));
     expect(guard.finish()).toMatchObject({ total: 1 });
+  });
+});
+
+// I2 (11/22, owner: "let's clean it up"): 116 sunny-* folders were still left per run across ~40 suites. Test files run
+// one at a time (fileParallelism false), so after each file the folders it made are removed and the file is named.
+describe("each test file cleans up its own temp folders", () => {
+  it("removes only the sunny-* folders made since the file started", () => {
+    const dir = scratch();
+    fs.mkdirSync(path.join(dir, "sunny-older"));
+    const before = new Set(fs.readdirSync(dir));
+    fs.mkdirSync(path.join(dir, "sunny-new-1"));
+    fs.mkdirSync(path.join(dir, "other-new"));
+    expect(removeTempDirsMadeSince(dir, before, "a.test.ts")).toEqual(["sunny-new-1"]);
+    expect(fs.readdirSync(dir).sort()).toEqual(["other-new", "sunny-older"]);
   });
 });

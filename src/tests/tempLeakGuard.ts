@@ -9,7 +9,15 @@ import { tierFromEnv } from "../testTiers";
 // logs them by prefix, removes the dir, and fails only when the count rises above the ceiling (a ratchet: lower it
 // as suites learn to clean up). Measured on the everyday tier (11/14: 106 left after the four worst suites were fixed);
 // the predeploy and all tiers only log until they are measured.
-export const TEMP_LEAK_CEILING = 120;
+export const TEMP_LEAK_CEILING = 0;
+
+/** After each test file (files run one at a time): remove the sunny-* folders it made and name the file (I2, 11/22). */
+export function removeTempDirsMadeSince(dir: string, before: ReadonlySet<string>, file: string): string[] {
+  const made = (fs.existsSync(dir) ? fs.readdirSync(dir) : []).filter(name => name.startsWith("sunny-") && !before.has(name));
+  for (const name of made) fs.rmSync(path.join(dir, name), { recursive: true, force: true });
+  if (made.length) console.log(` 🎮 [test-guard] [temp-dirs-cleaned] file=${file} count=${made.length}`);
+  return made;
+}
 
 export function countLeftSunnyTempDirs(dir: string): { total: number; byPrefix: Record<string, number> } {
   const byPrefix: Record<string, number> = {};
