@@ -45,6 +45,14 @@ Fixed 11/21–11/22 with tests (pushed; Saori runs 808f4c39, so the later ones a
 
 - [x] Elli's slower voice reset every problem (Saori observed Elli too fast for Ila; fixed 11/22). Seen in the log: 18:20 Elli set 0.85 (`[companion-speech] [rate] [configured]`); 18:24 Ila asked "Can you say slowly again?" because the next problem was back at normal pace; Elli said "Okay, slower" without a new call. Cause: the pace belonged to one item. Now Elli's own talking keeps her chosen pace for every next problem in the same game; a word the game plays keeps its own item's pace (measured stimulus), and another game or a check starts normal; `ws-tts-playback-ownership.test.ts`. Next (knowledge store): a per-child default pace so Ila starts slower without asking.
 
+- [ ] Ila's own report (11/22 evening, her words via her dad), four items:
+  1. "When I got my pet, I didn't get to name her." Seen: the birthday Starwhal was given at 23:25 (`[birthday-gift] [given]`); catching has no naming step, only the Den's rename. Fix: after a catch, she names the pet by voice or picture before it goes to her Den.
+  2. "They're saying my name wrong." Seen: Reina's child_profile has `ttsName: "Ray-nah"`; Ila's has none, so the voice guesses. Fix: Ila's `ttsName` in her record, once the owner gives the right pronunciation (an old helper in `stream-speak.ts` says "EYE-lah"; unconfirmed).
+  3. "When I made a mistake / didn't finish, I go to the treasure chest." Not yet diagnosed: chests are granted on `[completion] [saved]` (23:25, 23:35); check whether a game sends completion when she leaves or after mistakes, so an unfinished stop still opens a chest.
+  4. Princess (FaceTime) "talks too much… doesn't listen when I say stop, she says 'oh you want to hear more?'… I want to speak." The short-turn default and the coin-pitch removal deploy tonight (6834d657); not yet built: in a call, the child's "stop" (or speaking over her) must stop her speech, and she should answer, not continue.
+  Also her opinion (product, owner decides): paying coins for FaceTime from the start feels bad; "the first time should be free… 10 minutes".
+  Learning: at 23:23 Ila said "I don't understand the concept" on rounding to hundreds; she understands when she slows down but the concept is not there yet (owner observed the same).
+
 ## Open list (sorted 2026-11-14)
 
 The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, the session bugs and the internal bugs. Notes from September and October moved to `docs/bugs-archive-2026-09-to-10.md`; the few that may still apply are copied here, marked *(Oct)*. The details of each line are in its dated entry below; search for its words.
