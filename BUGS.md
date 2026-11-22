@@ -37,6 +37,8 @@ Fixed 11/21–11/22 with tests (pushed; Saori runs 808f4c39, so the later ones a
 
 - [ ] Parked by the owner 2026-11-22 ("let's not worry about the privacy yet"): the GitHub repo Louis345/sunny-v1 is PUBLIC and tracks 212 files under src/context/ila and src/context/reina, including soul.md / ila_context.md with diagnoses, evaluation scores (WIAT-4, CELF-5), the school psychologist's name and IEP services, plus session notes and attempt logs; older copies are in git history. Fix when the owner says: make the repo private, move child data to ~/SunnyData, untrack it, then scrub history (force push needs owner approval).
 
+- [ ] High (seen 11/22 18:27 UTC, Ila mid-session): out of Anthropic credit. Every companion reply failed for 2 minutes (`[companion-talk-stream] failed 400 … credit balance is too low`), so Elli went silent while Ila was talking, and the Quest→Boss decision was deferred (`[next-session] [deferred] provider_request_rejected`) and retried only at a server restart, not when her next session opened after the credit was added. Fix: a credit-refused decision retries at her next session start (it was refused, never billed); and when replies fail, the companion falls back to one short spoken line instead of silence.
+
 ## Open list (sorted 2026-11-14)
 
 The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, the session bugs and the internal bugs. Notes from September and October moved to `docs/bugs-archive-2026-09-to-10.md`; the few that may still apply are copied here, marked *(Oct)*. The details of each line are in its dated entry below; search for its words.

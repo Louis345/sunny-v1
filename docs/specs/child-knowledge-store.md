@@ -17,19 +17,25 @@ Today that knowledge is scattered and partly lost:
    - `tutor`
    - `sunny_measured`: answers, scores, forecasts
    Inside knowledge (Sunny) and outside knowledge (school, tutor) are kept apart and both kept.
-3. **Separate kinds, separate tables or event types:**
+3. **What a child says gets a tutor's judgment before it counts** (owner, 11/22: "would a tutor believe that?"). When a statement is saved, the extractor reads it against what the record already knows and labels it:
+   - `consistent`: fits the record.
+   - `new`: nothing to check it against. Kept as "she said", with low weight until repeated or confirmed.
+   - `contradicts`: e.g. "my sister is two years older", but they are twins born 2017-11-21. Kept as what she said, with the contradiction named, and never used as fact.
+   - `playful`: pretend, a joke or imagination.
+   Weight grows only when she says it again in another conversation, or a parent or the school confirms it. The Planner and the learner card see the label, never a contradicted statement as truth. A companion may gently check in conversation ("twins, right?"), never in a way that corrects her harshly. On first run this check also re-reads every existing `child.fact_learned`; Ila's 11/10 "two years older" is the test case.
+4. **Separate kinds, separate tables or event types:**
    - life and likes (`child.fact_learned`, already exists)
    - learning needs and accommodations
    - IEP goals with baseline and progress
    - teacher and report-card notes
    - test and measure results (school tests and i-Ready, alongside `school_test.recorded`)
    - documents (`document.ingested`: type, date, author, source hash; the original kept on Saori, never in the repo)
-4. **A parent confirms extracted facts before they count.** This is `LEARNING_FEEDBACK_LOOP.md` "Returned graded work". A misread IEP number misleads every later plan.
-5. **Push little, pull the rest.**
+5. **A parent confirms extracted facts before they count.** This is `LEARNING_FEEDBACK_LOOP.md` "Returned graded work". A misread IEP number misleads every later plan.
+6. **Push little, pull the rest.**
    - The Planner always gets a short generated learner card: about 15 lines with current accommodations, open IEP goals, top likes and dislikes, recent things she said. It is short so nothing is lost, and always present because the Planner does not fetch on its own.
    - Everything else is reached through one search tool.
    - The same tool answers parent questions: "how is she doing in school" (outside), "how is she doing in Sunny" (inside), "what should we review".
-6. **Companions are the listeners.** Casual talk ("how was class today?") keeps feeding `child.fact_learned`. Companions get teaching cues from the learner card, never clinical notes, and never compare the twins.
+7. **Companions are the listeners.** Casual talk ("how was class today?") keeps feeding `child.fact_learned`. Companions get teaching cues from the learner card, never clinical notes, and never compare the twins.
 
 ## Intake (replaces the three)
 1. At startup, a watcher reads each child's intake folder.
