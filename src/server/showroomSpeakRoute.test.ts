@@ -53,7 +53,8 @@ describe("showroom companion speak route", () => {
     expect(personality).toContain("Warm, funny, playful");
     expect(personality).toContain("Tags: sparkly, funny, brave");
     expect(personality).toContain("Likes: riddles, word games, silly ideas");
-    expect(personality).toContain("Catchphrases: Let's try it together!");
-    expect(personality).toContain("Role: Ila's best friend and learning buddy");
+    // 11/22 audit: catchphrases made every call repeat stock lines; they never reach the call prompt.
+    expect(personality).not.toContain("Catchphrases:");
+    expect(personality).toContain("Role: The child's best friend and learning buddy");
   });
 });

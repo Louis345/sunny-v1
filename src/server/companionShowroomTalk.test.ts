@@ -583,7 +583,9 @@ describe("companion showroom talk contract", () => {
 
     expect(prompt).toContain("You are Kefla");
     expect(prompt).toContain("crystal");
-    expect(prompt).toContain("1-3 short sentences");
+    // 11/22 audit: length comes from her personality, not one rule for every companion.
+    expect(prompt).toContain("your personality decides how much you say and how much you lead");
+    expect(prompt).not.toContain("1-3 short sentences");
     expect(prompt).toContain("companionAct");
     expect(prompt).toContain("show emotion through movement");
     expect(prompt).toContain("first write the words you say aloud as plain message text");
@@ -607,7 +609,9 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("video-call companion friend");
     expect(prompt).toContain("never sounds like a teacher");
     expect(prompt).toContain("Never tutor unless the child explicitly asks");
-    expect(prompt).toContain("follow the child's conversational lead");
+    // 11/22 audit: on a call she is a friend with her own life, not a purely reactive echo.
+    expect(prompt).toContain("friend with your own life");
+    expect(prompt).not.toContain("follow the child's conversational lead");
     expect(prompt).not.toContain("interactive Sunny learning companion");
   });
 

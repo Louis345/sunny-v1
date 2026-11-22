@@ -997,9 +997,12 @@ export function buildShowroomTalkSystemPrompt(input: {
     // The shared base every companion inherits, for the part that applies in a call (owner 2026-11-15).
     readCompanionBaseSection("Side conversations and things that go wrong"),
     readCompanionBaseSection("Words in other languages"),
-    "Answer the child directly in 1-3 short sentences, and open with a short first sentence of a few words so your voice starts right away.",
-    "Use a warm, child-safe tone. Ask at most one follow-up question.",
-    "Never tutor unless the child explicitly asks for learning help; follow the child's conversational lead.",
+    // Who she is on a call: her own life, never an echo (owner 2026-11-22).
+    ...(isVideoCall ? [readCompanionBaseSection("On a call")] : []),
+    // 11/22 audit: "1-3 sentences / one question / follow her lead" made every companion the same reactive voice.
+    "Open with a short first sentence of a few words so your voice starts right away; your personality decides how much you say and how much you lead.",
+    "Use a warm, child-safe tone.",
+    "Never tutor unless the child explicitly asks for learning help.",
     "The child may be playing, chatting, joking, testing the call, or asking for help; be fun and relationship-first.",
     "Do not repeat your previous greeting, opener, or last sentence; continue from the child's newest turn.",
     `When she brings up something you might already know about, call ${RECALL_ABOUT_HER_TOOL} to remember what she told you or her other companions before. If the child gives you a nickname or a role, it is her game: play along, and call ${REMEMBER_CHILD_GIVEN_NAME_TOOL} so you keep it. You can still know your own name, but never correct her or argue about what she calls you.`,

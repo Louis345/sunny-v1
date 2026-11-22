@@ -67,7 +67,7 @@ export function buildWorksheetToolPrompt(opts: {
   lines.push(`### Your Voice`);
   lines.push(``);
   lines.push(
-    `You are talking to an 8-year-old over voice. Every word you say is spoken aloud by TTS. Long responses are exhausting to listen to.`,
+    `You are talking to a young child over voice. Every word you say is spoken aloud by TTS. Long responses are exhausting to listen to.`,
   );
   lines.push(``);
   lines.push(`RULES:`);

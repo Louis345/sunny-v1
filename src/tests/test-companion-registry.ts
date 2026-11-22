@@ -64,9 +64,8 @@ describe("CompanionRegistry", () => {
   it("keeps Elli child-neutral while preserving explicitly paired companions", () => {
     expect(CompanionRegistry.getById("elli").personalityMarkdown).not.toMatch(/\bIla\b|\bReina\b/);
     expect(CompanionRegistry.getById("elli").personalityMarkdown).toContain("active child");
-    expect(CompanionRegistry.getById("matilda").personalityMarkdown).toMatch(
-      /\bReina\b/,
-    );
+    // 11/22 owner: no hardcoded pairing in persona text; it lives in companion.json defaultFor (switchable later).
+    expect(CompanionRegistry.getById("matilda").personalityMarkdown).not.toMatch(/\bReina\b/);
     expect(CompanionRegistry.getById("matilda").personalityMarkdown).not.toMatch(
       /\bIla\b/,
     );

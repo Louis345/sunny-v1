@@ -680,12 +680,11 @@ export function readShowroomPersonality(
   const lines = [personality || "Friendly, patient, and encouraging."];
   const tags = readShowroomStringList(raw?.personalityTags, 5);
   const likes = readShowroomStringList(raw?.likes, 6);
-  const catchphrases = readShowroomStringList(raw?.catchphrases, 3);
   const specialSkills = readShowroomStringList(raw?.specialSkills, 4);
   const role = typeof raw?.role === "string" ? raw.role.trim() : "";
   if (tags.length) lines.push(`Tags: ${tags.join(", ")}`);
   if (likes.length) lines.push(`Likes: ${likes.join(", ")}`);
-  if (catchphrases.length) lines.push(`Catchphrases: ${catchphrases.join(" | ")}`);
+  // 11/22 audit: catchphrases pasted into every call made her repeat stock lines; her voice comes from personality.md.
   if (specialSkills.length) lines.push(`Special skills: ${specialSkills.join(", ")}`);
   if (role) lines.push(`Role: ${role}`);
   return lines.join("\n");
