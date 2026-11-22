@@ -83,6 +83,7 @@ import {
 } from "./WardrobeStoreLab";
 import { WardrobeCompatibilityLab } from "./WardrobeCompatibilityLab";
 import { CallClock, type CallClockMoment } from "./CallClock";
+import { companionSpeaksAtClockMoment } from "./callClockMoments";
 import {
   WARDROBE_STORE_CERTIFICATION_CASES,
   isWardrobeReadyForHumanReview,
@@ -8098,7 +8099,7 @@ export function CompanionShowroom({
 	          active={showroomVideoChatOpen && (showroomVideoCallPhase === "answered" || showroomVideoCallPhase === "live")}
 	          onMoment={(moment) => {
 	            console.log(` 🎮 [call-clock] [moment] ${moment} child=${talkChildId}`);
-	            void submitShowroomTalkQuestion("(call clock)", { source: "video_call", callClockEvent: moment });
+	            if (companionSpeaksAtClockMoment(moment)) void submitShowroomTalkQuestion("(call clock)", { source: "video_call", callClockEvent: moment });
 	          }}
 	          onGoodbye={() => {
 	            console.log(` 🎮 [call-clock] [goodbye] child=${talkChildId}`);

@@ -1125,20 +1125,12 @@ export function buildShowroomTalkSystemPrompt(input: {
     );
   }
   if (input.callClock) {
-    const clock = input.callClock;
-    const moment = clock.event === "minute_left"
-      ? "about one minute of call time is left"
-      : clock.event === "time_up"
-        ? "call time is up"
-        : `the child just spent coins on more call time; about ${Math.max(1, Math.round(((clock.secondsLeft ?? clock.minutesLeft * 60) + 60) / 60))} minutes are left now`;
+    // The on-screen clock shows the time; she speaks of it only when it is up, in her own words, and never sells coins
+    // or boards (Reina 2026-11-22: her whole one-minute call was a pitch for thirty coins and five more minutes).
     lines.push(
-      `Live call clock event: ${moment}. The child has ${clock.coins} coins; 5 more minutes cost ${clock.price} coins.`,
-      clock.coins >= clock.price
-        ? "She can afford more time."
-        : `She cannot afford more time yet; she needs ${clock.price - clock.coins} more coins. Do not offer to buy time; finishing another board earns more coins and another call.`,
-      clock.event === "time_up"
-        ? "In one or two short sentences, react in your own voice: she can buy more time or say goodbye for now. Never pressure her to spend, and if she cannot afford it, make finishing another board sound like the way back."
-        : "Mention it in one short sentence in your own voice, then carry on with the conversation.",
+      input.callClock.event === "time_up"
+        ? "Live call clock event: call time is up. The screen shows her what she can do next. In your own words, let her know briefly, as a friend would; nothing about buying more time, prices or homework, and no pressure."
+        : "Live call clock: the clock is on her screen. Do not mention the time; carry on with the conversation.",
       "This event came from the call clock, not from words spoken by the child. Do not pretend the child asked a question.",
     );
   }
