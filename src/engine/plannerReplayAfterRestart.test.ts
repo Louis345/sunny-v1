@@ -48,3 +48,28 @@ it("after a restart, replays a turn that fell back to unlocked tools without blo
   expect(replayed.stats.stop).toBe("finished");
   expect(afterRestart).not.toHaveBeenCalled();
 });
+
+// I6 (11/12, "a retry re-pays finished turns"): a build that dies on turn 3 and is retried must not buy turns 1 and 2
+// again. Saori 11/14–11/21: 18 builds, no re-paid turns seen; this pins it so it cannot return.
+it("a retry after a failure on turn 3 pays only from turn 3 on", async () => {
+  const draftDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-retry-")); roots.push(draftDir);
+  const note = (turn: number): Anthropic.Messages.Message => ({ ...reply("note"), id: `msg_${turn}`,
+    content: [{ type: "tool_use", id: `tu_${turn}`, name: "note", input: { title: `turn ${turn}` } }] as Anthropic.Messages.ContentBlock[] });
+  const noteTool = { name: "note", description: "Note.", schema: z.object({ title: z.string() }).strict(), run: () => ({ ok: true as const, result: "noted" }) };
+  const run = async (provider: (turn: number) => Anthropic.Messages.Message) => {
+    vi.resetModules();
+    const { runPlannerToolLoop } = await import("./plannerToolLoop");
+    const { runMathProviderStage } = await import("./adaptiveMathDiscovery");
+    return runPlannerToolLoop<State>({
+      label: "retry-lab", prompt: "FACTS", model: "claude-opus-5-5", maxTokens: 1000, tools: [...tools, noteTool], state: { finished: false }, finished: state => state.finished,
+      send: (request, turn) => runMathProviderStage({ draftDir, stage: `decision-tools-turn-${turn}`, model: request.model, request, execute: async () => provider(turn) }),
+    });
+  };
+  const firstRun = vi.fn((turn: number) => { if (turn === 3) throw Object.assign(new Error('429 {"type":"error","error":{"type":"rate_limit_error","message":"Rate limited"}}'), { status: 429 }); return note(turn); });
+  await expect(run(firstRun)).rejects.toThrow();
+  expect(firstRun.mock.calls.map(([turn]) => turn)).toEqual([1, 2, 3]);
+
+  const retry = vi.fn((turn: number) => (turn === 3 ? reply("finish") : note(turn)));
+  expect((await run(retry)).stats.stop).toBe("finished");
+  expect(retry.mock.calls.map(([turn]) => turn)).toEqual([3]);
+});
