@@ -36,19 +36,19 @@ describe("game event handler companion events", () => {
     expect(log).toHaveBeenCalledTimes(1);
     log.mockRestore();
   });
-  it("speaks a tapped spelling chunk through the companion narration channel", () => {
-    const speakGameNarration = vi.fn().mockResolvedValue(true);
-    handleGameEventForSession({ recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), speakGameNarration }, {
+  it("sends a tapped spelling chunk to the narration router", () => {
+    const requestGameNarration = vi.fn().mockResolvedValue(true);
+    handleGameEventForSession({ recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), requestGameNarration }, {
       type: "narration_request", game: "visual-explainer", word: "light", text: "ight", reason: "spelling_chunk",
     });
-    expect(speakGameNarration).toHaveBeenCalledWith("ight.", expect.objectContaining({ reason: "spelling_chunk", word: "light" }));
+    expect(requestGameNarration).toHaveBeenCalledWith("ight.", expect.objectContaining({ reason: "spelling_chunk", word: "light" }));
   });
 
   it("shows a recoverable child-facing warning when a spelling stimulus cannot play", async () => {
     const fakeSession = {
       recordDebugEvent: vi.fn(),
       recordGameTrace: vi.fn(),
-      speakGameNarration: vi.fn().mockRejectedValue(new Error("spelling_stimulus_audio_unavailable")),
+      requestGameNarration: vi.fn().mockRejectedValue(new Error("spelling_stimulus_audio_unavailable")),
       send: vi.fn(),
     };
 

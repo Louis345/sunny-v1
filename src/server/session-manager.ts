@@ -27,6 +27,7 @@ import {
   legacyAttemptsNote,
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
+import { GameNarrationRouter, requestGameNarrationForSession } from "./gameNarrationRoute";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
 import { interruptedExchange, isBackchannel, isListeningNoise, selfEchoSource, isVerbatimEchoOfCompanion, normalizeUtterance, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
 
@@ -199,7 +200,7 @@ export class SessionManager {
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
-  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string}; private readonly narrationGate = new gev.NarrationGate();
+  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string}; private readonly narrationGate = new gev.NarrationGate(); readonly gameNarration = new GameNarrationRouter();
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
   private mathDiscoverySupport?: MathDiscoverySupportState;
   private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
@@ -760,6 +761,7 @@ export class SessionManager {
       this.recordDebugEvent("spelling", "stale_context_ignored", { itemId: state.itemId });
       return;
     }
+    this.gameNarration?.noteScreen(state);
     const previous = this.currentBoardSnapshot;
     state = noteUnfinishedExit(retainSpellingItemState(state, previous, this.spellingAssessment, this.spellingLaunch), previous);
     if (previous?.itemId && (state.itemId && state.itemId !== previous.itemId
@@ -1119,6 +1121,11 @@ export class SessionManager {
     });
   }
 
+  public requestGameNarration(text: string, metadata: Record<string, unknown> = {}): Promise<void> { return requestGameNarrationForSession(this as never, text, metadata); }
+  /** Her own words from an earlier turn (a check-in she scheduled), spoken in her voice, never the narrator's. */
+  public speakCompanionWords(text: string): Promise<void> { return this.handleCompanionTurn(text); }
+
+  /** The narrator: reads on-screen game text and test words in the narrator voice (callers go through requestGameNarration). */
   public async speakGameNarration(
     text: string,
     metadata: Record<string, unknown> = {},

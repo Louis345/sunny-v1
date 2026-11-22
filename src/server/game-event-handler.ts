@@ -439,7 +439,7 @@ export function handleGameEventForSession(
     const spoken = /[.!?]$/.test(text) ? text : text ? `${text}.` : "";
     if (!spoken) return;
     void Promise.resolve(
-      s.speakGameNarration?.(spoken, {
+      s.requestGameNarration?.(spoken, {
         source: "game_event_handler",
         reason,
         activityId: event.activityId ?? game,

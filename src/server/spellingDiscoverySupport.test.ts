@@ -398,9 +398,9 @@ it('keeps replay and delayed responses attached to their distinct launches',asyn
 
 it('keeps launch correlation through the production narration event adapter',async()=>{
  const {handleGameEventForSession}=await import('./game-event-handler');
- const speakGameNarration=vi.fn(async()=>true);
- handleGameEventForSession({speakGameNarration},{type:'narration_request',payload:{text:'night',word:'night',game:'word-radar',nodeId:'opening',itemId:'i1',assessmentMode:true,launchToken:'launch-one'}});
- expect(speakGameNarration).toHaveBeenCalledWith('night.',expect.objectContaining({itemId:'i1',launchToken:'launch-one'}));
+ const requestGameNarration=vi.fn(async()=>true);
+ handleGameEventForSession({requestGameNarration},{type:'narration_request',payload:{text:'night',word:'night',game:'word-radar',nodeId:'opening',itemId:'i1',assessmentMode:true,launchToken:'launch-one'}});
+ expect(requestGameNarration).toHaveBeenCalledWith('night.',expect.objectContaining({itemId:'i1',launchToken:'launch-one'}));
 });
 
 it.each(['closed'])('releases only the matching spelling launch on host %s',phase=>{

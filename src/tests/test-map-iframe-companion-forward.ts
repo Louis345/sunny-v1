@@ -92,7 +92,7 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     const ws = { once: vi.fn(), off: vi.fn() } as unknown as WebSocket;
     const sm = {
       noteExternalEvent: vi.fn(),
-      speakGameNarration: vi.fn(),
+      requestGameNarration: vi.fn(),
     };
     registerMapSessionWebSocket("reina", ws);
     registerActiveVoiceSessionManager("reina", sm);
@@ -111,7 +111,7 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     });
 
     expect(ok).toBe(true);
-    expect(sm.speakGameNarration).toHaveBeenCalledWith(
+    expect(sm.requestGameNarration).toHaveBeenCalledWith(
       "sunny.",
       expect.objectContaining({
         activityId: "letter-rush",
@@ -134,7 +134,7 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     const ws = { once: vi.fn(), off: vi.fn() } as unknown as WebSocket;
     const sm = {
       noteExternalEvent: vi.fn(),
-      speakGameNarration: vi.fn(),
+      requestGameNarration: vi.fn(),
     };
     registerMapSessionWebSocket("ila", ws);
     registerActiveVoiceSessionManager("ila", sm);
@@ -153,7 +153,7 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     expect(handleMapSocketIframeCompanionEvent(ws, { type: "map_iframe_companion_event", payload })).toBe(true);
     expect(handleMapSocketIframeCompanionEvent(ws, { type: "map_iframe_companion_event", payload })).toBe(true);
 
-    expect(sm.speakGameNarration).toHaveBeenCalledTimes(1);
+    expect(sm.requestGameNarration).toHaveBeenCalledTimes(1);
   });
 
   it("uses empty voice session id when no active voice session", () => {

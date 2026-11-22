@@ -47,10 +47,13 @@ export interface VoiceSessionManagerHandle {
   getSpellingLaunch?: () => {homeworkId:string;nodeId:string;launchId:string;launchToken?:string} | undefined;
   getDiscoveryAttemptContext?: (homeworkId: string, itemId: string, launchToken?:string) => { chartItemId?:string; practice?:boolean; spellingShown?:boolean|null; audioReplays?:number|null; launchId?:string; nodeId?: string; support: { status: "unassisted" | "assisted" | "unknown"; scaffolds: string[] }; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined;
   noteExternalEvent(event: unknown): void;
-  speakGameNarration?: (
+  /** A game asked to say something: the narrator reads it if it is on-screen text, else the companion gets a fact. */
+  requestGameNarration?: (
     text: string,
     metadata?: Record<string, unknown>,
   ) => Promise<void> | void;
+  /** Her own earlier words (a scheduled check-in), spoken in her voice. */
+  speakCompanionWords?: (text: string) => Promise<void> | void;
   recordGameTrace?: (state: Record<string, unknown>) => void;
   end?: () => Promise<void>;
 }
