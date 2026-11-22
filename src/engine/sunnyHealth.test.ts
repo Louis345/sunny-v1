@@ -135,3 +135,21 @@ it("tells her companion only about saves failing now, on this homework, and neve
   expect(facts).toContain("1 finished game is held");
   expect(facts).not.toMatch(/parent/i);
 });
+
+// 11/22 (seen on Saori): Ila's 3 held saves from 11/11–11/12 were replayed and refused at every start since, because
+// their stop is no longer playable or their word is not in the record; no replay can ever save them. Why the logs
+// missed it: "still-held=3" every start looked like a waiting save. Kept, never deleted, for the owner's decision.
+it("keeps a save the record can never accept, stops replaying it, and says so once", () => {
+  const f = fixture();
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  holdCompletion({ ...f.completion, nodeId: "gone", error: "Error: learning_cycle_node_not_launchable:gone" }, { rootDir: f.rootDir });
+  const first = replayHeldCompletions(f.childId, { rootDir: f.rootDir });
+  const heldNow = JSON.parse(fs.readFileSync(path.join(f.rootDir, "src/context", f.childId, "sunny_health/held-completions.json"), "utf8"));
+  expect({ first, error: heldNow[0].error }).toMatchObject({ first: { replayed: 0, stillHeld: 1, permanent: 1 } });
+  expect(log.mock.calls.filter(call => String(call[0]).includes("[held-replay] [permanent]"))).toHaveLength(1);
+  log.mockClear();
+  expect(replayHeldCompletions(f.childId, { rootDir: f.rootDir })).toMatchObject({ replayed: 0, stillHeld: 1, permanent: 1 });
+  expect(log.mock.calls.filter(call => String(call[0]).includes("[held-replay] [permanent]"))).toHaveLength(0);
+  const held = JSON.parse(fs.readFileSync(path.join(f.rootDir, "src/context", f.childId, "sunny_health/held-completions.json"), "utf8"));
+  expect(held).toEqual([expect.objectContaining({ nodeId: "gone", permanent: true })]);
+});

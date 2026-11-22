@@ -14,7 +14,9 @@ import { schoolTestFacts } from "./schoolTestObjective";
  * say to her stays the companion's judgment.
  */
 type Problem = { kind: "seal" | "save_failed"; at: string; text: string };
-type Held = Parameters<typeof recordCanonicalNodeCompletion>[0] & { error: string; heldAt: string };
+type Held = Parameters<typeof recordCanonicalNodeCompletion>[0] & { error: string; heldAt: string; permanent?: true };
+/** Refusals no replay can fix: the stop can never be played again, or the item is not in the record (11/22). */
+const PERMANENT_REFUSAL = /learning_cycle_node_not_launchable|learning_cycle_node_missing|learning_cycle_instrument_unknown_item/;
 type Opts = Pick<LearningCycleRepositoryOptions, "rootDir">;
 
 const dirOf = (childId: string, opts: Opts) => path.join(resolveChildContextDir(childId, { rootDir: opts.rootDir }), "sunny_health");
@@ -59,20 +61,30 @@ export function holdCompletion(input: Parameters<typeof recordCanonicalNodeCompl
   console.error(` 🎮 [sunny-health] [completion-held] child=${input.childId} homework=${input.homeworkId} node=${input.nodeId} held=${held.length + 1}`);
 }
 
-/** Replays held answers in the order she gave them; each one the record still refuses stays held. */
-export function replayHeldCompletions(childId: string, opts: Opts = {}): { replayed: number; stillHeld: number } {
+/**
+ * Replays held answers in the order she gave them; each one the record still refuses stays held. A refusal no replay can
+ * fix is kept (never deleted, for the parent's decision), marked permanent, reported once, and not replayed again.
+ */
+export function replayHeldCompletions(childId: string, opts: Opts = {}): { replayed: number; stillHeld: number; permanent: number } {
   const held = readJson<Held[]>(heldFile(childId, opts), []);
-  if (!held.length) return { replayed: 0, stillHeld: 0 };
+  if (!held.length) return { replayed: 0, stillHeld: 0, permanent: 0 };
   const left: Held[] = [];
   for (const row of held) {
-    const { error: _error, heldAt: _heldAt, ...input } = row;
+    if (row.permanent) { left.push(row); continue; }
+    const { error: _error, heldAt: _heldAt, permanent: _permanent, ...input } = row;
     try { recordCanonicalNodeCompletion(input, { rootDir: opts.rootDir }); }
-    catch (error) { left.push({ ...row, error: error instanceof Error ? error.message : String(error) }); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const permanent = PERMANENT_REFUSAL.test(message);
+      if (permanent) console.log(` 🎮 [sunny-health] [held-replay] [permanent] child=${childId} homework=${row.homeworkId} node=${row.nodeId} reason=${message.slice(0, 120)} kept_for_parent=true`);
+      left.push({ ...row, error: message, ...(permanent ? { permanent: true as const } : {}) });
+    }
   }
   writeJson(heldFile(childId, opts), left);
   if (!left.length) setProblem(childId, "save_failed", undefined, opts);
-  console.log(` 🎮 [sunny-health] [held-replay] [${left.length ? "still-held" : "saved"}] child=${childId} replayed=${held.length - left.length} stillHeld=${left.length}`);
-  return { replayed: held.length - left.length, stillHeld: left.length };
+  const permanent = left.filter(row => row.permanent).length;
+  console.log(` 🎮 [sunny-health] [held-replay] [${left.length ? "still-held" : "saved"}] child=${childId} replayed=${held.length - left.length} stillHeld=${left.length} permanent=${permanent}`);
+  return { replayed: held.length - left.length, stillHeld: left.length, permanent };
 }
 
 /** Tells the parent: always recorded and logged; also sent to their phone when SUNNY_PARENT_ALERT_URL is set. */
