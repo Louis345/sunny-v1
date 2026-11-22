@@ -42,7 +42,8 @@ export const PRICE_LIST = { gamePlay: 25, callMinutes5: 30, mysteryChest: 60 } a
 /** The earned call (owner, 2026-11-07): finishing a board opens the call; the call burns the call time she has
  * earned (CALL_TIME_LOOT) and more costs coins, so she wants to come back and earn again. No free minutes per
  * board (2026-11-10: they piled up into 10-minute calls), no cap, no daily limit: earn rates alone set the time. */
-export const CALL_RULES = { warnAtSecondsLeft: 60 } as const;
+// 11/22: warn at 30 s left, not 60; with 25-60 s saved per call, 60 meant the call opened with a time warning.
+export const CALL_RULES = { warnAtSecondsLeft: 30 } as const;
 /** Call time is rolled loot (owner, 2026-11-10): every finished stop's chest rolls one row. The common drop is
  * 10-20 seconds; a full minute is the rare drop. ONE tunable table: odds (`below`, cumulative) and amounts.
  * About 18 seconds a stop on average, so a board of six stops earns about two minutes of FaceTime. */

@@ -10,7 +10,7 @@ function fakeServer(start: { minutes: number; coins: number }): Fake {
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     const json = (data: unknown) => ({ ok: true, json: async () => data });
-    if (url === "/api/rewards/call/ila") return json({ minutesLeft: fake.minutes, coins: fake.coins, price: 30, minutes: 5, warnAtSecondsLeft: 60 });
+    if (url === "/api/rewards/call/ila") return json({ minutesLeft: fake.minutes, coins: fake.coins, price: 30, minutes: 5, warnAtSecondsLeft: 30 });
     if (url === "/api/rewards/call/minute") {
       if (fake.spent.includes(body.receiptId)) return json({ ok: true, minutesLeft: fake.minutes, coins: fake.coins });
       if (fake.minutes < 1) return json({ ok: false, reason: "no_minutes", coins: fake.coins });
@@ -42,12 +42,19 @@ it("pays each minute before it is used and counts down what is saved", async () 
   expect(screen.getByText("1:00")).toBeTruthy();
 });
 
-it("warns once at a minute left, then offers more time or goodbye when it runs out", async () => {
+// 11/22 (69 calls read): in 14 of 34 calls the companion's first words were about time or coins, because calls open
+// with 25-60 s saved and the warning fired at 60 s left, i.e. at once. The friend comes first: no clock moment in the
+// first 30 s of a call, and the warning comes at 30 s left (the server's warnAtSecondsLeft).
+it("says nothing about time in the call's first 30 seconds, then warns once and offers more time or goodbye", async () => {
   fakeServer({ minutes: 1, coins: 40 });
   const onMoment = vi.fn();
   const onGoodbye = vi.fn();
   render(<CallClock childId="ila" callId="c1" active onMoment={onMoment} onGoodbye={onGoodbye} />);
   await pass(0);
+  expect(onMoment).not.toHaveBeenCalled();
+  await pass(29_000);
+  expect(onMoment).not.toHaveBeenCalled();
+  await pass(2_000);
   expect(onMoment).toHaveBeenCalledWith("minute_left");
   await pass(60_000);
   expect(onMoment).toHaveBeenLastCalledWith("time_up");
@@ -146,4 +153,27 @@ it("keeps out of the top-right corner, where the call's own buttons are", async 
   const card = screen.getByRole("dialog", { name: "Call time is up" });
   expect(card.parentElement?.className).toMatch(/\binset-0\b/);
   expect(card.parentElement?.className).toMatch(/\bitems-center\b/);
+});
+
+// 11/22: most calls open with 25-50 s saved, already under the warning line, so the companion's first words were about
+// time. A short call is still a call with a friend: no time moment until it has run 30 s (a 25 s call just ends).
+it("never opens a short call with a time warning", async () => {
+  let saved = 45;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    const json = (data: unknown) => ({ ok: true, json: async () => data });
+    if (url === "/api/rewards/call/ila") return json({ minutesLeft: 0, secondsLeft: saved, coins: 0, price: 30, minutes: 5, warnAtSecondsLeft: 30 });
+    if (url === "/api/rewards/call/minute") {
+      if (saved < 1) return json({ ok: false, reason: "no_minutes", coins: 0 });
+      const granted = Math.min(60, saved); saved -= granted;
+      return json({ ok: true, minutesLeft: 0, secondsLeft: saved, secondsGranted: granted, coins: 0 });
+    }
+    throw new Error(`unexpected ${url}`);
+  }));
+  const onMoment = vi.fn();
+  render(<CallClock childId="ila" callId="q1" active onMoment={onMoment} onGoodbye={() => {}} />);
+  await pass(0);
+  await pass(29_000);
+  expect(onMoment).not.toHaveBeenCalled();
+  await pass(2_000);
+  expect(onMoment).toHaveBeenCalledWith("minute_left");
 });

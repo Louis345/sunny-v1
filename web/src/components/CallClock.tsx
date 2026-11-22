@@ -8,6 +8,8 @@ export type CoinsChangedDetail = { childId: string; coins: number };
 
 /** A moment Elli reacts to in her own words; the server supplies the facts. */
 export type CallClockMoment = "minute_left" | "time_up" | "minutes_bought";
+/** 11/22: calls open with 25-60 s saved; the companion's first words were about time. No time moment before this. */
+export const QUIET_START_SECONDS = 30;
 
 /** secondsLeft is the saved time in seconds (call time is earned in seconds, 2026-11-10); older servers send minutes. */
 type Clock = { minutesLeft: number; secondsLeft?: number; coins: number; price: number; minutes: number; warnAtSecondsLeft: number };
@@ -141,21 +143,23 @@ function usePaidTimeClock({
     return () => window.removeEventListener(COINS_CHANGED_EVENT, onCoins);
   }, [childId]);
 
+  // The friend comes first (11/22): no time moment until the call has run QUIET_START_SECONDS.
+  const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!active || phase !== "running") return;
-    const timer = window.setInterval(() => setSecondsInMinute((seconds) => seconds - 1), 1000);
+    const timer = window.setInterval(() => { setSecondsInMinute((seconds) => seconds - 1); setElapsed((seconds) => seconds + 1); }, 1000);
     return () => window.clearInterval(timer);
   }, [active, phase]);
 
   useEffect(() => {
     if (phase !== "running" || !clock) return;
     const total = secondsInMinute + savedSeconds(clock);
-    if (!warned.current && total > 0 && total <= clock.warnAtSecondsLeft) {
+    if (!warned.current && total > 0 && total <= clock.warnAtSecondsLeft && elapsed >= QUIET_START_SECONDS) {
       warned.current = true;
       onMomentRef.current?.("minute_left");
     }
     if (secondsInMinute <= 0) void payNextMinute();
-  }, [clock, payNextMinute, phase, secondsInMinute]);
+  }, [clock, elapsed, payNextMinute, phase, secondsInMinute]);
 
   const buy = async () => {
     if (!clock || clock.coins < clock.price || phase !== "out") return;
