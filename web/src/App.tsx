@@ -116,6 +116,7 @@ import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "./comp
 import { ChestThenCreature } from "./components/LiveCreatureEncounter";
 import { CreatureDenOverlay, DenButton } from "./components/CreatureDenOverlay";
 import { SidekickBuddy } from "./components/SidekickBuddy";
+import { newestPetCommandAt } from "./lib/petCommand";
 import { fetchCreatures, sendDenAction, startCreatureSession, type CreatureSnapshot } from "./utils/creatureApi";
 import { CREATURE_CATALOG } from "../../src/shared/capturedMonsterCatalog";
 import type { PendingCreatureEncounter } from "../../src/shared/companionCareTypes";
@@ -2010,6 +2011,16 @@ function App() {
       mergeCompanionCommands(voiceCompanionCommands, boardReadyHand ? [...diagCompanionCommands, boardReadyHand] : diagCompanionCommands),
     [voiceCompanionCommands, diagCompanionCommands, boardReadyHand],
   );
+
+  // Her pet by voice (2026-11-22): the server already saved the den change; re-read her creatures so it shows or leaves.
+  const handledPetCommandRef = useRef(0);
+  useEffect(() => {
+    const newest = newestPetCommandAt(mergedCompanionCommands, handledPetCommandRef.current);
+    if (newest === null) return;
+    handledPetCommandRef.current = newest;
+    refreshCreatures();
+    console.log(` 🎮 [pet] [kiosk] [refreshed] at=${newest}`);
+  }, [mergedCompanionCommands, refreshCreatures]);
 
   useEffect(() => {
     if (!adventureMapEnabled) return;

@@ -13,7 +13,7 @@ describe("companion capability registry (COMPANION-API-002)", () => {
   });
 
   it("registers companion motion and the bounded level-path UI action", () => {
-    expect(COMPANION_CAPABILITIES.size).toBe(6);
+    expect(COMPANION_CAPABILITIES.size).toBe(7);
     expect(COMPANION_CAPABILITIES.has("emote")).toBe(true);
     expect(COMPANION_CAPABILITIES.has("camera")).toBe(true);
     expect(COMPANION_CAPABILITIES.has("animate")).toBe(true);
@@ -21,6 +21,8 @@ describe("companion capability registry (COMPANION-API-002)", () => {
     expect(COMPANION_CAPABILITIES.has("show_level_path")).toBe(true);
     // 2026-11-10: the companion's own check-in appointment (raised hand or gentle words).
     expect(COMPANION_CAPABILITIES.has("check_back_in")).toBe(true);
+    // 2026-11-22: her pet by voice (bring or dismiss).
+    expect(COMPANION_CAPABILITIES.has("pet")).toBe(true);
   });
 
   it("keeps show_level_path bounded to an empty payload", () => {

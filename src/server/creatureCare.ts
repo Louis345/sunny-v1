@@ -18,7 +18,7 @@ import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import { getChildChart } from "../profiles/childChart";
 import { mirrorCompanionCareToLearningProfile, saveCompanionCarePlan } from "../profiles/companionCarePlan";
 import type { CompanionCarePlan, GiftQuestion, PendingCreatureEncounter } from "../shared/companionCareTypes";
-import type { DenFoodId } from "../shared/creatureDenRules";
+import { canRecall, denRoster, type DenFoodId } from "../shared/creatureDenRules";
 import type { CreatureScene } from "../shared/creatureEncounters";
 import { kioskSkyClockInput, seasonOf, skyMoodForTime } from "../shared/skyClock";
 import { familyDay } from "../utils/familyCalendar";
@@ -157,6 +157,44 @@ export function countBoardForCreatures(cycle: LearningCycleRecordV2, nodeId: str
   } catch (error) {
     console.error(` 🎮 [learning-cycle-route] [creature-board] [deferred] ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+/**
+ * Her pet by voice (owner 2026-11-22): the companion's `pet` tool. Finds the pet she named by nickname or kind, then
+ * uses the den's own recall/dismiss rules. The result is what the companion tells her.
+ */
+export function summonPetForChild(childId: string, input: { action: "bring" | "dismiss"; name?: string }):
+  { ok: boolean; pet?: string; reason?: string; pets: string[] } {
+  const plan = getChildChart(childId).companionCare.plan;
+  const roster = denRoster(denStateOf(plan));
+  const pets = roster.map((row) => row.creature.nickname || row.species.defaultNickname);
+  const nameOf = (creatureId: string | null | undefined) => roster.find((row) => row.species.id === creatureId)?.creature.nickname
+    ?? roster.find((row) => row.species.id === creatureId)?.species.defaultNickname;
+  if (input.action === "dismiss") {
+    const current = denStateOf(plan).sidekickId;
+    if (!current) return { ok: false, reason: "no_pet_out", pets };
+    save(childId, (before) => dismissPlanSidekick(before));
+    console.log(` 🎮 [pet] [dismiss] [done] child=${childId} pet=${nameOf(current)}`);
+    return { ok: true, pet: nameOf(current), pets };
+  }
+  if (!roster.length) return { ok: false, reason: "no_pets_yet", pets };
+  const key = (value: string) => value.trim().toLowerCase();
+  const asked = key(input.name ?? "");
+  const match = !asked && roster.length === 1 ? roster[0]
+    : roster.find((row) => [row.creature.nickname, row.species.defaultNickname, row.species.speciesName].some((name) => name && key(name) === asked))
+      ?? roster.find((row) => asked && [row.creature.nickname, row.species.speciesName].some((name) => name && (key(name).includes(asked) || asked.includes(key(name)))));
+  if (!match) {
+    console.log(` 🎮 [pet] [bring] [unknown] child=${childId} asked=${JSON.stringify(input.name ?? "")} pets=${pets.join(",")}`);
+    return { ok: false, reason: asked ? "no_pet_by_that_name" : "which_pet", pets };
+  }
+  const pet = match.creature.nickname || match.species.defaultNickname;
+  if (!canRecall(match.creature)) {
+    console.log(` 🎮 [pet] [bring] [refused] child=${childId} pet=${pet} reason=needs_more_bond bond=${match.creature.bond}`);
+    return { ok: false, pet, reason: "needs_more_bond_feed_it_in_her_den", pets };
+  }
+  save(childId, (before) => recallPlanSidekick(before, match.species.id));
+  console.log(` 🎮 [pet] [bring] [done] child=${childId} pet=${pet}`);
+  return { ok: true, pet, pets };
 }
 
 export function creatureSnapshotForChild(childId: string) {

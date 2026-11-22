@@ -6,6 +6,7 @@ import { scheduleCompanionCheckIn } from "./companionCheckIn";
 import { getActiveVoiceSessionManagerForChild } from "./voice-session-registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { isCompanionEmote } from "../shared/companionEmotes";
+import * as creatureCare from "./creatureCare";
 
 const EVENT_TO_EMOTE: Partial<Record<SessionEvent["type"], string>> = {
   game_started: "excited",
@@ -152,6 +153,12 @@ export class ServerCompanionBridge {
         trace: row => manager?.recordGameTrace?.(row),
       });
       return { ok: true, type: cmd.type, scheduled: true };
+    }
+    // Her pet by voice (2026-11-22): the den's rules decide; the kiosk shows it only when it really came out or went home.
+    if (cmd.type === "pet") {
+      const result = creatureCare.summonPetForChild(childId, cmd.payload as { action: "bring" | "dismiss"; name?: string });
+      if (result.ok) deliver(cmd);
+      return { type: cmd.type, ...result };
     }
     deliver(cmd);
     console.log(`  [companion] companionAct type=${cmd.type} childId=${childId}`);

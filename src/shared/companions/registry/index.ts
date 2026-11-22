@@ -9,6 +9,7 @@ import { cameraCapability } from "./camera.capability";
 import { checkBackInCapability } from "./check-back-in.capability";
 import { emoteCapability } from "./emote.capability";
 import { moveCapability } from "./move.capability";
+import { petCapability } from "./pet.capability";
 import { showLevelPathCapability } from "./show-level-path.capability";
 
 const entries: CapabilityDefinition[] = [
@@ -18,6 +19,7 @@ const entries: CapabilityDefinition[] = [
   moveCapability,
   showLevelPathCapability,
   checkBackInCapability,
+  petCapability,
 ];
 
 export const COMPANION_CAPABILITIES: Map<string, CapabilityDefinition> = new Map(

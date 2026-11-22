@@ -69,11 +69,14 @@ const SHOWROOM_ACTIVITY_REACTION_EVENTS = new Set([
   "round_complete",
 ]);
 const SHOWROOM_TALK_FALLBACK_TEXT = "I'm here with you. Let's keep going.";
+// The call screen draws no pet yet, so a call companion is not offered the pet tool (2026-11-22: it would say a pet
+// came out that she cannot see). Homework sessions have it.
+const SHOWROOM_ONLY_OFF = new Set(["pet"]);
 const SHOWROOM_COMPANION_ACT_CAPABILITIES = [
   ...COMPANION_CAPABILITIES.keys(),
-] as string[];
+].filter((type) => !SHOWROOM_ONLY_OFF.has(type)) as string[];
 /** The registry's strict payload shapes, so the call companion reads exactly what the validator accepts. */
-const SHOWROOM_COMPANION_ACT_PAYLOADS = [...COMPANION_CAPABILITIES.values()].map((def) => {
+const SHOWROOM_COMPANION_ACT_PAYLOADS = [...COMPANION_CAPABILITIES.values()].filter((def) => !SHOWROOM_ONLY_OFF.has(def.type)).map((def) => {
   const { $schema: _schema, ...shape } = z.toJSONSchema(def.payloadSchema, { io: "input" });
   return shape;
 });

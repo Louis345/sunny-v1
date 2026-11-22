@@ -17,7 +17,8 @@ vi.mock("../profiles/companionCarePlan", () => ({
   mirrorCompanionCareToLearningProfile: vi.fn(),
   loadCompanionCarePlanForChart: vi.fn(),
 }));
-import { awardBirthdayGiftOnCompletion, awardCreatureEncounterOnCompletion, countBoardForCreatures } from "./creatureCare";
+import { awardBirthdayGiftOnCompletion, awardCreatureEncounterOnCompletion, countBoardForCreatures, summonPetForChild } from "./creatureCare";
+import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { setupRoutes } from "./routes";
 
 const servers: ReturnType<ReturnType<typeof express>["listen"]>[] = [];
@@ -195,5 +196,50 @@ describe("birthday gift: Orb Catcher with the words she just practiced (owner, 2
       { id: "m1", kind: "math", prompt: "Half of $8?", answer: "4" },
       { id: "m2", kind: "math", prompt: "Which is half of 10?", answer: "5", choices: ["5", "2"] },
     ]);
+  });
+});
+
+
+// Owner 11/22: "Elli, bring out Sparky" / "Elli, dismiss Sparky": one companion tool, the same for every companion.
+// The den already had a sidekick (recall/dismiss by tapping); only her voice could not reach it.
+describe("her companion brings out or sends home her pet by voice", () => {
+  async function caughtAndNamed(name: string) {
+    const encounter = awardCreatureEncounterOnCompletion(cycle(true), "hw:n1")!;
+    await call("POST", "/api/creatures/encounter", { childId: "demo-pashley", encounterId: encounter.encounterId, outcome: "caught" });
+    await call("POST", "/api/creatures/den", { childId: "demo-pashley", action: "rename", creatureId: "lumipuff", name });
+  }
+
+  it("brings out the pet she names, by its nickname or its kind, and sends it home", async () => {
+    await caughtAndNamed("Sparky");
+    expect(summonPetForChild("demo-pashley", { action: "bring", name: "sparky" })).toMatchObject({ ok: true, pet: "Sparky" });
+    expect(denStateOf(saved.at(-1)!).sidekickId).toBe("lumipuff");
+    expect(summonPetForChild("demo-pashley", { action: "dismiss" })).toMatchObject({ ok: true, pet: "Sparky" });
+    expect(denStateOf(saved.at(-1)!).sidekickId).toBeNull();
+    expect(summonPetForChild("demo-pashley", { action: "bring", name: "Lumipuff" })).toMatchObject({ ok: true, pet: "Sparky" });
+  });
+
+  it("tells the companion her pets' names when it cannot tell which one she means", async () => {
+    await caughtAndNamed("Sparky");
+    expect(summonPetForChild("demo-pashley", { action: "bring", name: "Rex" })).toMatchObject({ ok: false, reason: "no_pet_by_that_name", pets: ["Sparky"] });
+  });
+
+  it("says so when she has no pets yet", () => {
+    expect(summonPetForChild("demo-pashley", { action: "bring", name: "Sparky" })).toMatchObject({ ok: false, reason: "no_pets_yet", pets: [] });
+  });
+
+  it("is one capability every companion can use", () => {
+    const pet = COMPANION_CAPABILITIES.get("pet");
+    expect(pet?.payloadSchema.safeParse({ action: "bring", name: "Sparky" }).success).toBe(true);
+    expect(pet?.payloadSchema.safeParse({ action: "dismiss" }).success).toBe(true);
+    expect(pet?.payloadSchema.safeParse({ action: "dance" }).success).toBe(false);
+  });
+});
+
+describe("the call companion is not offered a pet it cannot show", () => {
+  it("leaves pet out of the FaceTime tool, keeps it for homework sessions", async () => {
+    const { getShowroomCompanionActTools } = await import("./companionShowroomTalk");
+    const tool = getShowroomCompanionActTools()[0] as { input_schema: { properties: { type: { enum: string[] } } } };
+    expect(tool.input_schema.properties.type.enum).not.toContain("pet");
+    expect(COMPANION_CAPABILITIES.has("pet")).toBe(true);
   });
 });
