@@ -191,6 +191,8 @@ export async function gameLayoutProblems(html: string): Promise<string[]> {
     const page = await browser.newPage({ viewport: { width: 1470, height: 956 } });
     await page.setContent(html, { waitUntil: "load", timeout: 15_000 });
     await page.waitForTimeout(1_000);
+    // Saori runs Sunny under tsx, which wraps named functions in __name(...); the page needs that helper (11/22).
+    await page.evaluate("globalThis.__name = globalThis.__name || ((target) => target)");
     const layout = await page.evaluate(collectGameLayout);
     const problems = layoutCoverageProblems(layout.covered);
     console.log(` 🎮 [spelling-game] [layout] [checked] controls=${layout.controls.length} covered=${layout.covered.length} ms=${Date.now() - started}`);
