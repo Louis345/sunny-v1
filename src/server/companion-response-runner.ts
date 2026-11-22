@@ -62,6 +62,12 @@ export function deferCompanionUntilNarrationFinishes(
   const requestId = session.activeGameNarrationRequestId
     ?? session.pendingGameNarrationPlayback?.requestId;
   if (!requestId) return false;
+  if (session.voiceFloor?.narratorReadingScreenText?.()) {
+    // She spoke over an instruction: the narrator stops and her companion answers her now (a test word finishes first).
+    console.log(" 🎮 [voice-floor] [narrator] [stopped] reason=child_spoke");
+    session.bargeIn("child_speech");
+    return false;
+  }
   const turnState = session.turnSM.getState?.();
   if (turnState === "LOADING" || turnState === "PROCESSING") {
     session.turnSM.onInterrupt();

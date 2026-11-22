@@ -105,3 +105,27 @@ describe("the session uses the voice floor for every voice", () => {
     expect(fs.readFileSync(path.join(process.cwd(), "AGENTS.md"), "utf8")).toContain("XState owns every voice and turn-taking state.");
   });
 });
+
+describe("the child talks while the narrator reads", () => {
+  it("a screen line stops at once and her companion answers her; a test word finishes first", async () => {
+    const { deferCompanionUntilNarrationFinishes } = await import("./companion-response-runner");
+    const f = floor();
+    f.narratorMayStart("Type where the kappa lands next.", { reason: "step" });
+    expect(f.narratorReadingScreenText()).toBe(true);
+    const session = {
+      voiceFloor: f, activeGameNarrationRequestId: "n-1", pendingGameNarrationPlayback: null,
+      bargeIn: vi.fn(function (this: any) { this.activeGameNarrationRequestId = null; f.childSpoke(); }),
+      turnSM: { setPendingTranscript: vi.fn(), getState: () => "IDLE", onInterrupt: vi.fn() }, recordDebugEvent: vi.fn(),
+    };
+    expect(deferCompanionUntilNarrationFinishes(session, "I don't get it")).toBe(false);
+    expect(session.bargeIn).toHaveBeenCalledWith("child_speech");
+    expect(session.turnSM.setPendingTranscript).not.toHaveBeenCalled();
+
+    const g = floor();
+    g.narratorMayStart("night.", { word: "night", assessmentMode: true });
+    expect(g.narratorReadingScreenText()).toBe(false);
+    const wordSession = { ...session, voiceFloor: g, activeGameNarrationRequestId: "n-2", bargeIn: vi.fn(), turnSM: { ...session.turnSM, setPendingTranscript: vi.fn() } };
+    expect(deferCompanionUntilNarrationFinishes(wordSession, "what?")).toBe(true);
+    expect(wordSession.bargeIn).not.toHaveBeenCalled();
+  });
+});

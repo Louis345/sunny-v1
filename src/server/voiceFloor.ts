@@ -16,11 +16,11 @@ const isTestWord = (line: HeldLine) => line.metadata.assessmentMode === true
 
 export const serverVoiceFloorMachine = setup({
   types: {
-    context: {} as { held?: HeldLine; timedOut: boolean },
+    context: {} as { held?: HeldLine; reading?: HeldLine; timedOut: boolean },
     events: {} as
       | { type: "COMPANION_STARTED" }
       | { type: "COMPANION_ENDED" }
-      | { type: "NARRATOR_STARTED" }
+      | { type: "NARRATOR_STARTED"; line?: HeldLine }
       | { type: "NARRATOR_ENDED" }
       | { type: "CHILD_SPOKE" }
       | { type: "HOLD"; line: HeldLine }
@@ -31,6 +31,8 @@ export const serverVoiceFloorMachine = setup({
     clearHeld: assign({ held: undefined, timedOut: false }),
     dropScreenLine: assign({ held: ({ context }) => (context.held && isTestWord(context.held) ? context.held : undefined) }),
     markTimedOut: assign({ timedOut: true }),
+    noteReading: assign({ reading: ({ event }) => (event.type === "NARRATOR_STARTED" ? event.line : undefined) }),
+    clearReading: assign({ reading: undefined }),
   },
 }).createMachine({
   id: "serverVoiceFloor",
@@ -41,8 +43,11 @@ export const serverVoiceFloorMachine = setup({
     CLEAR_HELD: { actions: "clearHeld" },
   },
   states: {
-    free: { on: { COMPANION_STARTED: "companion", NARRATOR_STARTED: "narrator" } },
-    narrator: { on: { COMPANION_STARTED: "companion", NARRATOR_ENDED: "free" } },
+    free: { on: { COMPANION_STARTED: "companion", NARRATOR_STARTED: { target: "narrator", actions: "noteReading" } } },
+    narrator: {
+      exit: "clearReading",
+      on: { COMPANION_STARTED: "companion", NARRATOR_ENDED: "free", NARRATOR_STARTED: { actions: "noteReading" } },
+    },
     companion: {
       initial: "talking",
       on: { COMPANION_ENDED: "free", HOLD: { target: ".holding", actions: "hold" } },
@@ -100,8 +105,14 @@ export class ServerVoiceFloor {
       console.log(` 🎮 [voice-floor] [narrator] [held] word=${String(metadata.word ?? "")}`);
       return false;
     }
-    this.actor.send({ type: "NARRATOR_STARTED" });
+    this.actor.send({ type: "NARRATOR_STARTED", line: { text, metadata } });
     return true;
+  }
+
+  /** The narrator is reading an instruction or problem (not a test word): her voice may cut it off. */
+  narratorReadingScreenText(): boolean {
+    const reading = this.actor.getSnapshot().context.reading;
+    return this.current() === "narrator" && Boolean(reading) && !isTestWord(reading!);
   }
 
   narratorEnded(): void { this.actor.send({ type: "NARRATOR_ENDED" }); }
