@@ -1032,4 +1032,3 @@ export function handleReadingProgress(s: SM, payload: Record<string, unknown>): 
     }
 }
 
-export { NarrationGate } from "./narrationGate";

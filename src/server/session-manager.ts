@@ -27,6 +27,7 @@ import {
   legacyAttemptsNote,
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
+import { ServerVoiceFloor, type HeldLine } from "./voiceFloor";
 import { GameNarrationRouter, requestGameNarrationForSession } from "./gameNarrationRoute";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
 import { interruptedExchange, isBackchannel, isListeningNoise, selfEchoSource, isVerbatimEchoOfCompanion, normalizeUtterance, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
@@ -200,7 +201,7 @@ export class SessionManager {
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
-  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string}; private readonly narrationGate = new gev.NarrationGate(); readonly gameNarration = new GameNarrationRouter();
+  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string}; readonly voiceFloor = new ServerVoiceFloor(); readonly gameNarration = new GameNarrationRouter();
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
   private mathDiscoverySupport?: MathDiscoverySupportState;
   private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
@@ -637,13 +638,13 @@ export class SessionManager {
       (state) => {
         this.send("session_state", { state });
         this.debugRecorder.recordEvent("turn", "state_changed", { state });
-        if (state === "SPEAKING") {
-          this.speakingStartedAt = Date.now();
-        } else if (state === "IDLE") {
-          this.speakingStartedAt = 0; const held = this.narrationGate?.turnEnded(); if (held) void this.speakGameNarration(held.text, held.metadata).catch((error: unknown) => console.error(" 🎮 [game-narration] [released] [failed]", error));
-        }
+        if (state === "SPEAKING") this.speakingStartedAt = Date.now();
+        else if (state === "IDLE") this.speakingStartedAt = 0;
+        const held = this.voiceFloor?.companionTurn(state); // her turn ended: the narrator's waiting line plays now
+        if (held) this.playHeldNarration(held);
       },
     );
+    this.voiceFloor.onRelease(held => this.playHeldNarration(held)); // a stuck turn never strands the game's word
 
     this.activeCanvasController = new ActiveCanvasActivityController({
       readCanvasState: () => this.currentCanvasState,
@@ -1121,6 +1122,9 @@ export class SessionManager {
     });
   }
 
+  private playHeldNarration(held: HeldLine): void {
+    void this.speakGameNarration(held.text, held.metadata).catch((error: unknown) => console.error(" 🎮 [game-narration] [released] [failed]", error));
+  }
   public requestGameNarration(text: string, metadata: Record<string, unknown> = {}): Promise<void> { return requestGameNarrationForSession(this as never, text, metadata); }
   /** Her own words from an earlier turn (a check-in she scheduled), spoken in her voice, never the narrator's. */
   public speakCompanionWords(text: string): Promise<void> { return this.handleCompanionTurn(text); }
@@ -1129,7 +1133,7 @@ export class SessionManager {
   public async speakGameNarration(
     text: string,
     metadata: Record<string, unknown> = {},
-  ): Promise<void> { if (this.narrationGate?.shouldHold(this.turnSM?.getState?.() ?? "IDLE")) return this.narrationGate?.hold(text, metadata); // help answer first
+  ): Promise<void> { if (this.voiceFloor?.narratorMayStart(text, metadata) === false) return; // she has the floor: it waits
     if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) {
       this.debugRecorder.recordEvent("game_narration", "request_suppressed", {
         reason: "playback_in_progress",
@@ -1153,7 +1157,7 @@ export class SessionManager {
     } catch (error) {
       // Every audio_start gets exactly one audio_done, even when the voice fails; otherwise the
       // browser keeps the microphone closed waiting for speech that will never come.
-      this.activeGameNarrationRequestId = null;
+      this.activeGameNarrationRequestId = null; this.voiceFloor?.narratorEnded();
       const reason = error instanceof Error ? error.message : String(error);
       this.send("audio_done", { requestId, failed: true, reason, ...(assessment ? { requiresAudio: true } : {}), ...(metadata.itemId ?? assessment?.itemId ? { itemId: String(metadata.itemId ?? assessment?.itemId) } : {}) });
       console.warn(` 🎮 [session-audio] [playback] [failed-released] request=${requestId} reason=${reason}`);
@@ -1184,7 +1188,7 @@ export class SessionManager {
       }
       gev.armGameNarrationPlaybackTimer(this, requestId, String(metadata.itemId ?? assessment?.itemId ?? ""));
     } else {
-      this.activeGameNarrationRequestId = null;
+      this.activeGameNarrationRequestId = null; this.voiceFloor?.narratorEnded();
       this.send("audio_done", { requestId, failed: true, reason: "no_speech", ...(assessment ? { requiresAudio: true } : {}), ...(metadata.itemId ?? assessment?.itemId ? { itemId: String(metadata.itemId ?? assessment?.itemId) } : {}) });
       console.warn(` 🎮 [session-audio] [playback] [failed-released] request=${requestId} reason=no_speech`);
     }
@@ -1289,6 +1293,7 @@ export class SessionManager {
       this.pendingGameNarrationPlayback = null;
     }
     this.activeGameNarrationRequestId = null;
+    if (cause === "child_speech") this.voiceFloor?.childSpoke(); else this.voiceFloor?.narratorEnded();
 
     const stateBefore = this.turnSM.getState();
     const interrupted = this.inFlightReply;
@@ -1400,7 +1405,7 @@ export class SessionManager {
         },
       );
       this.pendingGameNarrationPlayback = null;
-      this.activeGameNarrationRequestId = null;
+      this.activeGameNarrationRequestId = null; this.voiceFloor?.narratorEnded();
     }
     this.turnSM.onPlaybackComplete();
     this.flushPendingRoundComplete();
@@ -1784,7 +1789,7 @@ export class SessionManager {
           currentActivityState: this.currentActivityState,
           currentCanvasState: this.currentCanvasState,
         })
-      : null; if (urgentRoute?.intent.type === "help_request") { grantSpellingHelpOnRequest(this.spellingAssessment, this.currentBoardSnapshot); this.narrationGate?.helpAnswerStarted(); } // contract 54
+      : null; if (urgentRoute?.intent.type === "help_request") { grantSpellingHelpOnRequest(this.spellingAssessment, this.currentBoardSnapshot); this.voiceFloor?.companionClaimed(); } // contract 54
     const companionConversationOpen = this.companionPresence === "summoned"
       && this.companionInteractionMode === "conversation";
     if ((presenceRoute.action === "dismiss" || (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen)) && handleCompanionPresenceTranscript({
