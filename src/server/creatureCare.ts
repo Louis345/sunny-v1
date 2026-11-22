@@ -117,6 +117,9 @@ function giftQuestionsFor(node: LearningCycleRecordV2["nodes"][number]): GiftQue
  * Her birthday gift (owner, 2026-11-21): on her birthday, the first stop she finishes opens Orb Catcher with that
  * stop's questions and a Starwhal to catch, once. A stop where the Planner placed its own creature keeps that one.
  */
+/** A child who does not play on her birthday still gets the present on her first finished stop this many days after. */
+const BELATED_BIRTHDAY_DAYS = 7;
+
 export function awardBirthdayGiftOnCompletion(
   cycle: LearningCycleRecordV2,
   nodeId: string,
@@ -128,7 +131,11 @@ export function awardBirthdayGiftOnCompletion(
     const now = opts.now ?? new Date();
     const birthDate = "birthDate" in opts ? opts.birthDate : getChildChart(cycle.childId).demographics?.birthDate;
     const today = familyDay(now);
-    if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || today.slice(5) !== birthDate.slice(5)) return undefined;
+    if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return undefined;
+    // Her birthday, or her first finished stop in the week after when she did not play that day (owner 11/22).
+    const birthdayThisYear = Date.UTC(Number(today.slice(0, 4)), Number(birthDate.slice(5, 7)) - 1, Number(birthDate.slice(8, 10)));
+    const daysAfter = Math.round((Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, Number(today.slice(8, 10))) - birthdayThisYear) / 86_400_000);
+    if (daysAfter < 0 || daysAfter > BELATED_BIRTHDAY_DAYS) return undefined;
     let encounter: PendingCreatureEncounter | null = null;
     save(cycle.childId, (plan) => {
       const given = giveBirthdayGift(plan, {

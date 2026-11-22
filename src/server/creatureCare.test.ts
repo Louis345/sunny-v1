@@ -184,8 +184,16 @@ describe("birthday gift: Orb Catcher with the words she just practiced (owner, 2
     expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", opts)).toBeUndefined();
   });
 
-  it("no gift on any other day, without a birthday on file, or where the Planner placed its own creature", () => {
-    expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", { ...opts, now: new Date("2026-11-22T15:00:00Z") })).toBeUndefined();
+  // 11/22 owner ("Yes, give it to her"): Ila did not play on 11/21, so her birthday present never opened while Reina's
+  // did. A child who misses her birthday gets it on her first finished stop in the week after; once, never twice.
+  it("a child who did not play on her birthday gets the present on her first stop in the week after", () => {
+    const late = awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", { ...opts, now: new Date("2026-11-22T15:00:00Z") });
+    expect(late).toMatchObject({ encounterId: "birthday:2026", gift: "birthday" });
+  });
+
+  it("no gift before her birthday, more than a week after, without a birthday on file, or where the Planner placed its own creature", () => {
+    expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", { ...opts, now: new Date("2026-11-20T15:00:00Z") })).toBeUndefined();
+    expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", { ...opts, now: new Date("2026-11-29T15:00:00Z") })).toBeUndefined();
     expect(awardBirthdayGiftOnCompletion(spellingStop(), "hw:n1", { ...opts, birthDate: undefined })).toBeUndefined();
     expect(awardBirthdayGiftOnCompletion(spellingStop(true), "hw:n1", opts)).toBeUndefined();
     expect(saved).toHaveLength(0);
