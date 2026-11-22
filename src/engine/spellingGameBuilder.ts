@@ -87,14 +87,14 @@ Make it something she will gasp at and want to play again, and that helps her sp
 How the game must work:
 - One complete, self-contained HTML document: inline CSS and JavaScript only. No external files, no internet, no image URLs; draw with CSS, SVG, canvas or emoji. It fills a frame about 900×650 pixels, with mouse or touch.
 - Sunny's game contract is already loaded in the page. window.GAME_PARAMS.words holds her words.
-- Before she spells each word, call window.openSpellingItem("<the word>", "<progress, like Lantern 2 of 8>"). Elli then says the word for her.
+- Before she spells each word, call window.openSpellingItem("<the word>", "<progress, like Lantern 2 of 8>"). The narrator then says the word for her.
 - While she spells a word, do not show that word on screen; give a clue instead: a picture or emoji, or a sentence with a blank.
 - After every spelling attempt, call window.fireAttemptEvent({domain: "spelling", target: "<the word>", attemptedValue: "<what she typed>", correct: true or false}).
-- Elli is her companion and speaks for the game. To say anything else aloud, call parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*"). Do not use speechSynthesis.
+- A narrator reads aloud only what is on screen. To have an instruction or problem read, show it, report it with window.reportStep, then call parent.postMessage({type: "narration_request", text: "<the same on-screen text>", reason: "<why>"}, "*"). Narration is never chat, praise or her name: Elli is her companion and does all the talking; she sees each step and moment and decides what to say. Do not use speechSynthesis.
 - At big moments (a streak, a miss, a win), call window.fireCompanionEvent("<moment>", {word: "<word>"}) so Elli can react.
 - She spells each word at least once, by typing or tapping letters. A wrong answer never ends the game.
 - Each time she reaches a new step (for example listen, tap, type, check), call window.reportStep("<short step name>", "<the instruction on screen>"). Her companion and her session retro see the step.
-- Nothing covers what she needs: put data-sunny-key on the pieces she must read to play (a rule sign, a target), and never let instruction text, banners or overlays sit on top of them or of any button or input. Her companion reads the instruction aloud, so keep on-screen instruction text short (she is dyslexic). Sunny renders your game and sends it back if anything is covered.
+- Nothing covers what she needs: put data-sunny-key on the pieces she must read to play (a rule sign, a target), and never let instruction text, banners or overlays sit on top of them or of any button or input. The narrator reads the instruction aloud, so keep on-screen instruction text short (she is dyslexic). Sunny renders your game and sends it back if anything is covered.
 - Each time the game shows her a hint, a worked example or part of the word, call window.reportHint("<the word>", "<what the hint showed her>") first. Answers after a hint are saved as helped, so her own answers stay honest.
 - When she finishes, call window.sendNodeComplete({completed: true}).
 
@@ -125,10 +125,10 @@ How Sunny's game contract works:
 - Sunny's contract is already loaded. window.GAME_PARAMS.itemBindings lists each problem as {itemId, display}.
 - window.openItem("<itemId>", "<progress, like Camp 2 of 6>") opens a problem. Sunny keeps what is on screen at that moment; an answer already showing counts as help.
 - window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id shown in brackets above, like odd>"}) reports her answer. Report every answer she gives, retries too; Sunny scores each one.
-- ${companion} is her companion and speaks for the game: parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*").
+- A narrator reads aloud only what is on screen. To have an instruction or problem read, show it, report it with window.reportStep, then call parent.postMessage({type: "narration_request", text: "<the same on-screen text>", reason: "<why>"}, "*"). Narration is never chat, praise or her name: ${companion} is her companion and does all the talking; she sees each step and moment and decides what to say.
 - window.fireCompanionEvent("<moment>", {itemId: "<itemId>"}) lets ${companion} react at big moments.
 - window.reportStep("<short step name>", "<the instruction on screen>") each time she reaches a new step. Her companion and her session retro see the step.
-- Nothing covers what she needs: put data-sunny-key on the pieces she must read to play (a rule sign, a target), and never let instruction text, banners or overlays sit on top of them or of any button or input. Her companion reads the instruction aloud, so keep on-screen instruction text short (she is dyslexic). Sunny renders your game and sends it back if anything is covered.
+- Nothing covers what she needs: put data-sunny-key on the pieces she must read to play (a rule sign, a target), and never let instruction text, banners or overlays sit on top of them or of any button or input. The narrator reads the instruction aloud, so keep on-screen instruction text short (she is dyslexic). Sunny renders your game and sends it back if anything is covered.
 - window.reportHint("<itemId>", "<what the hint showed her>") each time the game shows her a hint, a worked example or part of the answer, before she answers. Answers after a hint are saved as helped, so her own answers stay honest.
 - window.sendNodeComplete({completed: true}) ends the game.
 

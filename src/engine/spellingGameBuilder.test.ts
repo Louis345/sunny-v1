@@ -187,6 +187,23 @@ it("asks every built game to report each step and its on-screen instruction", as
   }
 });
 
+// Reina 2026-11-22 ("it talks too much and doesn't follow up"): built games sent chat and praise ("Ray-nah, first puzzle
+// is up…", "check yourself like a champ") as narration, spoken in her companion's voice over her live replies. Why the
+// human caught it: lines repeated word for word and never answered her. Why logs missed it: narration was logged as
+// speech, not as who wrote it. Why the lab missed it: the ask told every game its companion "speaks for the game".
+it("asks every built game for narration of on-screen text only; her companion does the talking", async () => {
+  const { buildSpellingGameAsk, buildMathGameAsk } = await import("./spellingGameBuilder");
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
+  for (const ask of [buildSpellingGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir }), buildMathGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir })]) {
+    expect(ask).not.toMatch(/speaks for the game/);
+    expect(ask).not.toMatch(/companion reads the instruction aloud/i);
+    expect(ask).toContain("A narrator reads aloud only what is on screen");
+    expect(ask).toContain('text: "<the same on-screen text>"');
+    expect(ask).toMatch(/never chat, praise or her name/);
+  }
+});
+
 // BUGS.md 2026-11-09 (Ila board 8, human-caught): she typed dormant and one more dashed box remained; she and her
 // parent counted eight spaces for seven letters and read it as a missing letter. The builder learns this as a fact
 // about her, not as a rule: what she and her parent do with boxes on screen.
