@@ -1330,7 +1330,7 @@ async function designNativeBoard(input:LearningCreatorInput,native:NativeLearnin
 /** The map artist paints one journey (Discovery, Teaching or next board). Shared so every
  * spelling board is drawn the same way; `identity` keys the saved drawing so a restart never
  * buys it twice, and `stagePrefix` names its saved provider turns. */
-export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"model"|"checkpointFile"|"rawResponseDir"|"previousDesigns"|"retryUncertain"|"child"|"paint">&{journey:AdventureJourneyDefinition;label:string;identity:unknown;stagePrefix:string}):Promise<{composition:AdventureBoardComposition;pattern?:string}> {
+export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"model"|"checkpointFile"|"rawResponseDir"|"previousDesigns"|"retryUncertain"|"child"|"paint">&{journey:AdventureJourneyDefinition;label:string;identity:unknown;stagePrefix:string;previewRules?:import("./adventureBoardCanvas").BoardPreviewRules}):Promise<{composition:AdventureBoardComposition;pattern?:string}> {
   const client=input.client??new Anthropic({apiKey:process.env.ANTHROPIC_API_KEY});
   const model=input.model??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5";
   const journey=input.journey,started=Date.now();
@@ -1403,7 +1403,7 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
     drawing=drawArtistTurn(drawing,given,tool.name==="preview_board");
     if(tool.name==="submit_board"||mustSubmit)break;
     previews+=1;
-    const preview=await renderBoardPreview({definition:assembleAdventureBoardDefinition(journey,compositionFromDrawing(journey,drawing),drawing.pattern),rootDir:process.cwd(),directory:path.join(workDir,`look-${previews}`)});
+    const preview=await renderBoardPreview({definition:assembleAdventureBoardDefinition(journey,compositionFromDrawing(journey,drawing),drawing.pattern),rootDir:process.cwd(),directory:path.join(workDir,`look-${previews}`),rules:input.previewRules});
     console.log(` 🎮 [experience-creator] [preview] [shown] look=${previews}/${MAX_BOARD_PREVIEWS}`);
     messages=[...messages,{role:"assistant",content:response.content},{role:"user",content:[{type:"tool_result",tool_use_id:tool.id,content:[
       {type:"text",text:`Look ${previews} of ${MAX_BOARD_PREVIEWS}. Measured portal boxes in pixels: ${JSON.stringify(preview.portals)}. ${preview.overlaps.length?`These measured boxes overlap: ${JSON.stringify(preview.overlaps)}.`:"No measured boxes overlap."} ${preview.crowded.length?`These are closer than 28 pixels: ${JSON.stringify(preview.crowded)}.`:"Every pair has at least 28 pixels of air."} Artwork ${preview.artworkLoaded?"loaded":"did not load"}. Look at the screenshots: can you read every label? ${previews>=MAX_BOARD_PREVIEWS?"This was your last look; submit now.":"Use adjust_board to change only what needs it, or submit_board without portals and edges to publish this exactly as shown."}`},

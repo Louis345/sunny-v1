@@ -118,3 +118,15 @@ it('serves the board preview as UTF-8 so the level badge keeps its star', async 
   expect(await page.locator('.level-path-trigger').textContent()).toBe('⭐ Level 1');
  } finally { await browser.close(); }
 }, 20000);
+
+// Audit 11/22 (seen in code): the artist's preview was drawn as a 'generic' board without the rule that lets her play
+// ready practice in any order, so it showed "Keep going" locks the kiosk never shows, and the Experience Creator judged
+// its map from that. Why the human caught it: preview screenshots did not match the kiosk. Why the lab missed it: the
+// preview test never compared its stop states with the kiosk's.
+it('draws the preview with the same play-in-any-order rule the kiosk uses for this board',async()=>{
+ const {previewBoardJson}=await import('./adventureBoardCanvas');
+ const definition=linearJourneyFixture(['learn','check']) as AdventureBoardDefinition;
+ const states=(board:ReturnType<typeof previewBoardJson>)=>board.nodes.filter(node=>node.activityNodeId).map(node=>(node as {state?:string}).state);
+ expect(states(previewBoardJson(definition,{domain:'spelling',anyOrder:true})).every(status=>status==='available')).toBe(true);
+ expect(states(previewBoardJson(definition))).toContain('locked');
+});

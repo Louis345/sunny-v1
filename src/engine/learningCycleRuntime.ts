@@ -1161,7 +1161,7 @@ ${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Que
     // The forecast carries the model that made it, so its record says who predicted (owner, 2026-11-13).
     const decision=(toolDecision as {schoolForecast?:SchoolForecast}).schoolForecast?{...toolDecision,schoolForecast:{...(toolDecision as {schoolForecast:SchoolForecast}).schoolForecast,forecaster:question.model}}:toolDecision;
     if(!journey)return parseCanonicalProgressionDecision(decision);
-    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},child:chart.childVoice,
+    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,previewRules:{domain:cycle.domain,anyOrder:cycle.domain==='spelling'||cycle.domain==='math'},identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},child:chart.childVoice,
       checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});
     return parseCanonicalProgressionDecision({...decision,boardDefinition:assembleAdventureBoardDefinition(journey,drawing.composition,drawing.pattern)});
   }
