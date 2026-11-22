@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { describeScreenForCompanion, normalizeScreenReport } from "./screenReport";
 
 // 2026-10-22 human catch: Elli described an "independent evaluation" while the kiosk showed "Planning your
@@ -118,4 +118,20 @@ it("tells her what she is wearing on the child's screen, from the kiosk's own re
   expect(plain).toContain("On her screen you are wearing: your own clothes, no accessory.");
   expect(describeScreenForCompanion({ report: normalizeScreenReport({ screen: "board", boardId: "b2" })!, boards, activityContext: "", activityNodeId: undefined })).not.toContain("wearing");
   expect(normalizeScreenReport({ screen: "board", companionLook: { outfit: "x\ny".repeat(100), accessory: 3 } })!.companionLook!.outfit).not.toContain("\n");
+});
+
+// W8 (11/15 "Elli, you stole someone's dress"): the homework Elli has been told her outfit since 952c988b, but the
+// received-report log line never said what she wore, so no log could show whether she knew. Why the human caught it:
+// she denied the dress he saw. Why the logs missed it: the look was only in the prompt. Why the lab missed it: no test
+// read the log line.
+describe("the server log says what the companion wears on her screen", () => {
+  it("names the outfit and accessory from the kiosk's report", async () => {
+    const { screenReportLogLine } = await import("./screenReport");
+    const report = normalizeScreenReport({ screen: "board", boardId: "b1", companionLook: { outfit: "Navy Ribbon Dress", accessory: "Star Halo" } });
+    expect(screenReportLogLine(report!)).toBe(' 🎮 [screen] [report] [received] screen=board board=b1 node=none look="Navy Ribbon Dress"/"Star Halo"');
+  });
+  it("says look=unknown when the kiosk sent none", async () => {
+    const { screenReportLogLine } = await import("./screenReport");
+    expect(screenReportLogLine(normalizeScreenReport({ screen: "board" })!)).toMatch(/look=unknown$/);
+  });
 });

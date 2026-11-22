@@ -55,6 +55,12 @@ export function screenShowsActivity(input: ScreenCheck): boolean {
   return Boolean(report.nodeId) && report.nodeId === input.activityNodeId;
 }
 
+/** The received-report log line, with the look the companion is told she wears (W8: provable from the log). */
+export function screenReportLogLine(report: ScreenReport): string {
+  const look = report.companionLook ? `${JSON.stringify(report.companionLook.outfit)}/${JSON.stringify(report.companionLook.accessory)}` : "unknown";
+  return ` 🎮 [screen] [report] [received] screen=${report.screen} board=${report.boardId ?? "none"} node=${report.nodeId ?? "none"} look=${look}`;
+}
+
 /** Her screen, plus what she is wearing on it when the kiosk said (she cannot see herself otherwise). */
 export function describeScreenForCompanion(input: Parameters<typeof describeScreen>[0]): string {
   const screen = describeScreen(input);

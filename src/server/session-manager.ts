@@ -106,7 +106,7 @@ import {
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
-import { normalizeScreenReport, type ScreenReport } from "./screenReport";
+import { normalizeScreenReport, screenReportLogLine, type ScreenReport } from "./screenReport";
 import { compressGameScreenshotBase64 } from "./compressGameScreenshot";
 import { REWARD_CHARACTER_SVG } from "./canvas/registry";
 import { canvasStatePersistsThroughBargeIn } from "../shared/canvasRenderability";
@@ -951,7 +951,7 @@ export class SessionManager {
       return;
     }
     this.screenReport = report; this.debugRecorder?.recordEvent?.("screen", "report", { ...report }); // saved for learning vs play minutes (2026-11-10)
-    console.log(` 🎮 [screen] [report] [received] screen=${report.screen} board=${report.boardId ?? "none"} node=${report.nodeId ?? "none"}`);
+    console.log(screenReportLogLine(report));
   }
 
   public buildCurrentBoardContextForTurn(childSpeech?: string): string {
