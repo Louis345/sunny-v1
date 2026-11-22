@@ -242,7 +242,11 @@ describe("math closed learning loop acceptance", () => {
         constructLinks: [{ constructId: "math.multiplication.equal_groups", role: "primary", confidence: 1 }],
       }],
     }, { rootDir, now: new Date("2026-07-25T12:00:00.000Z") });
-    expect(factual.predictionEvaluations).toHaveLength(1);
+    // One academic prediction is scored, and (11/22) every school forecast locked before the test is scored too.
+    const forecastIds = new Set((factual.schoolForecasts ?? []).map((row) => row.predictionId));
+    expect(factual.predictionEvaluations.filter((row) => !forecastIds.has(row.predictionId))).toHaveLength(1);
+    expect(factual.predictionEvaluations.filter((row) => forecastIds.has(row.predictionId))).toHaveLength(forecastIds.size);
+    expect(forecastIds.size).toBeGreaterThan(0);
     expect(factual.lifecycle).toBe("awaiting_calibration");
 
     const returnedObservationIds = factual.observations

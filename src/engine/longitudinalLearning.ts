@@ -163,6 +163,39 @@ export function evaluateAcademicPredictions(
   });
 }
 
+/**
+ * A graded test scores every whole-test forecast locked before it (11/22: math forecasts were locked but never judged).
+ * Code computes the fact: her score, the forecaster's range, and how far outside it she landed (0 = inside). A forecast
+ * locked after the test day never counts; forecasts precede recorded results (LEARNING_FEEDBACK_LOOP.md).
+ */
+export function evaluateSchoolTestForecasts(input: {
+  childId: string; homeworkId: string; forecasts: readonly AcademicPrediction[]; score: number; testAt: string;
+  sourceId: string; observationIds: readonly string[]; evaluatedAt: string;
+}): PredictionEvaluation[] {
+  const testDay = Date.parse(`${input.testAt.slice(0, 10)}T00:00:00.000Z`);
+  return input.forecasts.flatMap((forecast) => {
+    const lockedAt = Date.parse(forecast.lockedAt ?? forecast.createdAt);
+    if (forecast.expectedMetric.key !== "school_test_percent" || !Number.isFinite(lockedAt) || lockedAt >= testDay) return [];
+    const { min, max } = forecast.expectedMetric;
+    const predictionError = input.score < min ? round(min - input.score) : input.score > max ? round(input.score - max) : 0;
+    const forecaster = (forecast as { modelId?: string }).modelId ?? "unknown";
+    console.log(` 🎮 [school-forecast] [scored] child=${input.childId} homework=${input.homeworkId} forecaster=${forecaster} range=${Math.round(min * 100)}-${Math.round(max * 100)}% actual=${Math.round(input.score * 100)}% ${predictionError === 0 ? "inside" : `off_by=${Math.round(predictionError * 100)}pts`}`);
+    return [{
+      evaluationId: `evaluation:${stableId({ predictionId: forecast.predictionId, sourceId: input.sourceId, observationIds: input.observationIds })}`,
+      predictionId: forecast.predictionId,
+      sourceId: input.sourceId,
+      observationIds: [...input.observationIds],
+      predictedMetric: { min, max },
+      observedMetric: round(input.score),
+      predictionError,
+      observedErrorPatterns: [],
+      sufficiency: "sufficient" as const,
+      attribution: "observational_not_causal" as const,
+      evaluatedAt: input.evaluatedAt,
+    }];
+  });
+}
+
 /** When she did the work: the test day when the parent gave one, otherwise the upload time. */
 function takenAt(source: ConfirmedReturnedWork["source"]): string {
   return source.testDate && /^\d{4}-\d{2}-\d{2}$/.test(source.testDate) ? `${source.testDate}T12:00:00.000Z` : source.capturedAt;
@@ -206,8 +239,15 @@ export function recordConfirmedReturnedWork(
     if (!target || row.constructLinks.length !== 1 || row.constructLinks[0].role !== "primary" || row.constructLinks[0].constructId !== target.constructId) throw new Error(`returned_spelling_mapping_invalid:${row.itemId}`);
   }
   const observations = observationsFromReturnedWork(input);
-  const evaluations = evaluateAcademicPredictions(cycle.academicPredictions, observations, takenAt(input.source));
   const score = input.score && input.score.possible > 0 ? round(input.score.earned / input.score.possible) : null;
+  const evaluations = [
+    ...evaluateAcademicPredictions(cycle.academicPredictions, observations, takenAt(input.source)),
+    // A school test's grade also judges the whole-test forecasts (math); spelling's word forecasts go to her chart bond.
+    ...(input.source.type === "graded_work" && score !== null ? evaluateSchoolTestForecasts({
+      childId: input.childId, homeworkId: input.homeworkId, forecasts: cycle.schoolForecasts ?? [], score, testAt: takenAt(input.source),
+      sourceId: input.source.sourceId, observationIds: observations.map(row => row.observationId), evaluatedAt: (opts.now ?? new Date()).toISOString(),
+    }) : []),
+  ];
   return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
     type: "returned_work_confirmed",
     source: input.source,

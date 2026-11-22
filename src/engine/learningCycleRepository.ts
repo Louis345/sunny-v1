@@ -1955,7 +1955,10 @@ export function transitionLearningCycle(
     ({ status, reason, nextAction } = event.decision);
     evidenceIds = [...event.decision.evidenceIds];
     // Every decision locks a school-test forecast: the Planner's when it gave one, and always code's baseline (2026-11-13).
-    if (next.domain === "spelling" || next.domain === "math") next.schoolForecasts = [...(next.schoolForecasts ?? []), ...schoolForecastPredictions(next, event.decision.schoolForecast, at)];
+    // ...but never once her graded school test is recorded: a forecast made with the answer known is not a forecast (11/22).
+    const testGraded = next.evidenceSources.some((source) => source.type === "graded_work");
+    if (testGraded) console.log(` 🎮 [school-forecast] [skipped] child=${next.childId} homework=${next.homeworkId} reason=graded_test_recorded`);
+    else if (next.domain === "spelling" || next.domain === "math") next.schoolForecasts = [...(next.schoolForecasts ?? []), ...schoolForecastPredictions(next, event.decision.schoolForecast, at)];
     // The parent's signal (2026-11-16): a concept the Planner calls 0.8 or more is ready for paper done alone.
     if (event.decision.readyOnPaper?.length) {
       const ready = event.decision.readyOnPaper.filter(call => call.chance >= READY_CHANCE);

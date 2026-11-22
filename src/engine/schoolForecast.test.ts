@@ -93,3 +93,29 @@ describe("one rule for a first try", () => {
   });
 });
 const round = (value: number) => Math.round(value * 1000) / 1000;
+
+// 11/22 (owner: "how accurate was Sunny?"): math weeks lock a whole-test forecast (Ila: Opus 45-75%, code 67% for her
+// 11/23 test), but nothing compared it with the grade; only spelling's word forecasts were scored. Why the human caught
+// it: he asked for the accuracy after Reina's 94. Why the logs missed it: recording said "calibration written" either
+// way. Why the lab missed it: forecasts were tested end to end only for spelling.
+describe("a math grade scores every forecast locked before the test", () => {
+  const forecast = (modelId: string, min: number, max: number, lockedAt: string) => ({
+    predictionId: `hw-math-test:school-forecast:${lockedAt}:${modelId}:hw-math-test:school-test-score`, theoryId: "t", constructId: "hw-math-test:school-test-score", modelId,
+    context: "", horizon: "", eligibility: { sources: ["graded_work"], maxDelayDays: 60 }, expectedMetric: { key: "school_test_percent", min, max },
+    predictedErrorPatterns: [], confidence: (min + max) / 2, evidenceIds: [], intervention: "school test forecast", evidenceLimit: "calibrated_mastery", createdAt: lockedAt, lockedAt,
+  }) as never;
+  it("says for each forecaster whether her score fell inside its range and by how much it missed", async () => {
+    const { evaluateSchoolTestForecasts } = await import("./longitudinalLearning");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const rows = evaluateSchoolTestForecasts({
+      childId: "ila", homeworkId: "hw-math-test",
+      forecasts: [forecast("claude-opus-5-5", 0.45, 0.75, "2026-11-20T01:47:23.451Z"), forecast(BASELINE_FORECASTER, 0.67, 0.67, "2026-11-20T01:47:23.451Z"),
+        forecast(BASELINE_FORECASTER, 0.58, 0.58, "2026-11-24T09:00:00.000Z")],
+      score: 0.94, testAt: "2026-11-23T12:00:00.000Z", sourceId: "returned-work:x", observationIds: ["o1", "o2"], evaluatedAt: "2026-11-24T10:00:00.000Z",
+    });
+    expect(rows.map(row => [row.predictionId.includes("claude-opus-5-5") ? "claude-opus-5-5" : BASELINE_FORECASTER, row.observedMetric, row.predictionError])).toEqual([
+      ["claude-opus-5-5", 0.94, 0.19], [BASELINE_FORECASTER, 0.94, 0.27]]);
+    expect(rows.every(row => row.sufficiency === "sufficient" && row.sourceId === "returned-work:x")).toBe(true);
+    expect(log.mock.calls.filter(call => String(call[0]).includes("[school-forecast] [scored]"))).toHaveLength(2);
+  });
+});
