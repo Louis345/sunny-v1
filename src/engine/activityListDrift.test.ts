@@ -4,6 +4,8 @@ import { NODE_DISPLAY_LABELS, NODE_REGISTRY } from "../shared/nodeRegistry";
 import { listActivityToolContracts } from "./activityToolCatalog";
 import { DOPAMINE_TYPES } from "./nodeSelection";
 import { SPELLING_CERTIFICATION_GAMES } from "./spellingCertification";
+import { BANDIT_POOL } from "./nodeSelection";
+import { spellingActivityCatalog } from "./assignmentPlanner";
 
 // Law 16: a game is declared once, as its contract in activityToolCatalog.ts. Every other list that should
 // cover a kind of game either derives from the contracts or is checked against them here, so adding a game
@@ -38,6 +40,15 @@ describe("hand-copied activity lists stay in step with the contracts", () => {
   it("gives every map-node game a kiosk handler, except the stated gaps", () => {
     const unhandled = mapNodes.filter(contract => !(contract.nodeType! in NODE_REGISTRY)).map(contract => contract.id);
     expect(unhandled).toEqual(NO_KIOSK_HANDLER_YET);
+  });
+
+  // I5 (11/22): a game the kiosk cannot open must never reach a child. Nothing checked that before; now no Planner menu,
+  // no launchable catalog card and no bandit pick can offer one, so the gap stays harmless until it gets a handler.
+  it("offers no game the kiosk cannot open, anywhere a child could get it", () => {
+    const blocked = new Set<string>(NO_KIOSK_HANDLER_YET);
+    const launchable = spellingActivityCatalog("ila").filter(card => card.launchable).flatMap(card => [card.activityId, card.nodeType ?? ""]);
+    expect(launchable.filter(id => blocked.has(id))).toEqual([]);
+    expect(BANDIT_POOL.filter(type => blocked.has(type))).toEqual([]);
   });
 });
 
