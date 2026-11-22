@@ -21,6 +21,7 @@ import {
 import { assertHumanAcceptanceAudioEnvironment } from "../server/humanAcceptanceAudio";
 import { localNpmScriptCommand, localTsxCommand } from "./localRuntimeCommand";
 import { installServerLogFile } from "../server/serverLogFile";
+import { KIOSK_MARKER_FILE, enforceStoragePolicy } from "../server/storagePolicy";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const root = path.resolve(process.cwd());
@@ -31,6 +32,8 @@ const DIST_DIR = path.join(WEB_DIR, "dist");
 const KIOSK_TOKEN = randomUUID();
 const BROWSER_PROFILE_DIR = process.env.SUNNY_BROWSER_PROFILE_DIR?.trim()
   || path.join(process.env.HOME || root, ".sunny", "kiosk-browser-profile");
+const HOME_DIR = process.env.HOME || root;
+enforceStoragePolicy({ repoRoot: root, homeDir: HOME_DIR, browserProfileDir: BROWSER_PROFILE_DIR, isKiosk: fs.existsSync(path.join(HOME_DIR, KIOSK_MARKER_FILE)) });
 const processTargetOps = {
   sendSignal: (target: number, signal: NodeJS.Signals) => process.kill(target, signal),
   isAlive: (target: number) => {

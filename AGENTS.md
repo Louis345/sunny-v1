@@ -43,6 +43,7 @@ The canvas, the runtime and Elli carry out the order faithfully. They never veto
 - Nothing merges until the owner has tested it with the child and comments `/ship` on the PR (`human-gate` plus CI). Green CI and AI approval are not acceptance. The AI never posts `/ship`.
 - Human sessions start only through the kiosk launcher `npm run sunny:run -- ...`, without `--no-browser` (that flag is for automated runs only), and only after the log shows `🎮 [kiosk] [kiosk-visible] [confirmed]`.
 - The automatic AI review is paused since 2026-10-22 for cost; do not wait for it or re-enable it unless the owner asks.
+- Anything new that Sunny writes to disk gets a lifetime row in `src/server/storagePolicy.ts`, or it is a record kept forever. Labs, certifications and demos never run on the kiosk.
 
 ## 5. Treat the disease [Laws 3, 4, 5, 6, 15]
 
