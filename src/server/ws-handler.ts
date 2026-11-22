@@ -282,6 +282,10 @@ export function handleWsConnection(
 
       case "client_audio_status": {
         if (!session) return;
+        // S10: a mute press was only in the session trace; it must be in the server log too.
+        if ((msg as Record<string, unknown>).event === "companion_speech_mute") {
+          console.log(` 🎮 [client-audio] [companion_speech_mute] [${(msg as Record<string, unknown>).muted ? "on" : "off"}]`);
+        }
         session.recordDebugEvent("client_audio", "status", {
           event: (msg as Record<string, unknown>).event,
           requestId: (msg as Record<string, unknown>).requestId,

@@ -1090,16 +1090,20 @@ export function useSession(options?: UseSessionOptions) {
         break;
       }
 
-      case "audio_start":
+      case "audio_start": {
+        const tappedToHear = activityNarrationPendingRef.current;
         cancelPlayback();
         playbackCanceledRef.current = false;
         activePlaybackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
         playbackRequestIdRef.current = activePlaybackRequestIdRef.current;
         playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
         playbackRequiresAudioRef.current = msg.requiresAudio === true;
-        activityNarrationPendingRef.current = msg.source === "activity" || msg.requiresAudio === true;
+        // S10: only a word she tapped to hear (narration_request) or a test word gets past the quiet button; game
+        // narration in the companion's voice is the companion talking, so mute silences it.
+        activityNarrationPendingRef.current = tappedToHear || msg.requiresAudio === true;
         if (activePlaybackRequestIdRef.current) playbackWatchdogRef.current.arm(activePlaybackRequestIdRef.current);
         break;
+      }
 
       case "audio_cancel":
         playbackWatchdogRef.current.disarm();
