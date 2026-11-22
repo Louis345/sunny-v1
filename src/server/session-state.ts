@@ -13,7 +13,7 @@ export function sanitizeForTTS(text: string): string {
     .replace(/\[[^\]]+\]/g, "")
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, "")
     .replace(/[\u2600-\u27BF]/g, "")
-    .replace(/[\u3000-\u9FFF\uAC00-\uD7AF\u0600-\u06FF]/g, "")
+    // S12: native script stays; the voice reads it with that language's sounds (it was stripped from 3/15 to 11/22).
     .replace(/([!?])\s*[!?]/g, "$1")
     .replace(/\s+([!?.,])/g, "$1")
     .replace(/([!?.,])\s{2,}/g, "$1 ")
