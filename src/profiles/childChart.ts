@@ -241,7 +241,7 @@ function readChildVoice(childId: string, rootDir: string, profile: LearningProfi
     const soul = fs.readFileSync(path.join(contextDir(rootDir, childId), "soul.md"), "utf8");
     const kept = soul.split(/^(?=## )/m).filter(section => ABOUT_HER_SECTIONS.test(section.match(/^## (.+)$/m)?.[1]?.trim() ?? ""));
     const about = kept.join("\n").trim().slice(0, 6000);
-    aboutHer = about ? [currentFactsBlock(childId, { rootDir }), about].filter(Boolean).join("\n\n") : null;
+    aboutHer = about ? [currentFactsBlock(childId, { rootDir, lasting: true }), about].filter(Boolean).join("\n\n") : null;
   } catch {
     // A child without a soul file is planned from her chart alone.
   }

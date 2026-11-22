@@ -51,3 +51,20 @@ it("says plainly when today is her birthday, and when it is coming", () => {
   expect(readSoulWithCurrentFacts("soulkid", { rootDir, today: new Date("2026-11-20T15:00:00Z") })).toMatch(/Her birthday is tomorrow .*she turns 9/);
   expect(readSoulWithCurrentFacts("soulkid", { rootDir, today: new Date("2026-12-10T15:00:00Z") })).not.toMatch(/birthday is|Today is her birthday/);
 });
+
+// Owner 11/22 ("it's still saying happy birthday … it breaks the immersion"): Reina heard "Happy birthday, Ray-nah!
+// Nine today!" on 11/22 from two games built for her on 11/21. The chart's "about her" carried today's birthday line,
+// the Planner and game builder read it, and a game is kept and replayed for days. Why the human caught it: the day
+// was over. Why the logs missed it: the line was spoken from the game's own text, which nothing dates. Why the lab
+// missed it: no test built content on one day and played it the next. Rule: lasting content (boards, games) gets only
+// lasting facts; facts about today go only to the live companion, who reads them fresh every turn.
+it("keeps today's birthday out of the facts that lasting boards and games are built from", async () => {
+  const rootDir = child({ age: 9, grade: 3, gradeSchoolYear: 2026, birthDate: "2017-11-21", diagnoses: [] });
+  const { currentFactsBlock } = await import("../profiles/soulCurrentFacts");
+  const birthday = new Date("2026-11-21T15:00:00Z");
+  expect(currentFactsBlock("soulkid", { rootDir, today: birthday, lasting: true })).not.toMatch(/birthday/i);
+  expect(currentFactsBlock("soulkid", { rootDir, today: birthday, lasting: true })).toContain("Age: 9");
+  expect(readSoulWithCurrentFacts("soulkid", { rootDir, today: birthday })).toContain("Today is her birthday");
+  const chart = fs.readFileSync(path.join(__dirname, "../profiles/childChart.ts"), "utf8");
+  expect(chart).toMatch(/currentFactsBlock\(childId, \{ rootDir, lasting: true \}\)/);
+});

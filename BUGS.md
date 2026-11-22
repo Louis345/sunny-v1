@@ -30,6 +30,8 @@ Fixed 11/21–11/22 with tests (pushed; Saori runs 808f4c39, so the later ones a
 
 - Ila's 3 held saves (seen 11/22 in `src/context/ila/sunny_health/held-completions.json` on Saori): completions from `hw-spelling-caaeebeb` on 11/11–11/12 that the record permanently refuses (`learning_cycle_node_not_launchable` once, `learning_cycle_instrument_unknown_item:spelling.word.5e94ec139442cfe9` twice). Every startup replays them and fails, and a held save has no end state. Owner's call, because it touches her record: re-score them by hand into the record (backup + log entry), or archive them as unrecoverable? Then a code fix so a permanently refused save is reported once and archived, not retried forever.
 
+- [x] Birthday after the birthday (owner 11/22, fixed 11/22: Reina heard "Happy birthday, Ray-nah! Nine today!" on 11/22 from two games built on 11/21. Today's birthday line was in the chart's "about her", which the Planner and game builder read, and games are replayed for days. Now lasting content gets only lasting facts (`currentFactsBlock(..., { lasting: true })`); only the live companion hears today's facts; `soulCurrentFacts.test.ts`. The two games already built still contain the line until her next board.)
+
 ## Open list (sorted 2026-11-14)
 
 The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, the session bugs and the internal bugs. Notes from September and October moved to `docs/bugs-archive-2026-09-to-10.md`; the few that may still apply are copied here, marked *(Oct)*. The details of each line are in its dated entry below; search for its words.

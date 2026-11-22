@@ -17,7 +17,11 @@ const readDemographics = (dir: string, file: string): Partial<LearningProfile["d
   catch { return {}; }
 };
 
-export function currentFactsBlock(childId: string, opts: { rootDir?: string; today?: Date } = {}): string {
+/**
+ * `lasting`: for content that outlives today (boards, games). Those get only facts that stay true, never a fact about
+ * today such as her birthday; the live companion reads today's facts fresh each turn (owner 2026-11-22).
+ */
+export function currentFactsBlock(childId: string, opts: { rootDir?: string; today?: Date; lasting?: boolean } = {}): string {
   const dir = resolveChildContextDir(childId, { rootDir: opts.rootDir });
   const facts = currentDemographics({ ...readDemographics(dir, "learning_profile.json"), ...readDemographics(dir, "child_profile.json") } as LearningProfile["demographics"], opts.today);
   const undated = new Set(facts.factsUndated ?? []);
@@ -27,7 +31,7 @@ export function currentFactsBlock(childId: string, opts: { rootDir?: string; tod
     typeof facts.age === "number" ? `- Age: ${facts.age}${facts.birthDate ? ` (born ${facts.birthDate})` : ""}${undated.has("age") ? " (not dated; may be out of date)" : ""}` : "",
     typeof facts.grade === "number" ? `- Grade: ${facts.grade}${undated.has("grade") ? " (not dated; may be out of date)" : year}` : "",
     facts.school ? `- School: ${facts.school}` : "",
-    (() => { const line = birthdayLine(facts.birthDate, familyDay(today)); return line ? `- ${line}` : ""; })(),
+    (() => { const line = opts.lasting ? null : birthdayLine(facts.birthDate, familyDay(today)); return line ? `- ${line}` : ""; })(),
   ].filter(Boolean);
   if (!lines.length) return "";
   return [`## Current facts (as of ${familyDay(today)}; these replace any age, grade, school or teacher written in the profile below, which was written earlier)`, ...lines].join("\n");
