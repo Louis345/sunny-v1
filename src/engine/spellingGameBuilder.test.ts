@@ -278,3 +278,34 @@ it("sends back a built game that never reports its step to her companion", async
   expect(gameProblems(silent.replace(/openSpellingItem/g, "openItem"), "math")).toContain("it never reports her step with window.reportStep, so her companion cannot see where she is");
 });
 
+
+// S40 (Kappa Pond, 11/20): the built game's own instruction banner covered its rule sign. Every built game is now
+// rendered once at the kiosk's size; text that hides a control or a `data-sunny-key` piece goes back for repair, and a
+// cover that survives the repair is logged, never a reason to hold back the board.
+const COVERED = GOOD.replace("<p>Spell the word Elli says.</p>", '<div data-sunny-key style="position:absolute;top:40px;left:40px;width:300px;height:60px">Rule: listen first</div><div style="position:fixed;top:0;left:0;width:600px;height:200px;background:#fff">Spell the word Elli says, then type it in the box below.</div>');
+it("sends back a built game whose text covers its key sign, and keeps the repaired game", async () => {
+  const before = process.env.SUNNY_GAME_LAYOUT_CHECK;
+  process.env.SUNNY_GAME_LAYOUT_CHECK = "on";
+  try {
+    const f = fixture();
+    await plannedBoard(f);
+    const builder = recordedBuilder([COVERED, GOOD]);
+    const ready = await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+    expect(builder.requests).toHaveLength(2);
+    expect(JSON.stringify(builder.requests[1].messages.at(-1).content)).toMatch(/covers \\"Rule: listen first\\"/);
+    expect(ready.nodes.find(row => row.implementationType === "generated-game")!.notReadyReason).toBeUndefined();
+  } finally { if (before === undefined) delete process.env.SUNNY_GAME_LAYOUT_CHECK; else process.env.SUNNY_GAME_LAYOUT_CHECK = before; }
+}, 60_000);
+
+it("publishes the game when only a covered piece survives the repair", async () => {
+  const before = process.env.SUNNY_GAME_LAYOUT_CHECK;
+  process.env.SUNNY_GAME_LAYOUT_CHECK = "on";
+  try {
+    const f = fixture();
+    await plannedBoard(f);
+    const builder = recordedBuilder([COVERED, COVERED]);
+    const ready = await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+    expect(builder.requests).toHaveLength(2);
+    expect(ready.nodes.find(row => row.implementationType === "generated-game")!.notReadyReason).toBeUndefined();
+  } finally { if (before === undefined) delete process.env.SUNNY_GAME_LAYOUT_CHECK; else process.env.SUNNY_GAME_LAYOUT_CHECK = before; }
+}, 60_000);

@@ -10,6 +10,8 @@ import { runMathProviderStage } from "./adaptiveMathDiscovery";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { requestForModel } from "./plannerTransport";
 import { childFeedbackLines } from "./plannerIntrospection";
+import { chromium } from "playwright";
+import { collectGameLayout, layoutCoverageProblems } from "../shared/layoutCoverage";
 import { captureGame } from "./prebuiltBoard";
 import { gameTrackRecord } from "./gameTrackRecord";
 import {
@@ -92,6 +94,7 @@ How the game must work:
 - At big moments (a streak, a miss, a win), call window.fireCompanionEvent("<moment>", {word: "<word>"}) so Elli can react.
 - She spells each word at least once, by typing or tapping letters. A wrong answer never ends the game.
 - Each time she reaches a new step (for example listen, tap, type, check), call window.reportStep("<short step name>", "<the instruction on screen>"). Her companion and her session retro see the step.
+- Nothing covers what she needs: put data-sunny-key on the pieces she must read to play (a rule sign, a target), and never let instruction text, banners or overlays sit on top of them or of any button or input. Her companion reads the instruction aloud, so keep on-screen instruction text short (she is dyslexic). Sunny renders your game and sends it back if anything is covered.
 - Each time the game shows her a hint, a worked example or part of the word, call window.reportHint("<the word>", "<what the hint showed her>") first. Answers after a hint are saved as helped, so her own answers stay honest.
 - When she finishes, call window.sendNodeComplete({completed: true}).
 
@@ -125,6 +128,7 @@ How Sunny's game contract works:
 - ${companion} is her companion and speaks for the game: parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*").
 - window.fireCompanionEvent("<moment>", {itemId: "<itemId>"}) lets ${companion} react at big moments.
 - window.reportStep("<short step name>", "<the instruction on screen>") each time she reaches a new step. Her companion and her session retro see the step.
+- Nothing covers what she needs: put data-sunny-key on the pieces she must read to play (a rule sign, a target), and never let instruction text, banners or overlays sit on top of them or of any button or input. Her companion reads the instruction aloud, so keep on-screen instruction text short (she is dyslexic). Sunny renders your game and sends it back if anything is covered.
 - window.reportHint("<itemId>", "<what the hint showed her>") each time the game shows her a hint, a worked example or part of the answer, before she answers. Answers after a hint are saved as helped, so her own answers stay honest.
 - window.sendNodeComplete({completed: true}) ends the game.
 
@@ -174,6 +178,31 @@ export function spellingGameProblems(html: string): string[] {
   ];
 }
 
+/**
+ * S40: render the built game once at the kiosk's size (Saori, 1470×956) and list any text that hides a control or a
+ * piece the game marks `data-sunny-key`. A check that cannot run logs and returns nothing: it never holds back a board.
+ */
+export async function gameLayoutProblems(html: string): Promise<string[]> {
+  if (process.env.SUNNY_GAME_LAYOUT_CHECK === "off" || !html) return [];
+  const started = Date.now();
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 1470, height: 956 } });
+    await page.setContent(html, { waitUntil: "load", timeout: 15_000 });
+    await page.waitForTimeout(1_000);
+    const layout = await page.evaluate(collectGameLayout);
+    const problems = layoutCoverageProblems(layout.covered);
+    console.log(` 🎮 [spelling-game] [layout] [checked] controls=${layout.controls.length} covered=${layout.covered.length} ms=${Date.now() - started}`);
+    return problems;
+  } catch (error) {
+    console.error(` 🎮 [spelling-game] [layout] [check-failed] ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  } finally {
+    await browser?.close().catch(error => console.error(" 🎮 [spelling-game] [layout] [close-failed]", error));
+  }
+}
+
 /** Code's part of every game: Sunny's contract, and nothing reachable outside the page. */
 export function withSunnyContract(html: string): string {
   const head = `${CSP}${CONTRACT_TAG}`;
@@ -200,14 +229,18 @@ export async function prepareGeneratedSpellingGame(input: {
   const prompt = cycle.domain === "spelling" ? buildSpellingGameAsk({ cycle, node, rootDir }) : buildMathGameAsk({ cycle, node, rootDir });
   const first = await ask(client, input.draftDir, "generated-game-1", [{ role: "user", content: prompt }]);
   let game = first, problems = gameProblems(first.html, cycle.domain);
-  console.log(` 🎮 [spelling-game] [build] [received] node=${node.nodeId} model=${spellingGameModel()} chars=${first.html.length} problems=${problems.length} stop=${first.stop}`);
-  if (problems.length) {
-    const feedback = `Sunny checked your game. It has these problems:\n${problems.map(row => `- ${row}`).join("\n")}\n\nFix them and keep everything else. Reply with only the whole fixed HTML document.`;
+  let covered = problems.length ? [] : await gameLayoutProblems(first.html);
+  console.log(` 🎮 [spelling-game] [build] [received] node=${node.nodeId} model=${spellingGameModel()} chars=${first.html.length} problems=${problems.length} covered=${covered.length} stop=${first.stop}`);
+  if (problems.length || covered.length) {
+    const feedback = `Sunny checked your game. It has these problems:\n${[...problems, ...covered].map(row => `- ${row}`).join("\n")}\n\nFix them and keep everything else. Reply with only the whole fixed HTML document.`;
     game = await ask(client, input.draftDir, "generated-game-2", [{ role: "user", content: prompt }, { role: "assistant", content: first.html || first.text || "(no game)" }, { role: "user", content: feedback }]);
     problems = gameProblems(game.html, cycle.domain);
-    console.log(` 🎮 [spelling-game] [repair] [${problems.length ? "still-broken" : "fixed"}] node=${node.nodeId} problems=${problems.length}`);
+    covered = problems.length ? [] : await gameLayoutProblems(game.html);
+    console.log(` 🎮 [spelling-game] [repair] [${problems.length ? "still-broken" : "fixed"}] node=${node.nodeId} problems=${problems.length} covered=${covered.length}`);
   }
   if (problems.length) throw new Error(`generated_game_problems:${problems.join(" | ")}`);
+  // A covered piece is a layout flaw, not a broken measurement: her board still publishes (owner: nothing holds it back).
+  if (covered.length) console.warn(` 🎮 [spelling-game] [layout] [still-covered] node=${node.nodeId} ${covered.join(" | ")}`);
   captureGame(node.nodeId, game.html);
   const html = withSunnyContract(game.html);
   const contextDir = resolveChildContextDir(cycle.childId, { rootDir });
