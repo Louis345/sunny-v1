@@ -28,7 +28,7 @@ Fixed 11/21–11/22 with tests (pushed; Saori runs 808f4c39, so the later ones a
 
 **E. Content, not code:** W5 Princess body, W7 six companion bodies, E11 graded-test photos.
 
-**Also seen, not yet a row:** Ila has 3 held saves from 11/11–11/12, reported at every startup.
+- Ila's 3 held saves (seen 11/22 in `src/context/ila/sunny_health/held-completions.json` on Saori): completions from `hw-spelling-caaeebeb` on 11/11–11/12 that the record permanently refuses (`learning_cycle_node_not_launchable` once, `learning_cycle_instrument_unknown_item:spelling.word.5e94ec139442cfe9` twice). Every startup replays them and fails, and a held save has no end state. Owner's call, because it touches her record: re-score them by hand into the record (backup + log entry), or archive them as unrecoverable? Then a code fix so a permanently refused save is reported once and archived, not retried forever.
 
 ## Open list (sorted 2026-11-14)
 
