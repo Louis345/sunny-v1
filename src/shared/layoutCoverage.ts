@@ -4,7 +4,6 @@
  * portrait off controls; the game builder uses it to send a game back for repair when its own text hides them.
  */
 export type LayoutBox = { x: number; y: number; w: number; h: number; label: string };
-export type Corner = "bottom-right" | "bottom-left" | "top-right" | "top-left";
 export type CoveredControl = { target: string; coveredBy: string };
 
 function overlapArea(a: LayoutBox, b: LayoutBox): number {
@@ -13,22 +12,26 @@ function overlapArea(a: LayoutBox, b: LayoutBox): number {
   return w > 0 && h > 0 ? w * h : 0;
 }
 
-/** The portrait's corner: bottom-right unless that covers a control; otherwise the free corner, else the least covered. */
-export function pickFreeCorner(
+/**
+ * The portrait's spot (S41; 11/22 owner: it must not jump around). Her home is the bottom-right corner. Only her circle
+ * counts, not the pill and hint under it. If the circle would cover a control she slides up the right edge just enough,
+ * at most half the screen; she never moves to another corner. If no spot on the right edge is free she stays home.
+ */
+export function pickPortraitLift(
   viewport: { w: number; h: number },
   size: { w: number; h: number },
   margin: number,
   controls: readonly LayoutBox[],
-): { corner: Corner; box: LayoutBox; coveredLabels: string[] } {
-  const left = margin, right = viewport.w - margin - size.w, top = margin, bottom = viewport.h - margin - size.h;
-  const corners: Array<[Corner, number, number]> = [["bottom-right", right, bottom], ["bottom-left", left, bottom], ["top-right", right, top], ["top-left", left, top]];
-  const scored = corners.map(([corner, x, y]) => {
-    const portrait = { x, y, w: size.w, h: size.h, label: "portrait" };
-    const covered = controls.filter(control => overlapArea(portrait, control) > 0);
-    return { corner, box: portrait, coveredLabels: covered.map(control => control.label), area: covered.reduce((sum, control) => sum + overlapArea(portrait, control), 0) };
-  });
-  const best = scored.find(row => row.area === 0) ?? [...scored].sort((a, b) => a.area - b.area)[0]!;
-  return { corner: best.corner, box: best.box, coveredLabels: best.coveredLabels };
+  step = 24,
+  /** How far her circle sits above the screen's bottom at home (the pill and hint sit under it). */
+  bottomGap = margin,
+): { lift: number; coveredLabels: string[] } {
+  const at = (lift: number): LayoutBox => ({ x: viewport.w - margin - size.w, y: viewport.h - bottomGap - size.h - lift, w: size.w, h: size.h, label: "portrait" });
+  const covered = (lift: number) => controls.filter(control => overlapArea(at(lift), control) > 0).map(control => control.label);
+  for (let lift = 0; lift <= viewport.h / 2; lift += step) {
+    if (covered(lift).length === 0) return { lift, coveredLabels: [] };
+  }
+  return { lift: 0, coveredLabels: covered(0) };
 }
 
 /**

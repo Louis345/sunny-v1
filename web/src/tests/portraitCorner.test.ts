@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { gameControlBoxes, portraitCornerStyle } from "../lib/portraitCorner";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { gameControlBoxes, portraitLiftStyle } from "../lib/portraitCorner";
 
 // S41 (arcade reward break, 11/20 01:42 UTC): the companion portrait, fixed bottom-right, sat on the game's fire
 // button. The kiosk now reads the open game's controls from its frame and keeps the portrait in a free corner. Why the
@@ -25,8 +27,13 @@ describe("the portrait reads the open game's controls (S41)", () => {
     frame.remove();
   });
 
-  it("places the portrait in the corner it was given", () => {
-    expect(portraitCornerStyle("bottom-left", 16)).toMatchObject({ bottom: 16, left: 16, alignItems: "flex-start" });
-    expect(portraitCornerStyle("top-right", 16)).toMatchObject({ top: 16, right: 16, alignItems: "flex-end" });
+  // 11/22 owner screenshot: Elli jumped to the top-left corner in Ila's rounding game. Her home is bottom-right; a lift
+  // only slides her up the right edge, and only her circle is measured.
+  it("keeps her on the right edge, lifted only as far as needed", () => {
+    expect(portraitLiftStyle(0, 16)).toEqual({ right: 16, bottom: 16, alignItems: "flex-end" });
+    expect(portraitLiftStyle(96, 16)).toEqual({ right: 16, bottom: 112, alignItems: "flex-end" });
+    const layer = readFileSync(resolve(__dirname, "../components/CompanionLayer.tsx"), "utf8");
+    expect(layer).toContain("usePortraitLift(");
+    expect(layer).not.toMatch(/left: 16|top: 16|Corner\(/);
   });
 });

@@ -1,5 +1,5 @@
-import { useEffect, useState, type CSSProperties, type RefObject } from "react";
-import { collectGameLayout, pickFreeCorner, type Corner, type LayoutBox } from "../../../src/shared/layoutCoverage";
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { collectGameLayout, pickPortraitLift, type LayoutBox } from "../../../src/shared/layoutCoverage";
 
 /** S41: every control in the open game frames (same-origin), in page coordinates. A frame it cannot read is skipped. */
 export function gameControlBoxes(doc: Document): LayoutBox[] {
@@ -15,33 +15,37 @@ export function gameControlBoxes(doc: Document): LayoutBox[] {
   return boxes;
 }
 
-export function portraitCornerStyle(corner: Corner, margin: number): CSSProperties {
-  const [vertical, horizontal] = corner.split("-") as ["top" | "bottom", "left" | "right"];
-  return { [vertical]: margin, [horizontal]: margin, alignItems: horizontal === "left" ? "flex-start" : "flex-end" };
+/** Her home is bottom-right; a lift only slides her up the right edge (11/22: never another corner). */
+export function portraitLiftStyle(lift: number, margin: number): CSSProperties {
+  return { right: margin, bottom: margin + lift, alignItems: "flex-end" };
 }
 
 const CHECK_MS = 1_500;
 
-/** The portrait's corner: re-checked every 1.5 s while it is shown, stopped when hidden or unmounted. */
-export function usePortraitCorner(active: boolean, wrapRef: RefObject<HTMLElement | null>, margin: number): Corner {
-  const [corner, setCorner] = useState<Corner>("bottom-right");
+/**
+ * How far her portrait slides up so her circle covers no game control: re-checked every 1.5 s while shown, stopped
+ * when hidden or unmounted. Only the circle (data-testid="companion-portrait") is measured, never the pill and hint.
+ */
+export function usePortraitLift(active: boolean, wrapRef: RefObject<HTMLElement | null>, margin: number): number {
+  const [lift, setLift] = useState(0);
+  const liftRef = useRef(0);
   useEffect(() => {
-    if (!active) { setCorner("bottom-right"); return; }
+    if (!active) { liftRef.current = 0; setLift(0); return; }
     const check = () => {
-      const wrap = wrapRef.current;
-      if (!wrap) return;
-      const rect = wrap.getBoundingClientRect();
-      const choice = pickFreeCorner({ w: window.innerWidth, h: window.innerHeight }, { w: rect.width, h: rect.height }, margin, gameControlBoxes(document));
-      setCorner(previous => {
-        if (previous !== choice.corner) {
-          console.log(` 🎮 [companion-portrait] [corner] [moved] to=${choice.corner} still_covers=${choice.coveredLabels.join(",") || "none"}`);
-        }
-        return choice.corner;
-      });
+      const circle = wrapRef.current?.querySelector('[data-testid="companion-portrait"]');
+      if (!circle) return;
+      const rect = circle.getBoundingClientRect();
+      const bottomGap = window.innerHeight - rect.bottom - liftRef.current;
+      const choice = pickPortraitLift({ w: window.innerWidth, h: window.innerHeight }, { w: rect.width, h: rect.height }, margin, gameControlBoxes(document), 24, bottomGap);
+      if (choice.lift !== liftRef.current) {
+        console.log(` 🎮 [companion-portrait] [lift] [moved] lift=${choice.lift} still_covers=${choice.coveredLabels.join(",") || "none"}`);
+        liftRef.current = choice.lift;
+        setLift(choice.lift);
+      }
     };
     check();
     const timer = window.setInterval(check, CHECK_MS);
     return () => window.clearInterval(timer);
   }, [active, wrapRef, margin]);
-  return corner;
+  return lift;
 }

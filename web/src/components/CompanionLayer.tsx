@@ -34,7 +34,7 @@ import {
 } from "../context/companionCareBehavior";
 import { releaseCompanionRenderer } from "../lib/releaseCompanionRenderer";
 import { playSynth, tone } from "../utils/gameSfx";
-import { portraitCornerStyle, usePortraitCorner } from "../lib/portraitCorner";
+import { portraitLiftStyle, usePortraitLift } from "../lib/portraitCorner";
 
 /** Interim animate→expression pulse keys (Opus will replace with procedural bones). */
 export const ANIMATE_TO_EXPRESSION_KEY = COMPANION_ANIMATE_TO_EXPRESSION_KEY;
@@ -156,8 +156,8 @@ export function CompanionLayer({
   }, [micMuted, mode]);
 
   const wrapRef = useRef<HTMLDivElement>(null);
-  // S41: the portrait keeps off the open game's controls, in whichever corner is free.
-  const portraitCorner = usePortraitCorner(mode === "portrait", wrapRef, 16);
+  // S41: her portrait stays bottom-right and slides up the right edge only if her circle would cover a game control.
+  const portraitLift = usePortraitLift(mode === "portrait", wrapRef, 16);
   const mountRef = useRef<HTMLDivElement>(null);
   const toggledOffRef = useRef(toggledOff);
   /** Head bone world position sampled at VRM load; used for portrait camera framing. */
@@ -740,10 +740,10 @@ export function CompanionLayer({
           data-companion-care-mood={behavior.mood}
           data-companion-care-state={behavior.presentationState}
           data-companion-care-low={behavior.low ? "true" : "false"}
-          data-companion-portrait-corner={portraitCorner}
+          data-companion-portrait-lift={portraitLift}
           style={{
             position: "fixed",
-            ...portraitCornerStyle(portraitCorner, 16),
+            ...portraitLiftStyle(portraitLift, 16),
             zIndex: 9999,
             display: "flex",
             flexDirection: "column",

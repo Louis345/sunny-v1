@@ -41,6 +41,8 @@ Fixed 11/21–11/22 with tests (pushed; Saori runs 808f4c39, so the later ones a
 
 - [ ] Low (seen 11/22): `web/src/tests/WardrobeWallet.test.tsx` "celebrates the wished item when she buys it" failed once in a full web run, then passed 3 times alone and in a clean full run (205 files): a timing flake under load, not a product bug. Fix: find the unawaited wait in that test.
 
+- [x] S41 regression (owner screenshot 11/22 2:32 PM, Ila's rounding game, fixed 11/22): Elli's portrait jumped to the top-left corner. Cause seen: the check measured the portrait together with its pill and hint text, so the larger box touched the Roll! button though her circle sat in the empty strip right of the game, and it then picked any free corner. Now only her circle counts, her home is bottom-right, and she only slides up the right edge (at most half the screen), never to another corner; `layoutCoverage.test.ts`, `portraitCorner.test.ts`.
+
 ## Open list (sorted 2026-11-14)
 
 The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, the session bugs and the internal bugs. Notes from September and October moved to `docs/bugs-archive-2026-09-to-10.md`; the few that may still apply are copied here, marked *(Oct)*. The details of each line are in its dated entry below; search for its words.
