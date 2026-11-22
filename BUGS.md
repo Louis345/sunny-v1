@@ -7,6 +7,29 @@ PR #59 (`weekend/economy-and-faster-planner`) merges only when all of these hold
 4. Sessions are stable on Saori.
 All bug fixes for these entries go on this branch.
 
+## What is left before /ship (audit 2026-11-22, code + Saori logs 11/14–11/22)
+
+Fixed 11/21–11/22 with tests (pushed; Saori runs 808f4c39, so the later ones are not deployed yet): S39, S42, I6, S8 (3D games), W9, S10, W8, I2, S40, S41, S12, map pictures (re-fixed), board previews. The audit also confirmed 21 older lines fixed from code or Saori logs: S4 repeat loop, name-less help, echo drops, slowing over a long session, withheld help; the S5 screen fixes; S6 Keep Them Apart; help unknown in built games; forecast after the Boss; call offered while waiting; next stop told; test date at intake; math on one pipeline; lost retries; partial-list tests; per-word forecasts; repeated try (S11); call ring; hints as help; cook-off tests.
+
+**A. Proven only by a session on Saori (no child has played since the 11/20–11/21 fixes):** S48 Quest opens without the fork; S45/S46 board opens itself after a long build; S47 no "parent told"; S43 stop card (likely S48); S4 praise matches the record; S4 Monster Stampede cue lag; Matilda's portrait outfit; S34 companion sees her clothes; S12 Japanese sounds right; S40/S41 nothing covers controls.
+
+**B. Need the owner's call:**
+- E8: option 1, option 2, or park after the merge?
+- S37: park as a post-merge refactor?
+- S9: close if the 11/20 Kappa screenshot was fine?
+- S6 "floating words needs rework": which activity, and what change?
+- Boss coins 15/30/60/120: final?
+- A failed Quest/Boss build: allow one automatic, bounded rebuild? This changes LEARNING_FEEDBACK_LOOP.md.
+- I6 open question: should a dropped request re-send by itself?
+
+**C. Ideas, not bugs (the owner parks them or not):** S44 play while the board builds; the won-item picture card; S6 explainer pacing and the half-finished-lesson mark; Matilda's "it's so hard" reply; I5; angel asset id and lesson audio heard by the mic; a test that a Quest game hides her words.
+
+**D. Not seen since, closed unless seen again:** S7 name card (11/08), "hear the whole thing first" (one case on 11/09), the "l" in Sky Patrol (no longer on any board), "no built-for-her game" (built games are on every recent board), the gifted-minutes ledger note.
+
+**E. Content, not code:** W5 Princess body, W7 six companion bodies, E11 graded-test photos.
+
+**Also seen, not yet a row:** Ila has 3 held saves from 11/11–11/12, reported at every startup.
+
 ## Open list (sorted 2026-11-14)
 
 The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, the session bugs and the internal bugs. Notes from September and October moved to `docs/bugs-archive-2026-09-to-10.md`; the few that may still apply are copied here, marked *(Oct)*. The details of each line are in its dated entry below; search for its words.
@@ -76,7 +99,7 @@ Why the human caught it: until today no screen let anyone put an unapproved item
 - [ ] S4 Elli's conversation: repeats one check in a loop; ignores her without the name; misread "hear the whole thing first"; drops her turns as echo; slows down over a long session; praise doesn't match the record; Matilda answers "it's so hard" with more questions; withholds help on hidden practice words; cue lags Monster Stampede by ~1.5 s (repeated check already fixed 56cb3385: Elli is told which plan lines she already said) (echo drops fixed 2c2d7d70: an echo must be mostly runs of Sunny's own words in order; the drop logs the heard words) ("hear the whole thing first" open: her offer is already in Elli's history as her last reply, so it is model behaviour, needs the session log)
 - [ ] S5 Screens: "Back to games" covers the score; several stops shown at once; "Final Trophy Check" twice; the stop counter doesn't match what she sees; an empty box after a full word; game steps and clues unread; Letter Keeper's wrong thumbnail; no picture card for a won item; a reward break can be reopened ("Back to games" fixed 3b961034) ("Final Trophy Check" twice fixed 95e6863e: a finish that repeats a stop name reads "Finish") (stop counter fixed ab0e3efa: says games to your call) (Letter Keeper thumbnail fixed 979689e6) (reward break reopen already fixed 60b230f2: leaving finishes the stop, a replay costs coins) (several stops at once fixed 56cf2c3a: the one next stop glows, every ready stop stays playable) (empty box after a full word fixed d262fb57: a fact in the game builder's brief) (still open: steps/clues unread needs owner input; picture card for a won item is a feature)
 - [ ] S6 Lessons: she rushes the explainer and skims pages unnoticed; a half-finished lesson sends her back with no explanation; floating words needs rework; Keep Them Apart gives no feedback (half-finished lesson: Elli told where she left it, 7abd2a99; map mark still open) (Keep Them Apart feedback fixed f3bcb582)
-- [ ] S7 her name card didn't respond (cause unknown; no picker state found that swallows the tap, needs the kiosk console). Fixed part: "Try again" after a fatal error (a server refusal now shows "Get a grown-up." with no retry, fixed b36c9925, 2026-11-14)
+- [x] S7 (closed 11/22 as not seen since 11/08 with the debug port on since 11/20; reopen if seen) her name card didn't respond (cause unknown; no picker state found that swallows the tap, needs the kiosk console). Fixed part: "Try again" after a fatal error (a server refusal now shows "Get a grown-up." with no retry, fixed b36c9925, 2026-11-14)
 - [ ] S8 FaceTime: Melty's tile draws nothing after a long session; some emotes and Elli's animate call are rejected; six companions have no prepared bodies (blank tile fixed 8a93f3dd, not yet seen on Saori: dispose() kept each WebGL context alive, so remounts piled up until the browser dropped the oldest, a call tile; the showroom and board portrait now release it, logs `[renderer] [released]`; OrbCatcher3D and EggHatch3D now release theirs too, 11/22, `gameRendererRelease.test.ts`) (emotes and animate fixed c48f8de3: both companionAct tools now show the registry's exact payload shapes, so "expression" and "curious" are no longer offered) (six bodies still open)
 - [ ] S9 Kappa Pond numbers read oddly (unconfirmed, needs a screenshot)
 - [x] S40 (fixed 11/22: one rule in `src/shared/layoutCoverage.ts`, nothing covers a game's controls or its `data-sunny-key` pieces. Every built game is rendered once at Saori's 1470×956 and text that hides one goes back in the existing repair; a cover that survives is logged ` 🎮 [spelling-game] [layout] [still-covered]` and the board still publishes; the builder is told to mark key pieces and keep text short. Tests: `layoutCoverage.test.ts`, `spellingGameBuilder.test.ts`. Saori proof: `[layout] [checked]` lines on the next built board) (owner + kiosk screenshot, 2026-11-20 01:40 UTC, Ila in Kappa Pond) The instruction banner ("That is 4 fingers. Where does Kappa land? Type the number.") covers the game's rule sign ("Rule −4 subtract 4"), the most important thing on screen, and is a large text block for a dyslexic reader whose companion already says it aloud. Proposed (light touch, one rule for every game): game text never covers game pieces; after the companion reads it the banner shrinks to a small replay chip; a layout test fails when a banner overlaps a game's main pieces. Not built.
