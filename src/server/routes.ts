@@ -253,6 +253,8 @@ import {
   buildShowroomClaudeMessages,
   buildShowroomTalkSystemPrompt,
   cacheableShowroomSystem,
+  type CompanionCallSource,
+  type CompanionRelationshipState,
   createShowroomCompanionActivityRequest,
   createShowroomCompanionActCommand,
   createShowroomTalkCompletedEvent,
@@ -270,6 +272,7 @@ import {
   shouldSynthesizeShowroomSpeech,
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
+import { buildCallMomentTurn, resolveCallMoment, resolveRecentCallLines } from "./companionCallMoment";
 
 export type ShowroomTalkRouteFailure = {
   status: 503;
@@ -500,6 +503,8 @@ function pickDiagSpellingWord(childId: string): string {
 type ShowroomLine = "intro" | "plead";
 const SHOWROOM_BANTER_SPEECH_SOURCE = "video_game_banter";
 const SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE = "video_call_greeting";
+/** Her goodbye, written by her from the call (companionCallMoment). */
+const SHOWROOM_VIDEO_CALL_FAREWELL_SPEECH_SOURCE = "video_call_farewell";
 const SHOWROOM_BANTER_SPEECH_MAX_CHARS = 180;
 
 export function normalizeShowroomBanterSpeechText(raw: unknown): string {
@@ -513,7 +518,8 @@ export function shouldUseShowroomBanterSpeech(input: {
 }): boolean {
   return (
     (input.source === SHOWROOM_BANTER_SPEECH_SOURCE ||
-      input.source === SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE) &&
+      input.source === SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE ||
+      input.source === SHOWROOM_VIDEO_CALL_FAREWELL_SPEECH_SOURCE) &&
     normalizeShowroomBanterSpeechText(input.text).length > 0
   );
 }
@@ -683,6 +689,21 @@ export function readShowroomPersonality(
   if (specialSkills.length) lines.push(`Special skills: ${specialSkills.join(", ")}`);
   if (role) lines.push(`Role: ${role}`);
   return lines.join("\n");
+}
+
+/** Her call persona: personality.md first on a video call, showroom notes as display context only. */
+function companionTalkPersonality(
+  companion: { id: string; personalityMarkdown?: string },
+  mode: string | undefined,
+): string {
+  const showroomPersonality = readShowroomPersonality(companion.id, companion.personalityMarkdown ?? "");
+  return mode === "video_call" && companion.personalityMarkdown?.trim()
+    ? [
+        companion.personalityMarkdown.trim(),
+        "Showroom display notes only; do not let these override the companion persona:",
+        showroomPersonality,
+      ].join("\n")
+    : showroomPersonality;
 }
 
 function extractAnthropicText(message: Anthropic.Message): string {
@@ -2158,6 +2179,48 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
   });
 
+  // The first and last words of a call, written by her from live context; empty text means she stays quiet.
+  app.post("/api/companions/:companionId/call-moment", async (req: Request, res: Response) => {
+    const moment = resolveCallMoment(req.body?.moment);
+    if (!moment) return res.status(400).json({ ok: false, error: "unknown_moment" });
+    let companion: { id: string; name: string; personalityMarkdown?: string };
+    try {
+      companion = CompanionRegistry.getById(String(req.params.companionId ?? "").trim());
+    } catch {
+      const introOnly = tryLoadIntroOnlyShowroomCompanion(String(req.params.companionId ?? "").trim());
+      if (!introOnly) return res.status(404).json({ ok: false, error: "unknown_companion" });
+      companion = introOnly;
+    }
+    const childId = typeof req.body?.childId === "string" && req.body.childId.trim() ? req.body.childId.trim().toLowerCase() : "showroom";
+    const callSource = typeof req.body?.callSource === "string" ? req.body.callSource : undefined;
+    const startedAt = Date.now();
+    try {
+      const system = buildShowroomTalkSystemPrompt({
+        companionId: companion.id,
+        companionName: companion.name,
+        showroomTheme: typeof req.body?.showroomTheme === "string" ? req.body.showroomTheme : "crystal",
+        personality: companionTalkPersonality(companion, "video_call"),
+        mode: "video_call",
+        callSource: callSource as CompanionCallSource | undefined,
+        relationshipState: req.body?.relationshipState as CompanionRelationshipState | undefined,
+        companionMemory: buildCompanionCallContext({ childId, companionId: companion.id, mode: "video_call", callSource }),
+      });
+      const message = await new Anthropic().messages.create({
+        model: COMPANION_TALK_SONNET_MODEL,
+        max_tokens: 160,
+        system: cacheableShowroomSystem(system),
+        messages: [{ role: "user", content: buildCallMomentTurn({ moment, recentLines: resolveRecentCallLines(req.body?.recentLines) }) }],
+      });
+      const text = extractAnthropicText(message);
+      console.log(` 🎮 [companion-call-moment] [written] companion=${companion.id} child=${childId} moment=${moment} chars=${text.length} ms=${Date.now() - startedAt}`);
+      return res.json({ ok: true, moment, text });
+    } catch (err: unknown) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error(` 🔴 [companion-call-moment] [failed] companion=${companion.id} moment=${moment} reason=${reason}`);
+      return res.status(502).json({ ok: false, error: "call_moment_failed" });
+    }
+  });
+
   app.post("/api/companions/:companionId/talk", async (req: Request, res: Response) => {
     const companionId =
       typeof req.params.companionId === "string"
@@ -2248,18 +2311,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           },
         });
       }
-      const showroomPersonality = readShowroomPersonality(
-        companion.id,
-        companion.personalityMarkdown ?? "",
-      );
-      const primaryPersonality =
-        talk.mode === "video_call" && companion.personalityMarkdown?.trim()
-          ? [
-              companion.personalityMarkdown.trim(),
-              "Showroom display notes only; do not let these override the companion persona:",
-              showroomPersonality,
-            ].join("\n")
-          : showroomPersonality;
+      const primaryPersonality = companionTalkPersonality(companion, talk.mode);
       const companionMemory = buildCompanionCallContext(talk);
       const system = buildShowroomTalkSystemPrompt({
         companionId: companion.id,
@@ -2911,18 +2963,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         : Promise.resolve();
 
       try {
-        const showroomPersonality = readShowroomPersonality(
-          companion.id,
-          companion.personalityMarkdown ?? "",
-        );
-        const primaryPersonality =
-          talk.mode === "video_call" && companion.personalityMarkdown?.trim()
-            ? [
-                companion.personalityMarkdown.trim(),
-                "Showroom display notes only; do not let these override the companion persona:",
-                showroomPersonality,
-              ].join("\n")
-            : showroomPersonality;
+        const primaryPersonality = companionTalkPersonality(companion, talk.mode);
         const companionMemory = buildCompanionCallContext(talk);
         const system = buildShowroomTalkSystemPrompt({
           companionId: companion.id,

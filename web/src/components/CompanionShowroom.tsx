@@ -74,6 +74,7 @@ import { type ServerWallet } from "../lib/wardrobeWallet";
 import { callCompanionLook, createSelfLookGuard, noteTryOn, portraitSnapshot, type PortraitSnapshot } from "../lib/callSelfLook";
 import { fittedCallLook, loadCallStartLook } from "../lib/callStartLook";
 import { callCompanionIndex, callPortraitLook } from "../utils/callCompanion";
+import { createCallOpeningCache, writeCallMoment } from "../utils/callMoment";
 import {
   WardrobeStoreLab,
   type WardrobeShoppingContext,
@@ -506,13 +507,6 @@ type CompanionVideoCallContext = {
   relationshipState?: CompanionRelationshipState;
   rewardContext?: CompanionRewardContext;
 };
-type VideoCallPickupMemory = {
-  reunionLineSeed?: string;
-};
-export type VideoCallPickupGreeting = {
-  text: string;
-  usedMemorySeed: boolean;
-};
 type ShowroomCompanionActivityId = CompanionActivityId;
 type ShowroomCompanionActivityRequest = {
   source: "claude";
@@ -633,6 +627,8 @@ const SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS = 360;
 const SHOWROOM_VIDEO_CHAT_VISUAL_ACTION_REARM_MS = 1900;
 const SHOWROOM_VIDEO_CHAT_RING_MS = 1300;
 const SHOWROOM_VIDEO_CHAT_ANSWER_MS = 650;
+/** Her goodbye is written and voiced live; past this the call closes on her wave alone. */
+const SHOWROOM_FAREWELL_CAP_MS = 4500;
 const SHOWROOM_VIDEO_CHAT_GREETING_CAMERA_CEILING_MS = 900;
 const SHOWROOM_VIDEO_CHAT_RINGTONE_STYLE = "familiar-video-call";
 const SHOWROOM_VIDEO_CALL_SOURCES = new Set<CompanionCallSource>([
@@ -1926,82 +1922,6 @@ export function createShowroomVideoChatStartedEvent(args: {
     showroomTheme: args.showroomTheme,
     mode: "showroom_camera_shell",
     timestamp: args.now ?? Date.now(),
-  };
-}
-
-function normalizePickupName(value: string | undefined, fallback: string): string {
-  const trimmed = value?.trim();
-  return trimmed || fallback;
-}
-
-function normalizePickupMemorySeed(memory?: VideoCallPickupMemory): string | null {
-  const seed = memory?.reunionLineSeed?.replace(/\s+/g, " ").trim();
-  if (!seed || seed.length > 90) return null;
-  return seed;
-}
-
-export function resolveVideoCallPickupGreeting(args: {
-  companionId: string;
-  companionName: string;
-  childName?: string;
-  callSource: CompanionCallSource;
-  relationshipState: CompanionRelationshipState;
-  memory?: VideoCallPickupMemory;
-}): VideoCallPickupGreeting {
-  const child = normalizePickupName(args.childName, "friend");
-  const companionId = args.companionId.trim().toLowerCase();
-  const memorySeed =
-    args.relationshipState !== "previewing" ? normalizePickupMemorySeed(args.memory) : null;
-  if (memorySeed) {
-    const prefix = companionId === "elli" ? `Hiii ${child}!` : `${child},`;
-    return {
-      text: `${prefix} ${memorySeed}`,
-      usedMemorySeed: true,
-    };
-  }
-
-  if (args.relationshipState === "earned_reward" || args.callSource === "game_reward") {
-    return {
-      text:
-        companionId === "kefla"
-          ? `${child}, you earned this call. I was ready for a challenge.`
-          : companionId === "matilda"
-            ? `Hi ${child}. You earned this call, so I saved a calm little spot for us.`
-            : companionId === "princess"
-              ? `${child}, you earned this call. The quest can begin.`
-              : `${child}! You earned this call. I was hoping we'd get a minute together.`,
-      usedMemorySeed: false,
-    };
-  }
-
-  if (companionId === "kefla") {
-    return {
-      text: "You called? Good. I was ready for a challenge.",
-      usedMemorySeed: false,
-    };
-  }
-  if (companionId === "matilda") {
-    return {
-      text: `Hi ${child}. I saved a calm little spot for us.`,
-      usedMemorySeed: false,
-    };
-  }
-  if (companionId === "princess") {
-    return {
-      text: `${child}, you made it. The quest can begin.`,
-      usedMemorySeed: false,
-    };
-  }
-  if (companionId === "elli") {
-    return {
-      text: `Hiii ${child}! I was hoping you'd call.`,
-      usedMemorySeed: false,
-    };
-  }
-
-  return {
-    text: `Hi ${child}! ${args.companionName} is here.`,
-    usedMemorySeed: false,
   };
 }
 
@@ -3942,6 +3862,12 @@ export function CompanionShowroom({
   const currentVideoCallTurnIdRef = useRef<string | null>(null);
   const lastVideoCallTranscriptHashRef = useRef<string | undefined>(undefined);
   const lastVideoCallResponseRef = useRef<string>("");
+  /** What was said on this call, so her goodbye can come from it. */
+  const recentCallLinesRef = useRef<string[]>([]);
+  const noteCallLine = useCallback((speaker: "child" | "companion", text: string) => {
+    const clean = text.replace(/\s+/g, " ").trim();
+    if (clean) recentCallLinesRef.current = [...recentCallLinesRef.current, `${speaker}: ${clean}`].slice(-8);
+  }, []);
   const powerUpSfxRef = useRef<AmbientMusicHandle | null>(null);
   const swipeFromXRef = useRef<number | null>(null);
   const getSpeechAnalyser = useCallback(() => speechAnalyserRef.current, []);
@@ -5160,6 +5086,7 @@ export function CompanionShowroom({
       if (traceTurnId) {
         currentVideoCallTurnIdRef.current = traceTurnId;
       }
+      if (talkMode === "video_call" && !options?.callClockEvent) noteCallLine("child", question);
       const talkStartMs = performance.now();
       console.log(
         ` 🎮 [showroom-talk] request_start companion=${current.id} mode=${talkMode} chars=${question.length}`,
@@ -5320,6 +5247,7 @@ export function CompanionShowroom({
               (typeof data.text === "string" && data.text.trim()) ||
               `${current.name} is thinking.`;
             lastVideoCallResponseRef.current = responseText;
+            noteCallLine("companion", responseText);
             if (data.selfLook && talkMode === "video_call" && !options?.selfLookSnapshot && selfLookGuardRef.current.allow(traceTurnId ?? question)) {
               pendingSelfLookRef.current = { question, requestedAt: talkStartMs };
               console.log(` 🎮 [self-look] [requested] companion=${current.id} afterMs=${Math.round(performance.now() - talkStartMs)}`);
@@ -5512,6 +5440,7 @@ export function CompanionShowroom({
         );
         const responseText = data.text?.trim() || `${current.name} is thinking.`;
         lastVideoCallResponseRef.current = responseText;
+        noteCallLine("companion", responseText);
         if (data.selfLook && talkMode === "video_call" && !options?.selfLookSnapshot && selfLookGuardRef.current.allow(traceTurnId ?? question)) {
           pendingSelfLookRef.current = { question, requestedAt: talkStartMs };
           console.log(` 🎮 [self-look] [requested] companion=${current.id} afterMs=${Math.round(performance.now() - talkStartMs)}`);
@@ -6163,18 +6092,26 @@ export function CompanionShowroom({
     }
   }, [startShowroomVideoCallListening, stopShowroomVideoChatCamera]);
 
+  // Her opening is written while the call loads; the context is read at write time, not captured once.
+  const callMomentContextRef = useRef({ childId: talkChildId, callSource: activeVideoCallContext.callSource as string, relationshipState: activeVideoCallContext.relationshipState as string, showroomTheme: activeThemeId as string });
+  callMomentContextRef.current = { childId: talkChildId, callSource: activeVideoCallContext.callSource, relationshipState: activeVideoCallContext.relationshipState, showroomTheme: activeThemeId };
+  const callOpeningCacheRef = useRef(createCallOpeningCache({
+    write: (key) => writeCallMoment({ ...key, moment: "opening", ...callMomentContextRef.current }),
+  }));
+  const callOpeningPrefetchedRef = useRef(false);
+  useEffect(() => {
+    // The companion she most likely calls is the one the call screen opens on (from her record / last call).
+    if (callOpeningPrefetchedRef.current || !current || talkChildId === "showroom") return;
+    callOpeningPrefetchedRef.current = true;
+    const voiceId = current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
+    callOpeningCacheRef.current.prefetch({ companionId: current.id, voiceId: voiceSelections[current.id] ?? voiceId });
+  }, [current, talkChildId, voiceSelections]);
+
   const playShowroomVideoCallGreeting = useCallback(async () => {
     if (!current) return;
     const currentDefaultVoice =
       current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
     const selectedVoiceId = voiceSelections[current.id] ?? currentDefaultVoice;
-    const greeting = resolveVideoCallPickupGreeting({
-      companionId: current.id,
-      companionName: current.name,
-      childName: resolveShowroomChildDisplayName(childName, talkChildId),
-      callSource: activeVideoCallContext.callSource,
-      relationshipState: activeVideoCallContext.relationshipState,
-    });
     const greetingStartedAt = performance.now();
     let cameraStarted = false;
     const startCameraOnce = (reason: string) => {
@@ -6190,14 +6127,26 @@ export function CompanionShowroom({
       );
     };
 
-    setShowroomTalkResponse(greeting.text);
+    // Her own first words, written from live context while the call loaded (owner 2026-11-22: no stock greeting).
     setShowroomTalkError(null);
+    setShowroomTalkPhase("thinking");
+    const opening = await callOpeningCacheRef.current.take({ companionId: current.id, voiceId: selectedVoiceId });
+    if (!videoChatContinuousListenRef.current) return;
+    if (!opening.text || !opening.audio) {
+      const reason = opening.text ? "voice_unavailable" : "nothing_written";
+      emitShowroomVideoCallTrace({ eventName: "call_greeting_skipped", payload: { reason } });
+      setShowroomTalkPhase("idle");
+      startCameraOnce(reason);
+      rearmAfterGreeting(reason);
+      return;
+    }
+    setShowroomTalkResponse(opening.text);
     setShowroomTalkPhase("speaking");
     emitShowroomVideoCallTrace({
       eventName: "call_greeting_selected",
       payload: {
-        greetingText: greeting.text,
-        usedMemorySeed: greeting.usedMemorySeed,
+        greetingText: opening.text,
+        writtenBy: "companion",
         callSource: activeVideoCallContext.callSource,
         relationshipState: activeVideoCallContext.relationshipState,
       },
@@ -6207,36 +6156,8 @@ export function CompanionShowroom({
       startCameraOnce("timeout");
     }, SHOWROOM_VIDEO_CHAT_GREETING_CAMERA_CEILING_MS);
 
-    if (!selectedVoiceId) {
-      window.clearTimeout(ceilingTimer);
-      emitShowroomVideoCallTrace({
-        eventName: "call_greeting_skipped",
-        payload: { reason: "voice_unavailable", usedMemorySeed: greeting.usedMemorySeed },
-      });
-      setShowroomTalkPhase("idle");
-      startCameraOnce("voice_unavailable");
-      rearmAfterGreeting("voice_unavailable");
-      return;
-    }
-
     try {
-      const response = await fetch(`/api/companions/${encodeURIComponent(current.id)}/speak`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          line: "intro",
-          language: "en",
-          voiceId: selectedVoiceId,
-          source: "video_call_greeting",
-          text: greeting.text,
-        }),
-      });
-      if (!response.ok) {
-        const err = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(err?.error ?? `greeting_${response.status}`);
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(opening.audio);
       speechUrlRef.current = url;
       const audio = new Audio(url);
       const AudioContextCtor =
@@ -6257,7 +6178,6 @@ export function CompanionShowroom({
           eventName: "call_greeting_audio_ended",
           payload: {
             latencyMs: Math.round(performance.now() - greetingStartedAt),
-            usedMemorySeed: greeting.usedMemorySeed,
           },
         });
         setShowroomTalkPhase("idle");
@@ -6278,7 +6198,7 @@ export function CompanionShowroom({
         window.clearTimeout(ceilingTimer);
         emitShowroomVideoCallTrace({
           eventName: "call_greeting_skipped",
-          payload: { reason: "audio_element_error", usedMemorySeed: greeting.usedMemorySeed },
+          payload: { reason: "audio_element_error" },
         });
         setShowroomTalkPhase("idle");
         playCurrentCompanionAnimation("idle", { loop: true });
@@ -6291,12 +6211,11 @@ export function CompanionShowroom({
         eventName: "call_greeting_audio_start",
         payload: {
           latencyMs: Math.round(performance.now() - greetingStartedAt),
-          usedMemorySeed: greeting.usedMemorySeed,
         },
       });
       startCameraOnce("audio_start");
       console.log(
-        ` 🎮 [showroom-video-chat] greeting_audio_start companion=${current.id} usedMemory=${String(greeting.usedMemorySeed)}`,
+        ` 🎮 [showroom-video-chat] greeting_audio_start companion=${current.id}`,
       );
     } catch (err: unknown) {
       window.clearTimeout(ceilingTimer);
@@ -6305,7 +6224,6 @@ export function CompanionShowroom({
         eventName: "call_greeting_skipped",
         payload: {
           reason: err instanceof Error ? err.message : String(err),
-          usedMemorySeed: greeting.usedMemorySeed,
         },
       });
       setShowroomTalkPhase("idle");
@@ -6315,12 +6233,10 @@ export function CompanionShowroom({
     }
   }, [
     activeVideoCallContext,
-    childName,
     current,
     emitShowroomVideoCallTrace,
     playCurrentCompanionAnimation,
     startShowroomVideoChatCamera,
-    talkChildId,
     voiceSelections,
   ]);
 
@@ -6335,6 +6251,7 @@ export function CompanionShowroom({
     currentVideoCallTurnIdRef.current = null;
     lastVideoCallTranscriptHashRef.current = undefined;
     lastVideoCallResponseRef.current = "";
+    recentCallLinesRef.current = [];
     activityReactionInFlightRef.current = false;
     activityReactionQueueRef.current = null;
     activityReactionQueueGuardRef.current = 0;
@@ -6411,6 +6328,11 @@ export function CompanionShowroom({
       return;
     }
     setShowroomVideoCallPhase("calling");
+    // Any pick she did not prefetch is written while it rings.
+    callOpeningCacheRef.current.prefetch({
+      companionId: current.id,
+      voiceId: voiceSelections[current.id] ?? current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "",
+    });
     videoChatRingtoneRef.current = playVideoCallRingtone();
     console.log(` 🎮 [showroom-video-chat] ringing style=${SHOWROOM_VIDEO_CHAT_RINGTONE_STYLE}`);
     playCurrentCompanionAnimation("idle", { loop: true });
@@ -6438,6 +6360,7 @@ export function CompanionShowroom({
 	    startMusic,
 	    stopSpeech,
       talkChildId,
+      voiceSelections,
 	  ]);
 
   const closeShowroomVideoChat = useCallback((cause = "unnamed") => {
@@ -6564,26 +6487,10 @@ export function CompanionShowroom({
   ]);
 
   /**
-   * A goodbye instead of a hard cut. Ending a call used to tear everything
-   * down mid-air; now she waves and says one short line first. The line is
-   * drawn from the deterministic game record, so it is always true.
+   * A goodbye instead of a hard cut: she waves and says her own goodbye, written from this call (owner 2026-11-22:
+   * no canned farewell). If her words are not ready before the cap, the call closes on the wave alone.
    */
   const farewellInFlightRef = useRef(false);
-  const buildShowroomFarewellLine = useCallback((): string => {
-    const totals = companionRecognition;
-    const name = current?.name ?? "your friend";
-    if (totals && totals.played > 0) {
-      if (totals.childWins > totals.companionWins) {
-        return "Okay, you're beating me. I'm practising before next time!";
-      }
-      if (totals.companionWins > totals.childWins) {
-        return "Rematch soon? I'll go easy. Maybe.";
-      }
-      return "Dead even. We're settling this next time!";
-    }
-    return `Bye! Come find ${name === "your friend" ? "me" : "me"} again soon.`;
-  }, [companionRecognition, current]);
-
   const closeShowroomVideoChatNow = closeShowroomVideoChat;
   const endShowroomVideoChatWithFarewell = useCallback((cause: string) => {
     // An earned call always ends on her own map, however it ends (BUGS.md 2026-11-07).
@@ -6611,39 +6518,39 @@ export function CompanionShowroom({
       return;
     }
     farewellInFlightRef.current = true;
-    const line = buildShowroomFarewellLine();
-    setShowroomTalkResponse(`${companion.name}: ${line}`);
-    setShowroomTalkPhase("speaking");
+    setShowroomTalkPhase("thinking");
     playCurrentCompanionAnimation("wave", { loop: false });
     videoCallStt.stop();
 
     // Never let a goodbye hold the call open: hard cap the beat.
     let closed = false;
+    const aborter = new AbortController();
     const finish = () => {
       if (closed) return;
       closed = true;
+      aborter.abort();
       farewellInFlightRef.current = false;
       closeShowroomVideoChat();
     };
-    const cap = window.setTimeout(finish, 3200);
+    const cap = window.setTimeout(finish, SHOWROOM_FAREWELL_CAP_MS);
 
-    void fetch(`/api/companions/${encodeURIComponent(companion.id)}/speak`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        line: "intro",
-        language: "en",
-        voiceId: selectedVoiceId,
-        source: "video_call_farewell",
-        text: line,
-      }),
+    writeCallMoment({
+      companionId: companion.id,
+      voiceId: selectedVoiceId,
+      moment: "goodbye",
+      ...callMomentContextRef.current,
+      recentLines: recentCallLinesRef.current,
+      signal: aborter.signal,
     })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { audioBase64?: string; audioContentType?: string } | null) => {
-        if (closed || !data?.audioBase64) return;
-        const url = URL.createObjectURL(
-          audioBase64ToBlob(data.audioBase64, data.audioContentType ?? "audio/mpeg"),
-        );
+      .then((goodbye) => {
+        if (closed) return;
+        if (!goodbye.text || !goodbye.audio) {
+          console.log(` 🎮 [call-moment] [goodbye] [silent] companion=${companion.id} reason=${goodbye.text ? "voice_unavailable" : "nothing_written"}`);
+          return;
+        }
+        setShowroomTalkResponse(`${companion.name}: ${goodbye.text}`);
+        setShowroomTalkPhase("speaking");
+        const url = URL.createObjectURL(goodbye.audio);
         const audio = new Audio(url);
         audio.addEventListener("ended", () => {
           URL.revokeObjectURL(url);
@@ -6653,11 +6560,14 @@ export function CompanionShowroom({
         audio.addEventListener("error", () => {
           URL.revokeObjectURL(url);
         });
-        void audio.play().catch(() => undefined);
+        audio.play().catch((err: unknown) => {
+          console.warn(" 🎮 [call-moment] [goodbye] [play-failed]", err);
+        });
       })
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        if (!closed) console.warn(" 🎮 [call-moment] [goodbye] [silent]", err);
+      });
   }, [
-    buildShowroomFarewellLine,
     closeShowroomVideoChatNow,
     current,
     earnedCallWallet?.childId,

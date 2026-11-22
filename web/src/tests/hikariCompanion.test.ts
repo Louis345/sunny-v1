@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { COMPANION_MANIFEST } from "../companion/companions.generated";
-import { resolveVideoCallPickupGreeting } from "../components/CompanionShowroom";
 import {
   isWardrobeReadyForHumanReview,
   resolvePreparedWardrobePresentation,
@@ -39,18 +38,6 @@ describe("Hikari in the FaceTime picker", () => {
     expect(matilda?.name).toBe("Matilda");
     expect(matilda?.defaultFor).toBe("reina");
     expect(matilda?.voices.filter(v => v.default).map(v => v.id)).toEqual(["XrExE9yKIg1WjnnlVkGX"]);
-  });
-
-  it("greets as Hikari when the call picks up", () => {
-    const greeting = resolveVideoCallPickupGreeting({
-      companionId: "hikari",
-      companionName: "Hikari",
-      childName: "Ila",
-      callSource: "showroom",
-      relationshipState: "previewing",
-    });
-    expect(greeting.text).toContain("Hikari");
-    expect(greeting.text).not.toContain("Matilda");
   });
 });
 

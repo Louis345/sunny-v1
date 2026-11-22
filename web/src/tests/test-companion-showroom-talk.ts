@@ -5,7 +5,6 @@ import {
   createShowroomVideoCallStatusCopy,
   createShowroomVideoChatEntryCopy,
   createShowroomVideoChatStartedEvent,
-  resolveVideoCallPickupGreeting,
   resolveShowroomChildDisplayName,
   createShowroomVideoActivityContextFromEvent,
   createShowroomTalkPayload,
@@ -257,97 +256,8 @@ describe("CompanionShowroom talk mode", () => {
     });
   });
 
-  it("resolves companion-specific showroom pickup greetings", () => {
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }),
-    ).toEqual({
-      text: "Hiii Ila! I was hoping you'd call.",
-      usedMemorySeed: false,
-    });
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "kefla",
-        companionName: "Kefla",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }).text,
-    ).toBe("You called? Good. I was ready for a challenge.");
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "matilda",
-        companionName: "Matilda",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }).text,
-    ).toBe("Hi Ila. I saved a calm little spot for us.");
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "princess",
-        companionName: "Princess",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }).text,
-    ).toBe("Ila, you made it. The quest can begin.");
-  });
-
-  it("uses earned reward and safe memory pickup variants without making memory mandatory", () => {
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: "Ila",
-        callSource: "game_reward",
-        relationshipState: "earned_reward",
-      }),
-    ).toEqual({
-      text: "Ila! You earned this call. I was hoping we'd get a minute together.",
-      usedMemorySeed: false,
-    });
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "selected",
-        memory: { reunionLineSeed: "Last time we played tic-tac-toe." },
-      }),
-    ).toEqual({
-      text: "Hiii Ila! Last time we played tic-tac-toe.",
-      usedMemorySeed: true,
-    });
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "selected",
-        memory: { reunionLineSeed: "   " },
-      }).usedMemorySeed,
-    ).toBe(false);
-  });
-
-  it("uses the child query display name for pickup greetings when dbz preview omits childName prop", () => {
+  it("uses the child query display name when dbz preview omits childName prop", () => {
     expect(resolveShowroomChildDisplayName(undefined, "ila")).toBe("Ila");
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: resolveShowroomChildDisplayName(undefined, "ila"),
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }).text,
-    ).toBe("Hiii Ila! I was hoping you'd call.");
   });
 
   it("wires an unlocked Video Chat shell without economy lock copy", () => {
@@ -367,7 +277,7 @@ describe("CompanionShowroom talk mode", () => {
   it("wires pickup greeting through existing companion speak route and trace events", () => {
     const source = readShowroomSource();
 
-    expect(source).toContain("resolveVideoCallPickupGreeting");
+    expect(source).toContain("callOpeningCacheRef");
     expect(source).toContain("call_greeting_selected");
     expect(source).toContain("call_greeting_audio_start");
     expect(source).toContain("call_greeting_audio_ended");
