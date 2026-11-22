@@ -43,6 +43,8 @@ Fixed 11/21–11/22 with tests (pushed; Saori runs 808f4c39, so the later ones a
 
 - [x] S41 regression (owner screenshot 11/22 2:32 PM, Ila's rounding game, fixed 11/22): Elli's portrait jumped to the top-left corner. Cause seen: the check measured the portrait together with its pill and hint text, so the larger box touched the Roll! button though her circle sat in the empty strip right of the game, and it then picked any free corner. Now only her circle counts, her home is bottom-right, and she only slides up the right edge (at most half the screen), never to another corner; `layoutCoverage.test.ts`, `portraitCorner.test.ts`.
 
+- [x] Elli's slower voice reset every problem (Saori observed Elli too fast for Ila; fixed 11/22). Seen in the log: 18:20 Elli set 0.85 (`[companion-speech] [rate] [configured]`); 18:24 Ila asked "Can you say slowly again?" because the next problem was back at normal pace; Elli said "Okay, slower" without a new call. Cause: the pace belonged to one item. Now Elli's own talking keeps her chosen pace for every next problem in the same game; a word the game plays keeps its own item's pace (measured stimulus), and another game or a check starts normal; `ws-tts-playback-ownership.test.ts`. Next (knowledge store): a per-child default pace so Ila starts slower without asking.
+
 ## Open list (sorted 2026-11-14)
 
 The owner's call (2026-11-14): clean up this file, then fix the evidence bugs, the session bugs and the internal bugs. Notes from September and October moved to `docs/bugs-archive-2026-09-to-10.md`; the few that may still apply are copied here, marked *(Oct)*. The details of each line are in its dated entry below; search for its words.

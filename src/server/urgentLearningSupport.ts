@@ -300,7 +300,7 @@ export function buildActivityCompanionContext(input: {
   // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
   const health = sunnyHealthFacts(input.childId);
   const recent = recentRepliesFact(input.childId);
-  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; stays for every next problem in this game; another game or a check starts at normal pace).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;

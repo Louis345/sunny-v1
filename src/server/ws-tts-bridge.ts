@@ -103,13 +103,17 @@ export class WsTtsBridge {
   }
 
   isSpeechEnabled(): boolean { return !this.disabled; }
+  // The pace Elli chose holds for her own talking on every next problem in the same game (11/22: Ila asked twice; it reset
+  // per problem). A word the game plays is a measured stimulus, so its pace stays with its own item; another game or a
+  // check starts at normal pace.
   getSpeechRate(scope: SpeechScope = this.playbackOwner ?? {}): number {
     const selected = this.speechRateScope ?? {};
-    return scope.itemId === selected.itemId && scope.launchToken === selected.launchToken ? this.speechRate ?? 1 : 1;
+    const companionTalking = String(this.playbackOwner?.requestId ?? "").startsWith("companion");
+    return scope.launchToken === selected.launchToken && (companionTalking || scope.itemId === selected.itemId) ? this.speechRate ?? 1 : 1;
   }
   getAudioRatesThisTurn(): number[] { return [...(this.audioRatesThisTurn ?? [])]; }
 
-  /** A provider capability, selected by Elli for the current item and launch. */
+  /** A provider capability chosen by Elli; it applies now and stays for every next problem in this game. */
   async setSpeechRate(speed: number, scope: SpeechScope = this.playbackOwner ?? {}): Promise<{ speed: number }> {
     if (!Number.isFinite(speed) || speed < 0.7 || speed > 1.2) throw new Error("speech_rate_out_of_range");
     if (speed === this.getSpeechRate(scope)) return { speed };

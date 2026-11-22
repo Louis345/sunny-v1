@@ -208,3 +208,20 @@ it('uses the activity launch token for non-spelling narration pace',async()=>{
   s.playbackDone({audible:true,itemId:'math-1',requestId:s.pendingGameNarrationPlayback.requestId});
  }finally{lab.close();}
 });
+
+// 11/22 (Saori, Ila's rounding game): at 18:20 Elli set 0.85 when Ila needed it slower; four minutes later, on the next
+// problem, the voice was back to normal and Ila asked again ("Can you say slowly again?"). The rate belonged to one item
+// and launch. Why the human caught it: Saori saw Ila lose the explanation. Why the logs missed it: one "[rate]
+// [configured]" line looked like success. Why the lab missed it: no test changed item after choosing a rate.
+it("keeps the pace Elli chose for every next problem in the same game", async () => {
+  vi.stubEnv("ELEVENLABS_API_KEY","fixture");vi.stubEnv("TTS_ENABLED","true");
+  const browser:any={readyState:1,OPEN:1,send:vi.fn()};const bridge=new WsTtsBridge(browser,"voice");
+  bridge.beginPlayback("speech","problem-1",false,false,"rounding-game");
+  const connected=bridge.connect();const first=fixtures.sockets.at(-1);first.readyState=1;first.emit("open");await connected;
+  const rate=bridge.setSpeechRate(0.85);const second=fixtures.sockets.at(-1);second.readyState=1;second.emit("open");await rate;
+  bridge.stop();bridge.beginPlayback("companion:turn-2","problem-2",false,false,"rounding-game");
+  expect(bridge.getSpeechRate({itemId:"problem-2",launchToken:"rounding-game"})).toBe(0.85);
+  const next=bridge.connect();const third=fixtures.sockets.at(-1);third.readyState=1;third.emit("open");await next;
+  expect(JSON.parse(third.send.mock.calls[0][0]).voice_settings.speed).toBe(0.85);
+  bridge.close();
+});
