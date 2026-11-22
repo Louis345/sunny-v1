@@ -234,21 +234,54 @@ function createEventId(prefix: string): string {
   return `${prefix}-${randomPart}`;
 }
 
-function previewSelection(
+/** The outfit she is building in the try-on (W9): what is drawn, and which shop item fills each slot. */
+export type TryOnLook = { selection: WardrobeSelection; itemIds: { accessory?: string; outfit?: string } };
+
+/** Each try-on goes on top of the try-on already showing, so pieces combine; the first starts from what she wears. */
+export function nextTryOnLook(
   state: WardrobeStoreState,
   companion: WardrobeStoreCompanion,
-  item: WardrobeStoreItem,
-  testing = false,
-): WardrobeSelection {
-  const equipped = resolveEquippedWardrobeSelection(state, companion.id, companion.modelUrl, { testing });
+  itemId: string,
+  testing: boolean,
+  current: TryOnLook | null,
+): TryOnLook {
+  const item = WARDROBE_STORE_CATALOG.find(candidate => candidate.id === itemId);
+  const worn = state.equippedByCompanion[companion.id] ?? {};
+  const base: TryOnLook = current ?? {
+    selection: resolveEquippedWardrobeSelection(state, companion.id, companion.modelUrl, { testing }),
+    itemIds: { accessory: worn.accessoryItemId, outfit: worn.outfitItemId },
+  };
+  if (!item) return base;
   const preview = resolveWardrobeItemSelection(item);
   return item.asset.kind === "accessory"
-    ? { ...equipped, accessoryId: preview.accessoryId }
+    ? { selection: { ...base.selection, accessoryId: preview.accessoryId }, itemIds: { ...base.itemIds, accessory: item.id } }
     : {
-        ...equipped,
-        outfitId: preview.outfitId,
-        outfitMaterialVariant: preview.outfitMaterialVariant,
+        selection: { ...base.selection, outfitId: preview.outfitId, outfitMaterialVariant: preview.outfitMaterialVariant },
+        itemIds: { ...base.itemIds, outfit: item.id },
       };
+}
+
+/** "Wear" puts on every piece of the built outfit she owns; a piece she has not bought stays tried-on only. */
+export function equipTryOnLook(
+  state: WardrobeStoreState,
+  companion: WardrobeStoreCompanion,
+  look: TryOnLook,
+  testing: boolean,
+): { state: WardrobeStoreState; equipped: string[]; skipped: string[] } {
+  let next = state;
+  const equipped: string[] = [];
+  const skipped: string[] = [];
+  for (const itemId of [look.itemIds.accessory, look.itemIds.outfit]) {
+    if (!itemId) continue;
+    const result = equipWardrobeItem(next, companion.id, itemId, companion.modelUrl, { testing });
+    if (result.status === "equipped") {
+      next = result.state;
+      equipped.push(itemId);
+    } else {
+      skipped.push(itemId);
+    }
+  }
+  return { state: next, equipped, skipped };
 }
 
 function Wallet({ balance, real }: { balance: number; real: boolean }) {
@@ -387,6 +420,7 @@ export function WardrobeStoreLab({
   const [closetOpen, setClosetOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const debugMountVisitIdRef = useRef<string | null>(null);
+  const tryOnLookRef = useRef<TryOnLook | null>(null);
 
   // Testing mode offers every item on every companion, approved or not, so a grown-up can see what fits (owner 2026-11-14).
   const testingAll = testingCloset && !wallet;
@@ -481,6 +515,7 @@ export function WardrobeStoreLab({
 
   const restoreEquippedLook = useCallback(
     (state: WardrobeStoreState) => {
+      tryOnLookRef.current = null;
       onWardrobeChange(
         resolveEquippedWardrobeSelection(
           state,
@@ -563,6 +598,7 @@ export function WardrobeStoreLab({
   const previewItemInTryOn = (
     item: WardrobeStoreItem,
     baseState: WardrobeStoreState,
+    stackOnCurrent = false,
   ) => {
     const nextState = recordInteraction(
       baseState,
@@ -575,7 +611,9 @@ export function WardrobeStoreLab({
     setMode("try-on");
     setConfirmation(null);
     setStatusMessage(null);
-    onWardrobeChange(previewSelection(nextState, companion, item, testingAll));
+    const look = nextTryOnLook(nextState, companion, item.id, testingAll, stackOnCurrent ? tryOnLookRef.current : null);
+    tryOnLookRef.current = look;
+    onWardrobeChange(look.selection);
     const context = contextFor(item, "try_on", nextState);
     console.log(
       ` 🎮 [wardrobe-store-lab] try_on opened companion=${companion.id} item=${item.id} variant=${item.asset.kind === "outfit" ? item.asset.materialVariant.id : "none"} mood=${shoppingVisit.mood.id} verdict=${context.selectedItem?.opinionVerdict ?? "none"} conversation=waiting_for_child`,
@@ -597,7 +635,7 @@ export function WardrobeStoreLab({
       console.log(
         ` 🎮 [wardrobe-store-lab] try_on switched companion=${companion.id} from=${selectedItem?.id ?? "none"} to=${item.id}`,
       );
-      previewItemInTryOn(item, nextState);
+      previewItemInTryOn(item, nextState, true);
       return;
     }
     setSelectedItemId(item.id);
@@ -681,6 +719,21 @@ export function WardrobeStoreLab({
   };
 
   const equipOwnedItem = (item: WardrobeStoreItem) => {
+    const look = tryOnLookRef.current;
+    if (look && (look.itemIds.accessory === item.id || look.itemIds.outfit === item.id)) {
+      const worn = equipTryOnLook(storeState, companion, look, testingAll);
+      if (worn.equipped.includes(item.id)) {
+        const nextState = worn.equipped.reduce((state, id) => recordInteraction(state, id, "equipped", "companion"), worn.state);
+        persist(nextState);
+        restoreEquippedLook(nextState);
+        setSelectedItemId(item.id);
+        setMode("try-on");
+        setConfirmation(null);
+        setStatusMessage(`${item.name} equipped`);
+        console.log(` 🎮 [wardrobe-store-lab] outfit_equipped companion=${companion.id} items=${worn.equipped.join(",")} tried_only=${worn.skipped.join(",") || "none"}`);
+        return;
+      }
+    }
     const equipped = equipWardrobeItem(
       storeState,
       companion.id,

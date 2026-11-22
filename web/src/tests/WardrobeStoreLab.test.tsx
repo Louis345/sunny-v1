@@ -328,10 +328,11 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.getByLabelText("Elli try-on stage")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Royal Crown" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Try on Royal Crown" })).toBeNull();
-    expect(onWardrobeChange).toHaveBeenLastCalledWith({
+    // W9: the crown goes on with the dress she is already trying, so pieces combine into one outfit.
+    expect(onWardrobeChange).toHaveBeenLastCalledWith(expect.objectContaining({
       accessoryId: "crown",
-      outfitId: "none",
-    });
+      outfitId: "sleeveless-dress",
+    }));
     expect(
       onDebugEvent.mock.calls.filter(
         ([event]) => event.type === "wardrobe_try_on_started",
