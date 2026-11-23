@@ -118,6 +118,18 @@ export function mathTrackRecordSection(cycle: LearningCycleRecordV2): string {
     ...(untried.length ? [`- Not answered yet: ${untried.join(", ")}`] : [])].join("\n");
 }
 
+/**
+ * Every answer she gave on a math assignment, oldest first, one line each (owner 2026-11-24: a parent saw "she is
+ * guessing" from this list in minutes; per-problem summaries hid it when every board brought new problems).
+ */
+export function mathAnswersSection(cycle: LearningCycleRecordV2): string {
+  const prompts = new Map<string, string>();
+  for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.itemContracts ?? {})) if (!prompts.has(item.id)) prompts.set(item.id, item.prompt);
+  const rows = answers(cycle).map(row => `- ${row.row.observedAt.slice(0, 10)} ${row.word} "${clip(prompts.get(row.word) ?? row.word, 60)}": "${clip(row.row.childResponse ?? "", 40)}" ${row.row.result.correct ? "right" : "missed"}, ${bucketOf(row) === "school" ? "on the school test" : HELP[row.row.assistance.status]}${row.board ? ` (board ${row.board})` : ""}`);
+  return ["Every answer she gave on this assignment, oldest first (date, problem, her answer, right or missed, on her own or with help):",
+    ...(rows.length ? rows : ["- No answers recorded yet."])].join("\n");
+}
+
 /** Your journal: each earlier decision in your words, the board it built, and her results on its words before and after. */
 /** Each of the Planner's calls with her next answer on her own after it, if any (2026-11-10: code checks the tutor). */
 export function scorePlannerCalls(cycle: LearningCycleRecordV2): Array<{ decision: LearningCycleDecision; itemId: string; label: string; onHerOwn: boolean; answer?: LearningObservation; hit?: boolean }> {

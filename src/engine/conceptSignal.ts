@@ -103,7 +103,7 @@ export function conceptSignalSection(cycle: LearningCycleRecordV2, opts: Learnin
 
   console.log(` 🎮 [concept-signal] [built] homework=${cycle.homeworkId} her_words=${said.length} help_only=${helpOnly.length} wrong_groups=${groups.size}`);
   const text = [
-    "How she thinks, kept apart from right/wrong counts (facts laid out by code; what they mean is yours to infer). Cite the ids in brackets.",
+    "How she thinks, kept apart from right/wrong counts (facts laid out by code; what they mean is yours to infer).",
     "Everything she said to her companions on this assignment (verbatim from speech-to-text, newest last; read_record her_talk has the full talk with replies):",
     ...(said.length ? said.map(row => `- [said:${row.id}] ${minute(row.at)}: "${clip(row.words)}"`) : ["- Nothing she said is recorded on this assignment yet."]),
     "Right only with help (right with help, not yet right on her own):",

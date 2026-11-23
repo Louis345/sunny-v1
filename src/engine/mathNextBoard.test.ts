@@ -126,7 +126,7 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(latest.lifecycle).toBe("baseline_generating");
     // The same tool names as spelling's next board, minus math's stated exception (the spelling lesson page).
     expect(robot.requests[0].model).toBe("claude-opus-5-5");
-    expect(robot.requests[0].tools.map((tool: any) => tool.name)).toEqual(["decide", "add_step", "add_reward", "read_record", "read_board_wording", "add_problem", "remove_step", "set_order", "add_choice", "finish_board"]);
+    expect(robot.requests[0].tools.map((tool: any) => tool.name)).toEqual(["decide", "add_step", "add_reward", "read_record", "read_board_wording", "ask_parents", "add_problem", "remove_step", "set_order", "add_choice", "finish_board"]);
     const addStep = robot.requests[0].tools.find((tool: any) => tool.name === "add_step").input_schema;
     expect(addStep.properties.built_in.enum).toEqual(["generated-game"]);
     // Her worksheet problems are named in the field; problems the Planner writes add ids as it writes, with no cap
@@ -136,9 +136,9 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     // Her goal, her school test and her own record per problem, beside the Planner's journal.
     const content = robot.requests[0].messages[0].content;
     const prompt: string = typeof content === "string" ? content : content.map((block: any) => block.text ?? "").join("");
-    expect(prompt).toContain("her math tutor");
+    expect(prompt).toContain("tutor. You've taught for twenty years");
     expect(prompt).toContain("School test: Monday 2026-11-09");
-    expect(prompt).toMatch(/Her track record on each problem[^\n]*\n- p1 "7 \+ 6\. Is the sum even or odd\?": board 1: "even" missed on her own/);
+    expect(prompt).toMatch(/Every answer she gave on this assignment[^\n]*\n- \d{4}-\d{2}-\d{2} p1 "7 \+ 6\. Is the sum even or odd\?": "even" missed, on her own/);
     expect(prompt).toContain("Your journal:");
     // The decision carries its self-review, and her folder keeps it in the planner journal.
     const decision = latest.decisionHistory.at(-1)!;
@@ -168,6 +168,28 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(builder.requests).toHaveLength(2);
     expect(builder.requests[0].messages[0].content).toContain("odd plus even is odd");
     expect(builder.requests[0].messages[0].content).not.toMatch(/correct_option|"expected"/);
+  });
+
+  // Owner 2026-11-23/24 (Ila's rounding, boards 1-13): her 101 rounding answers were guessing (278 -> 200, 700, 500),
+  // a parent saw it in minutes, and the Planner ran SQL on the same answers and built a 13th drill. Its question was a
+  // numbered procedure (read_back, competing explanation, "Unless you await calibration, build the next board") with a
+  // one-item menu. Why the lab missed it: tests asserted the procedure was present. Now: a tutor persona, the goal,
+  // her work laid out plainly, what it can do, and tools; nothing tells it how to think.
+  it("asks the Planner as her tutor, with her work laid out and no procedure to follow", async () => {
+    const f = await playedMathCycle();
+    const robot = nextBoardRobot();
+    await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: robot.client, draw: plainDraw }, f.opts).catch(() => undefined);
+    const content = robot.requests[0].messages[0].content;
+    const prompt: string = typeof content === "string" ? content : content.map((block: any) => block.text ?? "").join("");
+    expect(prompt).toMatch(/^You're Lab-child's tutor\. You've taught for twenty years/);
+    expect(prompt).not.toMatch(/1\. decide: first read_back|Unless you await calibration|Games on the menu|before anything else|cite the ids|Cite the ids/);
+    expect(prompt).toContain("Every answer she gave on this assignment, oldest first (date, problem, her answer, right or missed, on her own or with help):");
+    expect(prompt).toMatch(/- \d{4}-\d{2}-\d{2} p1 "7 \+ 6\. Is the sum even or odd\?": "even" missed, on her own/);
+    expect(prompt).toMatch(/ask_parents/);
+    const tools = robot.requests[0].tools;
+    expect(tools.map((tool: any) => tool.name)).toContain("ask_parents");
+    const decide = tools.find((tool: any) => tool.name === "decide").input_schema;
+    expect([...decide.required].sort()).toEqual(["progression_action", "reason", "status"]);
   });
 
   it("lets an operator retry a math cycle already blocked on board_definition_missing, through the shared tools", async () => {

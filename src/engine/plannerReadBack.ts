@@ -20,13 +20,12 @@ export function theoryReadBackSection(cycle: Pick<LearningCycleRecordV2, "academ
   const last = [...(cycle.decisionHistory ?? [])].reverse().find(row => row.eventType === "theory_decided");
   const belief = [...(cycle.decisionHistory ?? [])].reverse().find(row => row.eventType === "theory_decided" && row.readBack?.howSheThinks && !row.readBack.missing);
   return [
-    "Your theory going into this board (read it back and grade it in decide's read_back before anything else):",
+    "Your theory going into this board (decide's read_back grades it, if you want to):",
     `- Theory (revision ${cycle.academicTheory?.revision ?? 0}): "${clip(cycle.academicTheory?.hypothesis ?? "none recorded")}"`,
     belief?.readBack ? `- Your last belief about how she thinks (${belief.createdAt.slice(0, 10)}): "${clip(belief.readBack.howSheThinks)}"; competing explanation then: "${clip(belief.readBack.competingExplanation, 240)}"; the board was to tell them apart by: "${clip(belief.readBack.boardTellsApart, 240)}"`
       : "- Your last belief about how she thinks: none recorded yet.",
     `- What you said you would test next: ${(last?.testNext ?? []).map(line => `"${clip(line, 200)}"`).join(" | ") || "(nothing listed)"}`,
-    "Before grading, reread what your last board said to her with read_board_wording and question your own wording: what could she have taken from those exact words?",
-        "read_back.how_she_thinks is one belief about how she thinks about the skill, from her words, her wrong answers and what needed help; not her score, the order of games or her mood. Design the board so its problems come out differently under that belief and under your competing explanation.",
+    "read_board_wording shows the exact words your last board said to her.",
   ].join("\n");
 }
 

@@ -50,7 +50,7 @@ export function readTeachingNotes(childId: string, opts: { rootDir?: string } = 
 }
 
 export function teachingNotesSection(notes: TeachingNote[]): string {
-  return ["Teaching notes from outside Sunny (read these first: outside knowledge from a parent or tutor, dated, with who wrote it; cite the ids in brackets):",
+  return ["Teaching notes from outside Sunny (a parent or tutor, dated, with who wrote it):",
     ...(notes.length ? notes.map(note => `- [${note.id}] ${note.date}, ${note.source}: ${note.text.replace(/\n+/g, " / ")}`)
       : [`- None recorded. A parent or tutor can add dated notes to her ${TEACHING_NOTES_FILE}.`])].join("\n");
 }

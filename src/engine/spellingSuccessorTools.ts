@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { z } from "zod";
+import { plannerJournalFile } from "./plannerIntrospection";
 import { expandJourneySequence, type AdventureJourneyDefinition } from "../shared/adventureBoardDefinition";
 import { finishJourneySequence, journeyOrderTools, removeFromJourney, type JourneyOrderState } from "./journeyTools";
 import { toolFor, type PlannerTool } from "./plannerToolLoop";
@@ -146,29 +149,29 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
     return { ok: true, value: { libraryGame: id } };
   };
   const tools: PlannerTool<SuccessorState>[] = [
-    tool({ name: "decide", description: "Your one decision about the learning theory, compared with what she actually did. Calling it again replaces it.",
+    tool({ name: "decide", description: "Your call on what happens next. status, reason and progression_action are the decision; every other field is there when you want it, and code saves and scores what you give. Calling it again replaces it.",
       schema: z.object({
         status: z.enum(["supported", "revised", "falsified", "inconclusive", "awaiting_calibration"]), reason: text("Why, from the evidence."),
         progression_action: enumOf(facts.allowedActions, "collect_more_evidence"),
-        preserve: strings, change: strings, test_next: strings, next_evidence_required: strings,
-        prediction_evaluation_ids: facts.evaluationIds.length ? z.array(pickFrom(facts.evaluationIds, "none", "the offered prediction evaluations", "One prediction evaluation id (read_record prediction_evaluations has each one in full).")).describe("The evaluations of earlier predictions you are judging. At least one.") : z.array(z.string()).max(0).describe("Leave empty: there are no evaluations yet."),
-        revised_hypothesis: z.string().describe("Your revised hypothesis, or empty."),
+        preserve: strings.optional(), change: strings.optional(), test_next: strings.optional(), next_evidence_required: strings.optional(),
+        prediction_evaluation_ids: facts.evaluationIds.length ? z.array(pickFrom(facts.evaluationIds, "none", "the offered prediction evaluations", "One prediction evaluation id (read_record prediction_evaluations has each one in full).")).optional().describe("The evaluations of earlier predictions you are judging, if any.") : z.array(z.string()).max(0).optional().describe("There are no evaluations yet."),
+        revised_hypothesis: z.string().optional().describe("Your revised hypothesis, if you have one."),
         ...(facts.selfReview ? { self_review: z.object({
           what_i_tried: text(`What you tried on earlier boards for the ${missing} she is still missing, from your journal. On a first decision, say so.`),
           what_happened: text(`What happened to those ${missing}, from her track record: what she ${problems ? "answered" : "wrote"}, on her own and with help.`),
           why: text("Why you think it happened."),
           what_i_keep: text("What worked for her, from her answers and her session retros (what she understood, enjoyed or got right), that you keep."),
           what_i_change_now: text("What you change now, and why that is a better try than the last."),
-        }).strict().describe(`Your review of your own track record before deciding: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side.`) } : {}),
+        }).strict().optional().describe(`Your review of your own track record: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side. Saved in your journal.`) } : {}),
         ...(facts.readBack ? { read_back: z.object({
           previous_theory: text("Your theory going into this board, read back as written above."),
           grade: z.enum(READ_BACK_GRADES).describe("That theory against the new evidence: supported, revised, falsified, or unclear."),
           why: text("Why, from what she did and said since."),
           evidence_ids: z.array(z.string()).describe("The bracketed ids above that your grade rests on (said:…, ans-…, evaluation:…, note:…). A grade citing none is saved as unclear."),
-          how_she_thinks: text("Your one belief about how she thinks about this skill, from her words, her wrong answers and what needed help. Not her score, the order of games or her mood."),
+          how_she_thinks: text("Your belief about how she thinks about this skill."),
           competing_explanation: text("The other explanation that fits the same evidence."),
           board_tells_apart: text("Which problems on this board come out differently under your belief and under the competing explanation, and what each predicts she answers."),
-        }).strict().optional().describe("Before anything else: read back and grade your last theory (forced each board; code saves it with the decision).") } : {}),
+        }).strict().optional().describe("Your last theory, read back and graded; code saves it with the decision.") } : {}),
         ...(played.length ? { game_notes: z.array(z.object({ game: pickFrom(played.map(row => row.nodeId), "none", "the games Sunny built for her that she played", "A game she played: its nodeId from that list in the question."), verdict: z.enum(["keep", "fix", "retire"]),
           why: text("Why, from how she played it: her answers, her time to a first answer, what she said.") }).strict()).optional()
           .describe("Your note on games she played: keep (bring it back, with new content via build_from), fix (what to change), or retire (do not build from it again). The builder reads your latest note.") } : {}),
@@ -178,19 +181,18 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         ...(facts.selfReview ? (problems
           ? { school_test_forecast: z.object({ min: z.number().describe("Lowest share of her school test she gets right, 0 to 1."), max: z.number().describe("Highest share, 0 to 1."),
               why: text("Why, from her answers on her own so far.") }).strict().optional()
-              .describe("Your forecast of her graded school test on this assignment, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back. Give it every decision.") }
+              .describe("Your forecast of her graded school test on this assignment, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back.") }
           : { school_test_forecast: z.array(z.object({ word: z.string().min(1).describe("A word id from her list."), chance: z.number().describe("The chance, 0 to 1, that she spells it right on the school test."),
               why: text("Why, from her answers on this word.") }).strict()).optional()
-              .describe("Your forecast for her graded school test, word by word, every word on her list, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back. Give it every decision.") }) : {}),
+              .describe("Your forecast for her graded school test, word by word, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back.") }) : {}),
         ...(facts.selfReview ? { ready_on_paper: z.array(z.object({ concept: text("One concept this assignment teaches, in a parent's words (for example Rounding to tens)."),
           chance: z.number().describe("The chance, 0 to 1, that she gets this concept right alone on paper now."), why: text("Why, from her answers on her own."),
           proof: text("The paper work that would show it, for example the Lesson 1.2 sheet."),
           items: z.array(z.string().min(1).describe(`One of her ${problems ? "recorded problem ids" : "word ids"}.`)).optional()
             .describe(`Her ${problems ? "problems" : "words"} that belong to this concept, by id. Code locks a plain arithmetic guess from her first tries on her own on them, scored beside yours.${problems ? " Her later answers to these problems are filed under this concept as her skill." : ""}`) }).strict()).optional()
-          .describe("Your call, concept by concept: could she show it alone on paper now? A parent tags each item of her next paper with its concept; code scores your chance against what she does alone and checks across your calls whether a higher chance goes with a better result. A chance of 0.8 or more tells her parent to give her the paper. Give it every decision.") } : {}),
+          .describe("Your call, concept by concept: could she show it alone on paper now? A parent tags each item of her next paper with its concept; code scores your chance against what she does alone and checks across your calls whether a higher chance goes with a better result. A chance of 0.8 or more tells her parent to give her the paper.") } : {}),
       }).strict(),
       run: (state, input) => {
-        if (facts.evaluationIds.length && !input.prediction_evaluation_ids.length) return { ok: false, error: "cite at least one of the offered prediction_evaluation_ids" };
         const review = (input as { self_review?: Record<"what_i_tried" | "what_happened" | "why" | "what_i_keep" | "what_i_change_now", string> }).self_review;
         const calls = (input as { expect_on_her_own?: Array<{ item: string; right: boolean }> }).expect_on_her_own;
         const notes = (input as { game_notes?: Array<{ game: string; verdict: "keep" | "fix" | "retire"; why: string }> }).game_notes;
@@ -201,8 +203,6 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           const rows = forecast as Array<{ word: string; chance: number; why: string }>;
           const unknown = rows.filter(row => !allWordIds.includes(row.word)).map(row => row.word);
           if (unknown.length) return { ok: false, error: `school_test_forecast: ${unknown.join(", ")} is not one of her words; valid: ${allWordIds.join(", ")}` };
-          const missingWords = allWordIds.filter(id => !rows.some(row => row.word === id));
-          if (missingWords.length) return { ok: false, error: `school_test_forecast: forecast every word on her list; missing ${missingWords.join(", ")}` };
           if (rows.some(row => !(row.chance >= 0 && row.chance <= 1))) return { ok: false, error: "school_test_forecast: each chance is between 0 and 1" };
           schoolForecast = { forecaster: "planner", words: rows.map(row => ({ wordId: row.word, chance: row.chance, why: row.why })) };
         } else if (forecast && typeof forecast === "object") {
@@ -217,8 +217,8 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         const validItems = problems ? [...problems.keys(), ...Object.keys(state.written ?? {})] : allWordIds;
         const unknownItem = ready?.flatMap(row => row.items ?? []).find(id => !validItems.includes(id));
         if (unknownItem) return { ok: false, error: `ready_on_paper: ${unknownItem} is not one of her ${problems ? "problems" : "words"}; valid: ${validItems.join(", ")}` };
-        state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve, change: input.change, testNext: input.test_next,
-          nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis,
+        state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve ?? [], change: input.change ?? [], testNext: input.test_next ?? [],
+          nextEvidenceRequired: input.next_evidence_required ?? [], predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids ?? [])], revisedHypothesis: input.revised_hypothesis ?? "",
           ...(facts.readBack ? { readBack: settleReadBack((input as { read_back?: ReadBackInput }).read_back, readBackIds) } : {}),
           ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}),
           ...(calls?.length ? { expectations: calls.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}),
@@ -228,7 +228,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         state.result = undefined;
         const readBack = state.decision.readBack;
         // Said inside the same conversation (never a veto): a grade on nothing real is saved as unclear.
-        const readBackNote = !facts.readBack || !readBack ? {} : readBack.missing ? { read_back: "not given: saved as unclear. Call decide again with read_back to grade your last theory." }
+        const readBackNote = !facts.readBack || !readBack ? {} : readBack.missing ? {}
           : readBack.claimedGrade || readBack.unknownEvidenceIds?.length ? { read_back: `saved as ${readBack.grade}${readBack.unknownEvidenceIds?.length ? `; not offered ids: ${readBack.unknownEvidenceIds.join(", ")}` : ""}${readBack.claimedGrade ? `; your grade ${readBack.claimedGrade} cited no offered id` : ""}. Call decide again to fix.` } : {};
         return { ok: true, result: { action: input.progression_action, ...readBackNote } };
       } }),
@@ -350,13 +350,29 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         const offset = input.offset ?? 0, limit = input.limit ?? 40;
         return { ok: true, result: { section: input.section, total: value.length, offset, rows: value.slice(offset, offset + limit) } };
       } })] : []),
-    ...(facts.childEvidence ? [tool({ name: "read_board_wording", description: "The exact words a board showed her: each stop's title, story, aim and opening screen as you wrote them, and the words inside each built game. Read your last board's wording and question it: could she have heard or read any of it as something other than you meant?",
+    ...(facts.childEvidence ? [tool({ name: "read_board_wording", description: "The exact words a board showed her: each stop's title, story, aim and opening screen as you wrote them, and the words inside each built game.",
       schema: z.object({ board: z.number().int().min(1).describe("The board number on this assignment, 1 = her first.") }).strict(),
       run: (_state, input) => {
         const cycle = getLearningCycle(facts.childEvidence!.childId, facts.childEvidence!.homeworkId, { rootDir: facts.childEvidence!.rootDir });
         if (!cycle) return { ok: false, error: "her record for this assignment is not readable now" };
         const wording = boardWording(cycle, input.board, { rootDir: facts.childEvidence!.rootDir });
         return "stops" in wording ? { ok: true as const, result: wording } : { ok: false as const, error: String(wording.error) };
+      } })] : []),
+    // Owner 2026-11-24 (contract 63): a tutor tells the parents what they saw and what to try; parents are not always
+    // there, so it never waits for a reply and never blocks a board. The note lands in her planner journal.
+    ...(facts.childEvidence ? [tool({ name: "ask_parents", description: "Leave a dated note or question for her parents: what you see, what to try at home, or what you want to know. It is saved in your journal for them; it never waits for a reply.",
+      schema: z.object({ note: text("The note or question, in plain words for a parent.") }).strict(),
+      run: (_state, input) => {
+        const file = plannerJournalFile({ childId: facts.childEvidence!.childId, homeworkId: facts.childEvidence!.homeworkId }, { rootDir: facts.childEvidence!.rootDir });
+        try {
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          fs.appendFileSync(file, `\n## Note for her parents (${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC)\n\n${input.note.trim()}\n`);
+        } catch (error) {
+          console.error(` 🎮 [planner] [ask-parents] [failed] homework=${facts.childEvidence!.homeworkId}`, error);
+          return { ok: false, error: "the note could not be saved now" };
+        }
+        console.log(` 🎮 [planner] [ask-parents] [saved] child=${facts.childEvidence!.childId} homework=${facts.childEvidence!.homeworkId}`);
+        return { ok: true, result: { saved: true } };
       } })] : []),
     ...(facts.pastWeeks?.weeks.length ? [pastWeeksTool<SuccessorState>(facts.pastWeeks)] : []),
     ...(facts.pastWeeks?.claims ? [claimHowSheLearnsTool<SuccessorState>(facts.pastWeeks)!] : []),
