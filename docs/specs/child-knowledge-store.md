@@ -57,5 +57,18 @@ Today that knowledge is scattered and partly lost:
 ## Next, on top of this store: the parent study plan (owner 11/22)
 Sunny tells the parent what to do and when, the way a spaced-repetition app does: "Today: 15 min on rounding to hundreds. Tomorrow morning: 5-min review before the test. Nothing needed until Thursday." The plan is built from each skill's recent accuracy on her own first tries, the school test date, spacing, and what helped before. The AI decides; code supplies the facts and records each recommendation with its outcome, so the plan itself gets calibrated.
 
+## Next: the Planner's metacognition loop (owner 11/22, first post-merge milestone with this store)
+Why: on 11/22 both parents saw in 5 minutes that Ila follows the rounding rule without the concept ("I don't understand the concept", 23:23 UTC; misses like 652→"60" fit "changes the digit she looks at"). The Planner drilled the rule anyway. It never gets her words, never states a belief about her thinking (its predictions are about scores), and never reads its last hypothesis back: the real 11/19 request decided on turn 1 with zero reads.
+
+Before planning each board the Planner must, in order (forced in code, not asked in the prompt):
+1. **Grade the last hypothesis.** "I believed _; I predicted _; this happened: right, wrong or unclear." It cannot plan until it answers, citing the evidence ids.
+2. **State one belief about her thinking, not her score**, with evidence: her words, help-dependence, the wrong-answer pattern, outside knowledge (a parent's note, the IEP, the teacher).
+3. **Design the board as an experiment:** what fails if the belief is right, what this board changes (e.g. meaning first, "19 kids: about 10 or about 20?"), and the success measure, set before she plays.
+4. **Follow the evidence:** right → continue; wrong → change the approach (meaning before procedure; revise or retire its own games, not only build new ones); unclear → test differently.
+5. **Don't overthink:** one main belief per board; code supplies the facts; obvious evidence means act.
+
+Inputs it needs, from this store: the concept signal (her words, hint-dependence, misconception patterns, kept separate from accuracy), parent and tutor teaching notes ("what worked"), and earlier weeks.
+Measured by: the Planner evals (e.g. "board 11 should have targeted the misconception") and calibration against graded tests.
+
 ## Not in this PR
 Embeddings and vector search. Start with SQL and text search over the rows, and add embeddings only if search misses. Ranked review sessions come after, on top of the same store.
