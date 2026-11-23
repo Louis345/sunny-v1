@@ -1,3 +1,4 @@
+import { familyClock } from "../utils/familyCalendar";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "node:fs";
 import path from "node:path";
@@ -98,7 +99,7 @@ export async function writeSessionHandoff(input: { childId: string; sessionDir: 
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `${metadata.startedAt.replace(/[:.]/g, "-")}.md`);
     const counted = `\n\n**Games, counted by code:**\n${gameFacts.length ? gameFacts.map(line => `- ${line}`).join("\n") : "- No game recorded."}\n${retroCountsLine(cycle, metadata.startedAt)}`;
-    fs.writeFileSync(file, `# Handoff ${metadata.startedAt.slice(0, 16).replace("T", " ")} (session ${metadata.sessionId ?? "unknown"})\n\n${text}${counted}\n`, "utf8");
+    fs.writeFileSync(file, `# Handoff ${familyClock(metadata.startedAt)} (session ${metadata.sessionId ?? "unknown"})\n\n${text}${counted}\n`, "utf8");
     console.log(` 🎮 [handoff] [written] child=${input.childId} homework=${cycle.homeworkId} model=${handoffModel()} file=${path.basename(file)} tokens_in=${message.usage?.input_tokens ?? 0} tokens_out=${message.usage?.output_tokens ?? 0}`);
     return file;
   } catch (error) {
@@ -111,7 +112,7 @@ const SKIP_REASONS = { no_answers_play_only: "she gave no answers in it (play on
 type SkippedRetro = { sessionId: string; startedAt: string; reason: keyof typeof SKIP_REASONS };
 
 /** The Planner's factual line for a session whose retro was skipped on purpose (2026-11-10, G11). */
-export const noRetroNote = (row: SkippedRetro) => `No retro for session ${row.sessionId} (${row.startedAt.slice(0, 16).replace("T", " ")}): ${SKIP_REASONS[row.reason]}.`;
+export const noRetroNote = (row: SkippedRetro) => `No retro for session ${row.sessionId} (${familyClock(row.startedAt)}): ${SKIP_REASONS[row.reason]}.`;
 /** True when a Planner question carries this session's note that it had nothing to retro (she gave no answers). */
 export const noRetroPlayOnlyIn = (prompt: string, sessionId: string) => prompt.split("\n").some(line => line.startsWith(`- No retro for session ${sessionId} (`) && line.endsWith(`: ${SKIP_REASONS.no_answers_play_only}.`));
 

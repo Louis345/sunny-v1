@@ -1,3 +1,4 @@
+import { familyClock, familyDay } from "../utils/familyCalendar";
 import { observationNode } from "./observationNode";
 import { readyOnPaperSection } from "./readyOnPaper";
 import { isFirstTryOnHerOwn } from "./sessionTimeline";
@@ -125,7 +126,7 @@ export function mathTrackRecordSection(cycle: LearningCycleRecordV2): string {
 export function mathAnswersSection(cycle: LearningCycleRecordV2): string {
   const prompts = new Map<string, string>();
   for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.itemContracts ?? {})) if (!prompts.has(item.id)) prompts.set(item.id, item.prompt);
-  const rows = answers(cycle).map(row => `- ${row.row.observedAt.slice(0, 10)} ${row.word} "${clip(prompts.get(row.word) ?? row.word, 60)}": "${clip(row.row.childResponse ?? "", 40)}" ${row.row.result.correct ? "right" : "missed"}, ${bucketOf(row) === "school" ? "on the school test" : HELP[row.row.assistance.status]}${row.board ? ` (board ${row.board})` : ""}`);
+  const rows = answers(cycle).map(row => `- ${familyDay(row.row.observedAt)} ${row.word} "${clip(prompts.get(row.word) ?? row.word, 60)}": "${clip(row.row.childResponse ?? "", 40)}" ${row.row.result.correct ? "right" : "missed"}, ${bucketOf(row) === "school" ? "on the school test" : HELP[row.row.assistance.status]}${row.board ? ` (board ${row.board})` : ""}`);
   return ["Every answer she gave on this assignment, oldest first (date, problem, her answer, right or missed, on her own or with help):",
     ...(rows.length ? rows : ["- No answers recorded yet."])].join("\n");
 }
@@ -159,7 +160,7 @@ function itemCallsSection(cycle: LearningCycleRecordV2): string {
   for (const call of calls) byDecision.set(call.decision.decisionId, [...(byDecision.get(call.decision.decisionId) ?? []), call]);
   return [header, ...[...byDecision.values()].map(rows => {
     const checked = rows.filter(row => row.answer), right = checked.filter(row => row.hit).length;
-    return `- Decision of ${rows[0].decision.createdAt.slice(0, 16).replace("T", " ")}: ${right} of ${checked.length} calls right${rows.length > checked.length ? `; ${rows.length - checked.length} not answered on her own yet` : ""}. ${
+    return `- Decision of ${familyClock(rows[0].decision.createdAt)}: ${right} of ${checked.length} calls right${rows.length > checked.length ? `; ${rows.length - checked.length} not answered on her own yet` : ""}. ${
       rows.map(row => `${row.label}: you expected ${row.onHerOwn ? "right" : "not yet"}; ${!row.answer ? "no answer on her own yet" : row.answer.result.correct ? "she was right" : `she wrote "${row.answer.childResponse ?? "?"}"`}`).join(". ")}.`;
   })].join("\n");
 }

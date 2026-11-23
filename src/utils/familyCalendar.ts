@@ -21,3 +21,13 @@ export function familyDay(value: string | Date | undefined | null): string {
   if (!Number.isFinite(date.getTime())) return typeof value === "string" ? value.slice(0, 10) : "";
   return new Intl.DateTimeFormat("en-CA", { timeZone: familyTimeZone(), year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
+
+/** A timestamp as the family reads a clock: "2026-11-22 20:48 EST" (owner 2026-11-23: the Planner read UTC as local). */
+export function familyClock(value: string | Date | undefined | null): string {
+  if (value == null || value === "") return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return typeof value === "string" ? value : "";
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: familyTimeZone(), year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short" }).formatToParts(date).map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} ${parts.timeZoneName}`;
+}

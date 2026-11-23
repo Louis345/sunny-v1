@@ -1,3 +1,4 @@
+import { familyClock } from "../utils/familyCalendar";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
@@ -97,6 +98,6 @@ export function scorecardSection(cycle: LearningCycleRecordV2, opts: LearningCyc
   const header = "Her session scorecards (counted by code after each session, oldest first):";
   const cards = readScorecards(cycle, opts).slice(-limit);
   if (!cards.length) return `${header}\n- No scorecard yet.`;
-  return [header, ...cards.map(card => `- ${card.startedAt.slice(0, 16).replace("T", " ")}: on her own ${card.answers.onHerOwnRight} of ${card.answers.onHerOwn} right${card.answers.retries ? `; ${card.answers.retries} retries after a first try` : ""}; with help ${card.answers.withHelp}; bugs she reported ${card.bugsReported}; games: ${
+  return [header, ...cards.map(card => `- ${familyClock(card.startedAt)}: on her own ${card.answers.onHerOwnRight} of ${card.answers.onHerOwn} right${card.answers.retries ? `; ${card.answers.retries} retries after a first try` : ""}; with help ${card.answers.withHelp}; bugs she reported ${card.bugsReported}; games: ${
     card.games.map(game => `${game.title} first answer after ${game.minutesToFirstAnswer === null ? "none" : `${game.minutesToFirstAnswer.toFixed(1)} min`}${game.finished ? "" : " (not finished)"}`).join(", ") || "none"}; the Planner's calls checked ${card.predictions.checked}, right ${card.predictions.inRange}${card.minutes ? `; minutes: ${minutesLine(card.minutes)}` : ""}`)].join("\n");
 }

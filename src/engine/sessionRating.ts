@@ -1,3 +1,4 @@
+import { familyClock } from "../utils/familyCalendar";
 /**
  * The pre-registered rating (owner, 2026-11-10: "I want to know if this is successful or not"). Each line is one
  * criterion from docs/audits/2026-11-10-success-criteria.md, fixed before any fix was built, and is read from the
@@ -183,7 +184,7 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
   const notApplicable = (line: RatingLine) => /^no .+ this session$/.test(line.value);
   const must = lines.filter(line => line.id.startsWith("N")), graded = lines.filter(line => line.id.startsWith("G") && !notApplicable(line));
   const verdict = must.every(line => line.pass) && graded.filter(line => line.pass).length >= Math.ceil(graded.length * 0.8) ? "PASS" : "FAIL";
-  const text = [`Rating for ${packet.childId}, session ${packet.sessionId} (${packet.startedAt.slice(0, 16).replace("T", " ")}): ${verdict}`,
+  const text = [`Rating for ${packet.childId}, session ${packet.sessionId} (${familyClock(packet.startedAt)}): ${verdict}`,
     ...(packet.minutes ? [`Time: ${minutesLine(packet.minutes)}.`] : ["Time: not measured for this session."]),
     `Must-never: ${must.filter(line => line.pass).length} of ${must.length} pass. Graded: ${graded.filter(line => line.pass).length} of ${graded.length} pass (80% needed; ${lines.length - must.length - graded.length} not applicable this session).`,
     "", "| # | What | Target | This session | Result |", "|---|---|---|---|---|",

@@ -1,3 +1,4 @@
+import { familyClock } from "../utils/familyCalendar";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
@@ -366,7 +367,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         const file = plannerJournalFile({ childId: facts.childEvidence!.childId, homeworkId: facts.childEvidence!.homeworkId }, { rootDir: facts.childEvidence!.rootDir });
         try {
           fs.mkdirSync(path.dirname(file), { recursive: true });
-          fs.appendFileSync(file, `\n## Note for her parents (${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC)\n\n${input.note.trim()}\n`);
+          fs.appendFileSync(file, `\n## Note for her parents (${familyClock(new Date())})\n\n${input.note.trim()}\n`);
         } catch (error) {
           console.error(` 🎮 [planner] [ask-parents] [failed] homework=${facts.childEvidence!.homeworkId}`, error);
           return { ok: false, error: "the note could not be saved now" };

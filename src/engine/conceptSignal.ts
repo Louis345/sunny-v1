@@ -1,3 +1,4 @@
+import { familyClock } from "../utils/familyCalendar";
 /**
  * The concept signal (docs/specs/child-knowledge-store.md, stage 1; owner + Saori 2026-11-22): how she thinks, kept
  * apart from right/wrong counts. Code lays out three kinds of fact, each with an id the Planner can cite:
@@ -15,7 +16,7 @@ import type { LearningCycleRecordV2, LearningCycleRepositoryOptions, LearningObs
 const SYNTHETIC = /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i;
 const MAX_WORDS = 60, MAX_ITEMS_PER_CONCEPT = 10, MAX_ANSWERS_PER_ITEM = 6;
 const clip = (text: string, max = 160) => { const flat = text.replace(/\s+/g, " ").trim(); return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat; };
-const minute = (iso: string) => iso.slice(0, 16).replace("T", " ");
+const minute = (iso: string) => familyClock(iso);
 
 /** A short, stable id for one recorded answer (observation ids run to 120 characters). */
 export const observationEvidenceId = (observationId: string): string => `ans-${crypto.createHash("sha1").update(observationId).digest("hex").slice(0, 8)}`;
