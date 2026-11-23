@@ -122,6 +122,7 @@ export default defineConfig({
       "src/tests/test-speed-catcher-colors.ts",
       "src/tests/test-temp-leak-guard.ts",
       ".github/pr-gate/*.test.ts",
+      "evals/*.test.ts",
     ]),
   },
 });
