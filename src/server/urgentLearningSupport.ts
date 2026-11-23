@@ -750,6 +750,21 @@ function childSignal(
   };
 }
 
+/**
+ * Is this transcript plausibly her own single turn? (11/23: the parents' conversation by the kiosk became Ila's help
+ * request three times.) Code owns provenance: speech with back-channels ("uh-huh", "-- yep --") is a conversation
+ * between other people, and a transcript far longer than one child turn is the room, not her. Either way it is never
+ * saved as her evidence; she still gets her reply. Her own turns that night: median 9 words.
+ */
+const BACK_CHANNEL = /(?:^|[\s.,!?-])(uh-huh|mm-hmm|mhm|uh huh|mm hmm)(?=[\s.,!?-]|$)|--\s*(yep|yeah|right|okay|ok)\.?\s*--/gi;
+const MAX_ONE_TURN_WORDS = 60;
+export function speechProvenance(transcript: string): { herTurn: boolean; reason?: "back_channels" | "too_long_for_one_turn"; words: number } {
+  const words = transcript.trim().split(/\s+/).filter(Boolean).length;
+  if ((transcript.match(BACK_CHANNEL) ?? []).length >= 2) return { herTurn: false, reason: "back_channels", words };
+  if (words > MAX_ONE_TURN_WORDS) return { herTurn: false, reason: "too_long_for_one_turn", words };
+  return { herTurn: true, words };
+}
+
 export function chartEvidenceForUrgentIntent(
   intent: UrgentChildIntent,
   context: LiveLearningContext,

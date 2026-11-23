@@ -8,6 +8,7 @@ import {
   auditConversationForLearningSignals,
   buildLiveLearningContext,
   chartEvidenceForUrgentIntent,
+  speechProvenance,
   detectUrgentChildIntent,
   looksLikeSessionEndRequest,
   type LiveLearningContext,
@@ -99,7 +100,12 @@ export function detectUrgentLearningRoute(input: {
   return context && intent ? { context, intent } : null;
 }
 
-async function persistUrgentLearningEvidence(input: {
+// The last transcript saved per session: a pending transcript that grew across barge-ins arrives again with the old
+// words first (11/23: 133 then 456 words, each saved). Bounded; a restart forgets it.
+const lastSaved = new Map<string, string>();
+const norm = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+export async function persistUrgentLearningEvidence(input: {
   intent: UrgentChildIntent;
   context: LiveLearningContext;
   transcript: string;
@@ -107,6 +113,25 @@ async function persistUrgentLearningEvidence(input: {
   hostRecordChildSignal: HostRecordFn;
   hostRecordProductIssue: HostRecordFn;
 }): Promise<void> {
+  const provenance = speechProvenance(input.transcript);
+  if (!provenance.herTurn) {
+    // Never her evidence. A bug the room reported is still a product fact, kept as observed, never as her words.
+    console.log(` 🎮 [child-signal] [unattributed] [not-saved] reason=${provenance.reason} words=${provenance.words} activity=${input.context.activityId}`);
+    for (const issue of chartEvidenceForUrgentIntent(input.intent, input.context, input.transcript).productIssues) {
+      await input.hostRecordProductIssue({ ...issue, source: "observed_behavior", confidence: Math.min(issue.confidence, 0.4), sessionId: input.sessionId }).catch((err: unknown) => {
+        console.error("  🔴 [urgent-learning] product issue failed:", err);
+        return {};
+      });
+    }
+    return;
+  }
+  const previous = lastSaved.get(input.sessionId), now = norm(input.transcript);
+  if (previous && now.startsWith(previous)) {
+    console.log(` 🎮 [child-signal] [repeat] [not-saved] words=${provenance.words} activity=${input.context.activityId}`);
+    return;
+  }
+  if (lastSaved.size >= 50 && !lastSaved.has(input.sessionId)) lastSaved.delete(lastSaved.keys().next().value as string);
+  lastSaved.set(input.sessionId, now);
   const evidence = chartEvidenceForUrgentIntent(input.intent, input.context, input.transcript);
   for (const signal of evidence.childSignals) {
     await input.hostRecordChildSignal({ ...signal, sessionId: input.sessionId }).catch((err: unknown) => {
