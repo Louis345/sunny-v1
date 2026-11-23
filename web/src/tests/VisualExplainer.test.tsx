@@ -174,7 +174,8 @@ describe("VisualExplainerDemo", () => {
     expect(screen.getByTestId("visual-studio-plan")).toHaveTextContent(
       "sunny-coop-jeopardy",
     );
-    expect(speak).toHaveBeenCalled();
+    // Audit 2026-11-22: the authored line is a preview cue only; the device voice never reads it.
+    expect(speak).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /Start Treatment/i }));
 
@@ -190,7 +191,7 @@ describe("VisualExplainerDemo", () => {
     expect(screen.getByTestId("visual-explainer-companion")).toHaveTextContent(
       "Prediction time",
     );
-    expect(speak).toHaveBeenCalledTimes(3);
+    expect(speak).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /Tiny pieces of rock and soil/i }));
     expect(screen.getByTestId("visual-explainer-evidence-console")).toHaveTextContent(
@@ -283,6 +284,30 @@ describe("VisualExplainerDemo", () => {
     expect(screen.queryByText("Tweak Panel")).not.toBeInTheDocument();
     expect(screen.queryByTestId("visual-explainer-evidence-console")).not.toBeInTheDocument();
     expect(screen.queryByText("Assumption")).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  // Audit 2026-11-22: the explainer's companion lines were authored scripts read aloud by the browser voice. In the
+  // child's map the device stays silent and her companion gets what is on screen as facts, so she narrates live.
+  it("in the map, speaks nothing itself and tells her companion what is on screen", () => {
+    const speak = vi.fn();
+    vi.stubGlobal("SpeechSynthesisUtterance", MockSpeechSynthesisUtterance);
+    Object.defineProperty(window, "speechSynthesis", { configurable: true, value: { speak, cancel: vi.fn() } });
+    const sendMessage = vi.fn();
+    render(<VisualExplainerDemo mapMode childId="reina" sendMessage={sendMessage} onExit={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /Start Treatment/i }));
+    act(() => {
+      fireEvent.change(screen.getByTestId("visual-explainer-scrubber"), { target: { value: "48" } });
+    });
+    expect(speak).not.toHaveBeenCalled();
+    const states = sendMessage.mock.calls
+      .map((call) => call[1]?.event)
+      .filter((event) => event?.type === "game_state_update")
+      .map((event) => event.payload);
+    const paused = states.find((payload) => payload.phase === "pausedForPrediction");
+    expect(paused?.onScreen).toContain("What is the water carrying?");
+    expect(paused?.onScreen).toContain("Tiny pieces of rock and soil");
+    expect(JSON.stringify(states)).not.toMatch(/Prediction time/);
     vi.unstubAllGlobals();
   });
 
