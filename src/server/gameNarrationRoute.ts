@@ -62,6 +62,13 @@ export class GameNarrationRouter {
 
   route(text: string, metadata: Record<string, unknown>, childNames: string[]): NarrationRoute {
     const line = text.trim();
+    // A new game's first line may arrive before (or without) any screen report: never judge it by the last game's screen.
+    const key = gameKey(metadata);
+    if (key && key !== this.key) {
+      this.key = key;
+      this.screen = [];
+      this.spoken.clear();
+    }
     const word = typeof metadata.word === "string" ? words(metadata.word) : "";
     const said = words(line);
     if (metadata.assessmentMode === true || (word && said && word.includes(said))) {
@@ -70,7 +77,11 @@ export class GameNarrationRouter {
     }
     const namesIt = childNames.some(name => name && new RegExp(`(^|[^\\p{L}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^\\p{L}])`, "iu").test(line));
     // The screen is the current game's (noteScreen resets it); a game's own postMessage often carries no launch id.
-    const onScreen = this.screen.some(screen => contains(screen, tokens(line)));
+    // A game that never reported its screen cannot be checked: its lines are read, or a dyslexic child hears nothing
+    // (Ila, 11/22: every line of her board-12 game went silent and she got stuck and upset).
+    const screenKnown = this.screen.length > 0;
+    const onScreen = !screenKnown || this.screen.some(screen => contains(screen, tokens(line)));
+    if (!screenKnown && !namesIt) console.log(` 🎮 [game-narration] [screen] [unknown] reading the game's line`);
     if (namesIt || !onScreen) {
       console.log(` 🎮 [game-narration] [routed] [companion-fact] reason=${namesIt ? "names_child" : "not_on_screen"}`);
       return { to: "companion", fact: `The game wanted to say aloud: "${line}". It was not spoken (the narrator reads only what is on screen). Use it only if it helps her, in your own words; staying quiet is fine.` };

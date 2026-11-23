@@ -56,6 +56,29 @@ describe("the narrator reads only on-screen game text", () => {
   });
 });
 
+// Ila, 2026-11-22 01:45 UTC (deployed 5fda318e): her board-12 game never reported its screen (no instruction, problem
+// or progress fields), so every line it asked to say was "not on screen" and went silent; a dyslexic child heard no
+// instructions, got stuck 5 tries on 52 → 49 and was upset. Why the human caught it: she was crying. Why the logs
+// showed it: every line said [routed] [companion-fact] reason=not_on_screen. Why the lab missed it: every test game
+// reported its screen. Rule: a game that never says what is on its screen gets its lines read by the narrator
+// (still not lines that use her name, and never the same line twice).
+describe("a game that never reports its screen is still read aloud", () => {
+  it("reads its lines in the narrator's voice, except chat with her name", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const r = new GameNarrationRouter();
+    const silentGame = { launchToken: "launch-9", nodeId: "node-9" };
+    r.noteScreen({ ...silentGame });
+    expect(r.route("The pattern is 61, 58, 55, 52. What number comes next?", silentGame, ["Ila", "EYE-lah"])).toMatchObject({ to: "narrator" });
+    expect(r.route("Ila, tap Go when you are ready.", silentGame, ["Ila", "EYE-lah"]).to).toBe("companion");
+    expect(r.route("The pattern is 61, 58, 55, 52. What number comes next?", silentGame, ["Ila"]).to).toBe("skip");
+  });
+
+  it("never judges a new game's line by the last game's screen", () => {
+    const r = router();
+    expect(r.route("Tap the stone three times.", { launchToken: "launch-new", nodeId: "node-new" }, names)).toMatchObject({ to: "narrator" });
+  });
+});
+
 describe("the narrator never repeats the same line in a game unless she taps replay", () => {
   it("skips an identical screen line the second time, but reads it again on replay", () => {
     const r = router();
