@@ -190,6 +190,8 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(tools.map((tool: any) => tool.name)).toContain("ask_parents");
     const decide = tools.find((tool: any) => tool.name === "decide").input_schema;
     expect([...decide.required].sort()).toEqual(["progression_action", "reason", "status"]);
+    // Owner 2026-11-23: "AI is not going to tell us to do work." The parent note is for what it sees or asks, not homework for them.
+    expect(tools.find((tool: any) => tool.name === "ask_parents").description).not.toMatch(/try at home/);
   });
 
   it("lets an operator retry a math cycle already blocked on board_definition_missing, through the shared tools", async () => {

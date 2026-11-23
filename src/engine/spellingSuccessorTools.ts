@@ -361,7 +361,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
       } })] : []),
     // Owner 2026-11-24 (contract 63): a tutor tells the parents what they saw and what to try; parents are not always
     // there, so it never waits for a reply and never blocks a board. The note lands in her planner journal.
-    ...(facts.childEvidence ? [tool({ name: "ask_parents", description: "Leave a dated note or question for her parents: what you see, what to try at home, or what you want to know. It is saved in your journal for them; it never waits for a reply.",
+    ...(facts.childEvidence ? [tool({ name: "ask_parents", description: "Leave a dated note or question for her parents: what you see in her work, or what you want to know from them. Teaching her is Sunny's job. It is saved in your journal for them; it never waits for a reply.",
       schema: z.object({ note: text("The note or question, in plain words for a parent.") }).strict(),
       run: (_state, input) => {
         const file = plannerJournalFile({ childId: facts.childEvidence!.childId, homeworkId: facts.childEvidence!.homeworkId }, { rootDir: facts.childEvidence!.rootDir });
