@@ -1139,7 +1139,7 @@ export class SessionManager {
   }
   public requestGameNarration(text: string, metadata: Record<string, unknown> = {}): Promise<void> { return requestGameNarrationForSession(this as never, text, metadata); }
   /** Her own words from an earlier turn (a check-in she scheduled), spoken in her voice, never the narrator's. */
-  public speakCompanionWords(text: string): Promise<void> { return this.handleCompanionTurn(text); }
+  public runCompanionCheckIn(facts: string): Promise<void> { return this.runCompanionResponse(facts, "system"); }
 
   /** The narrator: reads on-screen game text and test words in the narrator voice (callers go through requestGameNarration). */
   public async speakGameNarration(

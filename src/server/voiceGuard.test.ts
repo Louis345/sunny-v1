@@ -47,8 +47,8 @@ describe("the companion's voice carries only her own model output", () => {
       "src/server/session-manager.ts": 1, // handleCompanionTurn
     });
     const session = read("src/server/session-manager.ts");
-    expect(count(session, /\.handleCompanionTurn\s*(\?\.)?\(/)).toBe(2);
-    expect(session).toMatch(/speakCompanionWords\(text: string\): Promise<void> \{ return this\.handleCompanionTurn\(text\); \}/); // her own check-in words
+    expect(count(session, /\.handleCompanionTurn\s*(\?\.)?\(/)).toBe(1);
+    expect(session).toMatch(/runCompanionCheckIn\(facts: string\): Promise<void> \{ return this\.runCompanionResponse\(facts, "system"\); \}/); // check-in: a fresh model turn
     expect(session).toMatch(/replayWorksheetQuestion: \(question\) => this\.handleCompanionTurn\(question\)/); // OPEN audit: worksheet replay
     expect(session).not.toMatch(/I can help\. Try breaking/); // pronunciation help goes to her model turn as facts
   });

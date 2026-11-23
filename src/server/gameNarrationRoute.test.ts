@@ -81,9 +81,9 @@ describe("every game narration request goes through the router", () => {
     expect(map).not.toMatch(/sm\.speakGameNarration\(/);
     expect(handler).toMatch(/s\.requestGameNarration\?\.\(/);
     expect(map).toMatch(/sm\.requestGameNarration\(/);
-    // Her scheduled check-in is her own earlier words: her voice, never the narrator's.
+    // Her scheduled check-in is a fresh companion model turn: her voice, never the narrator's.
     const bridge = fs.readFileSync(path.join(process.cwd(), "src/server/companion-bridge.ts"), "utf8");
-    expect(bridge).toMatch(/speakCompanionWords\?\.\(words\)/);
+    expect(bridge).toMatch(/runCompanionCheckIn\?\.\(facts\)/);
     expect(bridge).not.toMatch(/speakGameNarration/);
     const session = fs.readFileSync(path.join(process.cwd(), "src/server/session-manager.ts"), "utf8");
     expect(session).toMatch(/gameNarration\?\.noteScreen\(state\)/);

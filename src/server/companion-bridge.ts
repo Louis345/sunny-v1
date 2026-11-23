@@ -149,7 +149,7 @@ export class ServerCompanionBridge {
       const manager = getActiveVoiceSessionManagerForChild(childId);
       scheduleCompanionCheckIn({ childId, afterSeconds: payload.after_seconds, how: payload.how, words: payload.words ?? "", why: payload.why }, {
         send: () => deliver({ ...cmd, timestamp: Date.now() }),
-        speak: words => { if (words.trim()) void Promise.resolve(manager?.speakCompanionWords?.(words)).catch(error => console.error(" 🎮 [companion-checkin] [speak-failed]", error)); },
+        checkIn: facts => { void Promise.resolve(manager?.runCompanionCheckIn?.(facts)).catch(error => console.error(" 🎮 [companion-checkin] [turn-failed]", error)); },
         trace: row => manager?.recordGameTrace?.(row),
       });
       return { ok: true, type: cmd.type, scheduled: true };

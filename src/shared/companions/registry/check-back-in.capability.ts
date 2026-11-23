@@ -19,8 +19,8 @@ export const checkBackInCapability: CapabilityDefinition = {
   version: "1.0",
   phase: 0.5,
   description: `Ask Sunny to bring you back later if she has not answered by then.
-     how: raise_hand (a quiet raised hand on your portrait; she taps it if she wants you) | ask (you say your words, gently).
-     after_seconds: 20 to 600. words: what you will say for ask. why: what you noticed.
+     how: raise_hand (a quiet raised hand on your portrait; she taps it if she wants you) | ask (when it is due you get a fresh turn to check in, gently, in your own words).
+     after_seconds: 20 to 600. why: what you noticed (you will be reminded of it). words: optional note to yourself; never replayed.
      Skipped automatically if she answers before then. One at a time; a new one replaces the old.`,
   whenToUse: [
     "When she is quiet or stuck in a game and you would rather not interrupt her thinking now, but want a chance to help later.",

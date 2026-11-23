@@ -6,7 +6,8 @@ import { lastAnswerAt } from "./gamePace";
  * the offer to the session's game log. One appointment per child; a new one replaces the old.
  */
 export type CheckIn = { childId: string; afterSeconds: number; how: "raise_hand" | "ask"; words: string; why: string };
-type Deps = { send: (command: Record<string, unknown>) => void; speak: (words: string) => void; trace: (row: Record<string, unknown>) => void };
+// checkIn: a fresh companion model turn with these facts (audit 2026-11-22: stored words are never replayed).
+type Deps = { send: (command: Record<string, unknown>) => void; checkIn: (facts: string) => void; trace: (row: Record<string, unknown>) => void };
 const pending = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function scheduleCompanionCheckIn(input: CheckIn, deps: Deps): void {
@@ -23,7 +24,11 @@ export function scheduleCompanionCheckIn(input: CheckIn, deps: Deps): void {
       return;
     }
     if (input.how === "raise_hand") deps.send({ how: "raise_hand", why: input.why });
-    else deps.speak(input.words);
+    else deps.checkIn([
+      "[System event: your check-in appointment is due]",
+      `About ${afterSeconds} seconds ago you chose to check back in with her, because: ${input.why}`,
+      "She has not answered since. Look at what is on screen now and check in gently, in your own words, only if it still fits.",
+    ].join("\n"));
     console.log(` 🎮 [companion-checkin] [offered] child=${input.childId} how=${input.how}`);
     deps.trace({ type: "companion_checkin", action: "offered", how: input.how, why: input.why, ts });
   }, afterSeconds * 1000));

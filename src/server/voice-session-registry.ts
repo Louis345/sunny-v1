@@ -53,7 +53,7 @@ export interface VoiceSessionManagerHandle {
     metadata?: Record<string, unknown>,
   ) => Promise<void> | void;
   /** Her own earlier words (a scheduled check-in), spoken in her voice. */
-  speakCompanionWords?: (text: string) => Promise<void> | void;
+  runCompanionCheckIn?: (facts: string) => Promise<void> | void;
   /** She just caught a pet: her companion reacts to its facts (unnamed pets) in its own words. */
   reactToCaughtPet?: () => Promise<void>;
   recordGameTrace?: (state: Record<string, unknown>) => void;
