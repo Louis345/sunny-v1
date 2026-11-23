@@ -200,3 +200,12 @@ describe("planner tool loop", () => {
     expect(sent).toBe(1);
   });
 });
+
+// Human-caught 11/23 (Ila board 16): the tutor-persona Planner read her record for 5 turns, wrote problems and placed
+// every step, then hit the 10-turn cap before decide and finish_board. Under the old numbered procedure it decided on
+// turn 1. The cap stays a runaway guard (Law 2) with room for reading first.
+it("leaves a Planner that reads first room to decide and finish", async () => {
+  const { DEFAULT_TOOL_LOOP_CAPS } = await import("./plannerToolLoop");
+  expect(DEFAULT_TOOL_LOOP_CAPS.maxTurns).toBeGreaterThanOrEqual(16);
+  expect(DEFAULT_TOOL_LOOP_CAPS.maxTurns).toBeLessThanOrEqual(20);
+});

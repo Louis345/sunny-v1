@@ -19,7 +19,7 @@ export const toolFor = <S>() => <Sch extends z.ZodType>(tool: Omit<PlannerTool<S
  * model to fix (Ila board 13, 2026-11-23: three bad calls in one parallel turn ended the decision before it could read
  * them). maxCalls and maxTurns stay the runaway guard (Law 2). */
 export type ToolLoopCaps = { maxCalls: number; maxErrors: number; maxTurns: number };
-export const DEFAULT_TOOL_LOOP_CAPS: ToolLoopCaps = { maxCalls: 40, maxErrors: 3, maxTurns: 10 };
+export const DEFAULT_TOOL_LOOP_CAPS: ToolLoopCaps = { maxCalls: 40, maxErrors: 3, maxTurns: 16 };
 export type ToolLoopStop = "finished" | "cap_calls" | "cap_errors" | "cap_turns";
 export type ToolLoopRequest = {
   model: string; max_tokens: number; system?: string;
