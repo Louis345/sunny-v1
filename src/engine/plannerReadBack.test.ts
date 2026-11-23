@@ -7,6 +7,8 @@ import { plainDraw } from "../scripts/fixtures/successorToolConversation";
 import { runItemsIntake } from "../scripts/itemsIntake";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { getLearningCycle } from "./learningCycleRepository";
+import { boardWording } from "./boardWording";
+import { FROZEN_RECORD_SECTIONS, LIVE_RECORD_SECTIONS } from "../profiles/childEvidence";
 import * as runtime from "./learningCycleRuntime";
 import type { ToolLoopRequest } from "./plannerToolLoop";
 import { offeredValues } from "./plannerTransport";
@@ -140,6 +142,24 @@ describe("the Planner reads its last theory back before each board", () => {
     expect(prompt).toContain("[note:2026-11-22:1] 2026-11-22, Parent:");
     expect(prompt.indexOf("Teaching notes from outside Sunny")).toBeLessThan(prompt.indexOf("Her track record on each problem"));
     expect(getLearningCycle(childId, f.homeworkId, f.opts)!.decisionHistory.at(-1)!.readBack).toMatchObject({ grade: "revised", evidenceIds: ["note:2026-11-22:1"] });
+  });
+
+  it("the whole record is reachable on demand, and the Planner can reread the exact words its board showed her", async () => {
+    const f = await ilaShapedRounding();
+    const planner = robot(baseDecision);
+    await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: planner.client, draw: plainDraw }, f.opts);
+    const tools = planner.requests[0].tools;
+    const sections: string[] = tools.find((tool: any) => tool.name === "read_record").input_schema.properties.section.enum;
+    expect([...sections].sort()).toEqual([...FROZEN_RECORD_SECTIONS, ...LIVE_RECORD_SECTIONS].sort());
+    expect(tools.map((tool: any) => tool.name)).toContain("read_board_wording");
+    const prompt = promptOf(planner.requests[0]);
+    expect(prompt).toContain("read_board_wording");
+    expect(prompt).toMatch(/question your own wording/i);
+    // Board 1 as she met it: the Planner's own story and aim, and the words inside the built game.
+    const wording = boardWording(getLearningCycle(childId, f.homeworkId, f.opts)!, 1, f.opts) as any;
+    expect(wording.stops.map((stop: any) => stop.title)).toEqual(["Fuji Check", "Stay or Roll"]);
+    expect(wording.stops[0].game_text).toContain("All answered.");
+    expect(boardWording(getLearningCycle(childId, f.homeworkId, f.opts)!, 9, f.opts)).toMatchObject({ error: expect.stringContaining("boards 1 to") });
   });
 
   it("B2 degrades, never blocks: no read-back, or a grade citing nothing real, is saved as unclear and the board still builds", async () => {

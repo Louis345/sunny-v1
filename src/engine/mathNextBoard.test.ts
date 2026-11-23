@@ -126,7 +126,7 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(latest.lifecycle).toBe("baseline_generating");
     // The same tool names as spelling's next board, minus math's stated exception (the spelling lesson page).
     expect(robot.requests[0].model).toBe("claude-opus-5-5");
-    expect(robot.requests[0].tools.map((tool: any) => tool.name)).toEqual(["decide", "add_step", "add_reward", "read_record", "add_problem", "remove_step", "set_order", "add_choice", "finish_board"]);
+    expect(robot.requests[0].tools.map((tool: any) => tool.name)).toEqual(["decide", "add_step", "add_reward", "read_record", "read_board_wording", "add_problem", "remove_step", "set_order", "add_choice", "finish_board"]);
     const addStep = robot.requests[0].tools.find((tool: any) => tool.name === "add_step").input_schema;
     expect(addStep.properties.built_in.enum).toEqual(["generated-game"]);
     // Her worksheet problems are named in the field; problems the Planner writes add ids as it writes, with no cap

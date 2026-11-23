@@ -7,6 +7,9 @@ import { deriveNativeActivity } from "./assignmentPlanner";
 import { explainerPageTool } from "./spellingTeachingTools";
 import { rewardBreakTool } from "./plannerMenu";
 import type { LearningCycleMathItem, PlannerReadBack } from "./learningCycleRepository";
+import { LIVE_RECORD_SECTIONS, readChildEvidenceSection, type LiveRecordSection } from "../profiles/childEvidence";
+import { boardWording } from "./boardWording";
+import { getLearningCycle } from "./learningCycleRepository";
 import { READ_BACK_GRADES, settleReadBack, type ReadBackInput } from "./plannerReadBack";
 import { queryRecordTool } from "./recordQuery";
 import { claimHowSheLearnsTool, pastWeeksTool, type PastWeeksArchive } from "./pastWeeks";
@@ -31,6 +34,8 @@ export type SuccessorFacts = {
   selfReview?: boolean;
   /** The ids a read-back may cite (her words, answers, prediction evaluations, parent notes); offered means read_back is asked. */
   readBack?: { evidenceIds: string[] };
+  /** Her files, read on demand as of this question (read_record live sections, read_board_wording); never frozen in full. */
+  childEvidence?: { childId: string; homeworkId: string; asOf: string; rootDir?: string };
   /** Contract 56: a generated-game step can be aimed at one error. Older frozen questions lack it. */
   aimedGames?: boolean;
   /** Law 16: the reward break is on every board's menu. Older frozen questions lack it and replay as asked. */
@@ -322,13 +327,22 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
       state.result = undefined;
       return { ok: true, result: { step_id: id, words: 0, role: "reward" } };
     } })] : []),
-    ...(facts.record ? [tool({ name: "read_record", description: "Read any part of her full record, a page at a time. Lists come back in pages: give offset and limit.",
-      schema: z.object({ section: enumOf(Object.keys(facts.record), "none"), offset: z.number().int().min(0).optional(), limit: z.number().int().min(1).max(100).optional() }).strict(),
+    ...(facts.record ? [tool({ name: "read_record", description: `Read any part of her full record, a page at a time. Lists come back in pages: give offset and limit.${facts.childEvidence ? ` Read from her files as of this question: ${LIVE_RECORD_SECTIONS.join(", ")}. Her talk and transcripts are speech-to-text of the room, so another person's words can appear as hers.` : ""}`,
+      schema: z.object({ section: enumOf([...Object.keys(facts.record), ...(facts.childEvidence ? LIVE_RECORD_SECTIONS.filter(name => !(name in facts.record!)) : [])], "none"), offset: z.number().int().min(0).optional(), limit: z.number().int().min(1).max(100).optional() }).strict(),
       run: (_state, input) => {
-        const value = facts.record![input.section];
+        const live = facts.childEvidence && (LIVE_RECORD_SECTIONS as readonly string[]).includes(input.section) && !(input.section in facts.record!);
+        const value = live ? readChildEvidenceSection(input.section as LiveRecordSection, facts.childEvidence!) : facts.record![input.section];
         if (!Array.isArray(value)) return { ok: true, result: { section: input.section, value: value ?? null } };
         const offset = input.offset ?? 0, limit = input.limit ?? 40;
         return { ok: true, result: { section: input.section, total: value.length, offset, rows: value.slice(offset, offset + limit) } };
+      } })] : []),
+    ...(facts.childEvidence ? [tool({ name: "read_board_wording", description: "The exact words a board showed her: each stop's title, story, aim and opening screen as you wrote them, and the words inside each built game. Read your last board's wording and question it: could she have heard or read any of it as something other than you meant?",
+      schema: z.object({ board: z.number().int().min(1).describe("The board number on this assignment, 1 = her first.") }).strict(),
+      run: (_state, input) => {
+        const cycle = getLearningCycle(facts.childEvidence!.childId, facts.childEvidence!.homeworkId, { rootDir: facts.childEvidence!.rootDir });
+        if (!cycle) return { ok: false, error: "her record for this assignment is not readable now" };
+        const wording = boardWording(cycle, input.board, { rootDir: facts.childEvidence!.rootDir });
+        return "stops" in wording ? { ok: true as const, result: wording } : { ok: false as const, error: String(wording.error) };
       } })] : []),
     ...(facts.pastWeeks?.weeks.length ? [pastWeeksTool<SuccessorState>(facts.pastWeeks)] : []),
     ...(facts.pastWeeks?.claims ? [claimHowSheLearnsTool<SuccessorState>(facts.pastWeeks)!] : []),

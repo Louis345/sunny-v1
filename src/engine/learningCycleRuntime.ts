@@ -1054,12 +1054,14 @@ ${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game
     // Her earlier weeks (owner, 2026-11-10): one line here, every week behind read_past_weeks. Frozen with the question.
     const pastWeeks=(()=>{try{return readPastWeeks(cycle.childId,{rootDir:opts.rootDir,homework:chart.homework as HomeworkSources,excludeHomeworkIds:[cycle.homeworkId]});}
       catch(error){console.error(` 🎮 [past-weeks] [read] [failed] homework=${cycle.homeworkId} reason=${error instanceof Error?error.message:String(error)}`);return undefined;}})();
-    const RECORD_LINE=`Her newest evidence summaries (the 12 newest of each kind; per-word response times are here):\n${recentEvidence}\nHer full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence (all of it), observations (every answer), stops, learning_history, prior_plan, time (her minutes per session and per day: learning games, play, call, waiting, map). The summaries above are drawn from it.${pastWeeksLine(pastWeeks)?`\n${pastWeeksLine(pastWeeks)}`:""}`;
+    const RECORD_LINE=`Her newest evidence summaries (the 12 newest of each kind; per-word response times are here):\n${recentEvidence}\nHer full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence (all of it), observations (every answer), stops, learning_history, prior_plan, time (her minutes per session and per day: learning games, play, call, waiting, map), decisions (your earlier decisions in full), school_forecasts; and, read from her files: her_talk (everything she said to her companions, with their replies), child_signals, session_notes, choices, ratings, motivation, about_her (her profile files, IEP and teacher notes, tutor notes), teaching_notes, companion_memory, sessions, session_transcripts, screens_and_narration (what each screen showed and what the narrator read her). read_board_wording opens the exact words any board showed her. The summaries above are drawn from these.${pastWeeksLine(pastWeeks)?`\n${pastWeeksLine(pastWeeks)}`:""}`;
     const cycleFacts=()=>JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) });
     // The raw record is a tool, not part of the question (2026-11-10: 431,000 characters drowned the summaries).
     const record:Record<string,unknown>=JSON.parse(cycleFacts());
     // time: her minutes per session and per day (learning games, play, call, waiting, map), to weigh effort against results (owner, 2026-11-10).
-    Object.assign(record,{stops:record.nodes,prediction_evaluations:record.predictionEvaluations,learning_history:childContext.learningHistory,prior_plan:(childContext as Record<string,unknown>).priorPlan,time:timeRecord(cycle,opts)});
+    Object.assign(record,{stops:record.nodes,prediction_evaluations:record.predictionEvaluations,learning_history:childContext.learningHistory,prior_plan:(childContext as Record<string,unknown>).priorPlan,time:timeRecord(cycle,opts),
+      // Its own earlier decisions in full (read-backs, self-reviews, calls) and its school-test forecasts (owner 2026-11-23: the whole system reachable).
+      decisions:cycle.decisionHistory.filter(row=>row.eventType==="theory_decided"),school_forecasts:cycle.schoolForecasts??[]});
     delete record.nodes; delete record.predictionEvaluations;
     const {learningHistory:_history,...chartInline}=childContext as Record<string,unknown>; delete chartInline.priorPlan;
     // How she thinks, apart from counts (owner 2026-11-22), and the theory the Planner must read back and grade.
@@ -1068,7 +1070,7 @@ ${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game
     // A parent's or tutor's teaching notes come first, as outside knowledge (owner 2026-11-22).
     const teachingNotes=chart.teachingNotes??[];
     const notesSection=`${teachingNotesSection(teachingNotes)}\n`;
-    const readBackFacts={readBack:{evidenceIds:[...new Set([...teachingNotes.map(note=>note.id),...conceptSignal.evidenceIds,...evaluationIds])]}};
+    const readBackFacts={childEvidence:{childId:cycle.childId,homeworkId:cycle.homeworkId,asOf:new Date().toISOString(),...(opts.rootDir?{rootDir:opts.rootDir}:{})},readBack:{evidenceIds:[...new Set([...teachingNotes.map(note=>note.id),...conceptSignal.evidenceIds,...evaluationIds])]}};
         // Math: her recorded problems exactly as saved at intake, never re-authored; the menu is the one menu minus math's stated exceptions.
     const mathQuestion=math?(()=>{
       const saved=new Map<string,NonNullable<SuccessorFacts["problems"]>[number]>();

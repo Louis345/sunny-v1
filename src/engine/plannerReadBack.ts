@@ -25,7 +25,8 @@ export function theoryReadBackSection(cycle: Pick<LearningCycleRecordV2, "academ
     belief?.readBack ? `- Your last belief about how she thinks (${belief.createdAt.slice(0, 10)}): "${clip(belief.readBack.howSheThinks)}"; competing explanation then: "${clip(belief.readBack.competingExplanation, 240)}"; the board was to tell them apart by: "${clip(belief.readBack.boardTellsApart, 240)}"`
       : "- Your last belief about how she thinks: none recorded yet.",
     `- What you said you would test next: ${(last?.testNext ?? []).map(line => `"${clip(line, 200)}"`).join(" | ") || "(nothing listed)"}`,
-    "read_back.how_she_thinks is one belief about how she thinks about the skill, from her words, her wrong answers and what needed help; not her score, the order of games or her mood. Design the board so its problems come out differently under that belief and under your competing explanation.",
+    "Before grading, reread what your last board said to her with read_board_wording and question your own wording: what could she have taken from those exact words?",
+        "read_back.how_she_thinks is one belief about how she thinks about the skill, from her words, her wrong answers and what needed help; not her score, the order of games or her mood. Design the board so its problems come out differently under that belief and under your competing explanation.",
   ].join("\n");
 }
 
