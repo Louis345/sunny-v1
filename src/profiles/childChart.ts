@@ -1,3 +1,4 @@
+import { readTeachingNotes, type TeachingNote } from "../engine/teachingNotes";
 import { currentDemographics } from "./currentDemographics";
 import {createHash} from "node:crypto";
 import type {WordRadarNodeConfig} from "../shared/adventureTypes";
@@ -135,6 +136,8 @@ export type ChildChart = {
   boardDesignHistory: ReturnType<typeof readBoardDesignHistory>;
   /** Who she is and what she has said, for the Planner and the map artist to plan around. */
   childVoice: ChildVoice;
+  /** Dated teaching notes from a parent or tutor (outside knowledge), oldest first; none when no file. */
+  teachingNotes: TeachingNote[];
   plannerTrust: LearningProfile["plannerTrust"] | null;
   activeSessionPlan: LearningProfile["activeSessionPlan"] | null;
   sessionPlan: {
@@ -562,6 +565,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
     learningHistory,
     boardDesignHistory,
     childVoice: readChildVoice(childId, rootDir, learningProfile),
+    teachingNotes: readTeachingNotes(childId, { rootDir }),
     plannerTrust: learningProfile.plannerTrust ?? null,
     activeSessionPlan: selectedActiveSessionPlan,
     sessionPlan: {

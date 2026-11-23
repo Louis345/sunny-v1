@@ -174,6 +174,7 @@ export function plannerJournalSection(cycle: LearningCycleRecordV2): string {
       `  You said you would change: ${quoted(decision.change)}`,
       `  You said you would test next: ${quoted(decision.testNext)}`,
       ...(review ? [`  Your self-review then: "${clip(review)}"`] : []),
+      ...(decision.readBack && !decision.readBack.missing ? [`  Your read-back then: ${decision.readBack.grade}; how she thinks: "${clip(decision.readBack.howSheThinks)}"`] : []),
       builtIndex >= 0 ? `  You built board ${builtIndex + 1}: ${stops.map(node => `${activityOf(node)} "${clip(node.title, 40)}" (${targetsOf(node).join(", ")}${node.focus ? `; aimed at: ${clip(node.focus, 80)}` : ""})`).join("; ")}` : "  No board was built from this decision.",
       ...(targeted.length ? [`  Her answers on those ${cycle.domain === "spelling" ? "words" : "problems"}, on her own, before this decision -> after it (until your next decision):`,
         ...targeted.map(word => `    - ${word}: before ${result(own(word, -Infinity, at))} -> after ${result(own(word, at, until))}`)] : []),
@@ -232,6 +233,11 @@ export function writePlannerJournalEntry(cycle: LearningCycleRecordV2, decision:
       `- Reason: ${decision.reason}`, "",
       "### Self-review", "",
       ...(review ? [`- What I tried: ${review.whatITried}`, `- What happened: ${review.whatHappened}`, `- Why: ${review.why}`, ...(review.whatIKeep ? [`- What I keep: ${review.whatIKeep}`] : []), `- What I change now: ${review.whatIChangeNow}`] : ["- No self-review was recorded with this decision."]), "",
+      "### Read-back", "",
+      ...(decision.readBack && !decision.readBack.missing ? [`- Read-back: ${decision.readBack.grade}${decision.readBack.claimedGrade ? ` (it said ${decision.readBack.claimedGrade}, citing no offered evidence)` : ""}: ${decision.readBack.why}`,
+        `- Theory read back: ${decision.readBack.previousTheory}`, `- Evidence cited: ${decision.readBack.evidenceIds.join(", ") || "none"}`,
+        `- How she thinks: ${decision.readBack.howSheThinks}`, `- Competing explanation: ${decision.readBack.competingExplanation}`, `- How this board tells them apart: ${decision.readBack.boardTellsApart}`]
+        : ["- Read-back: unclear (none was given with this decision)."]), "",
       "### Change", "", ...((decision.change ?? []).length ? decision.change!.map(line => `- ${line}`) : ["- (nothing listed)"]), "", "",
     ].join("\n");
     fs.mkdirSync(dir, { recursive: true });

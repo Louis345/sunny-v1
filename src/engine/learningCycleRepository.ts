@@ -389,6 +389,8 @@ export type LearningCycleDecision = {
   replayedResponse?: {blockedDecisionId:string;requestHash:string;receiptHash:string;reason:string;deferredContentDecisions?:EvidenceBasedContentDecision[]};
   /** The Planner's review of its own track record, written before this decision (contract 56). Older decisions have none. */
   selfReview?: PlannerSelfReview;
+  /** Its graded read-back of the last theory and its belief about how she thinks (owner 2026-11-22). Older decisions have none. */
+  readBack?: PlannerReadBack;
   /** The Planner's calls, item by item: right on her own next time? Code checks them (2026-11-10). */
   expectations?: PlannerExpectation[];
   /** The Planner's keep / fix / retire notes on games she played (2026-11-10). */
@@ -406,6 +408,10 @@ export type PlannerExpectation = { itemId: string; onHerOwn: boolean };
 
 /** The Planner reviews itself (contract 56, owner 2026-11-08): its words, stored with the decision. */
 export type PlannerSelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
+/** The Planner's read-back of its last theory, graded against new evidence (plannerReadBack.ts, owner 2026-11-22).
+ * A grade citing no offered evidence id is saved as unclear (claimedGrade keeps what it said); missing = none given. */
+export type PlannerReadBack = { previousTheory: string; grade: "supported" | "revised" | "falsified" | "unclear"; claimedGrade?: string; why: string;
+  evidenceIds: string[]; unknownEvidenceIds?: string[]; howSheThinks: string; competingExplanation: string; boardTellsApart: string; missing?: true };
 
 export type LearningCycleAgencyExperiment = {
   experimentId: string;
@@ -762,6 +768,7 @@ export type LearningCycleEvent =
         successor?: SuccessorProgram;
         replayedResponse?: LearningCycleDecision['replayedResponse'];
         selfReview?: PlannerSelfReview;
+        readBack?: PlannerReadBack;
         expectations?: PlannerExpectation[];
         gameNotes?: LearningCycleDecision["gameNotes"];
         schoolForecast?: SchoolForecast;
@@ -2136,6 +2143,7 @@ export function transitionLearningCycle(
       assumptionAssessments: event.decision.assumptionAssessments,
       ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
       ...(event.decision.selfReview ? { selfReview: structuredClone(event.decision.selfReview) } : {}),
+      ...(event.decision.readBack ? { readBack: structuredClone(event.decision.readBack) } : {}),
       ...(event.decision.expectations?.length ? { expectations: structuredClone(event.decision.expectations) } : {}),
       ...(event.decision.gameNotes?.length ? { gameNotes: structuredClone(event.decision.gameNotes) } : {}),
       // Arithmetic's guess is locked beside each call that names its items, from her first tries before this decision.

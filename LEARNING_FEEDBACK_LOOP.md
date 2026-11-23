@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 59
+Contract version: 61
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -405,3 +405,12 @@ A tutor remembers the student week to week, and so does the Planner. Every Plann
 ## Ready on paper (contract 60, owner 2026-11-16)
 
 At each decision the Planner may give, per concept, the chance she gets it right alone on paper now, with why and which paper would show it. The judgment is the Planner's; code saves it on the decision, logs any concept at 0.8 or more as ready for the parent, and shows every call back to the Planner beside her paper result. A parent tags each paper item with its concept. A call is scored only by her next paper done alone after it: a school test, or a home check recorded as done alone; paper done with help, and practice in Sunny, never score it. Across calls and assignments code checks whether a higher chance has gone with a better paper result (Spearman's rank correlation), and says nothing until 5 calls are scored. Ranking is not enough: code also reports calibration, the average chance against the average paper result (too optimistic or too cautious, in points). When the Planner names a concept's problems or words, code locks plain arithmetic's guess beside the call (her last 10 first tries on her own on them before the decision, smoothed), scores it against the same paper, and reports which has been closer: the AI must beat arithmetic to earn its cost. A ready call is advice to a parent, never mastery and never a gate.
+
+## The Planner reads its theory back (contract 61, owner 2026-11-22)
+
+Both parents saw in five minutes that Ila followed the rounding rule without the concept ("I don't understand the concept"); the Planner drilled the rule. Before each next board the question now carries, laid out by code as facts with ids the Planner can cite: a parent's or tutor's dated teaching notes, read first as outside knowledge (`teaching_notes.md` in her folder, never committed); her own words about understanding to her companions on this assignment, verbatim; problems or words right only with help; and her wrong answers exactly as she gave them, grouped by the Planner's own concept tags. Code names no misconception. In `decide` the Planner reads its last theory back and grades it supported, revised, falsified or unclear against that evidence, states one belief about how she thinks about the skill (not her score, game order or mood) and a competing explanation, and says which problems on the board tell them apart. Code owns the shape only: a grade citing no offered id is saved as unclear with the grade it claimed, and a decision with no read-back is saved as unclear and logged; neither stops the board. The read-back is stored on the decision and in her planner journal, and the next question shows it back. Decisions saved before this contract have none. Measured: whether a read-back names her misconception on its own, and her later independent accuracy on the items its board aimed at.
+
+## The companion never states an open check's answer (contract 61, owner 2026-11-23)
+
+Every reply sentence passes one gate before it is shown or spoken. A sentence stating the frozen answer of the open problem is withheld unless the item's measurement role is practice or instruction; there it is allowed and the item is recorded as assisted. How to help stays the companion's judgment.
+

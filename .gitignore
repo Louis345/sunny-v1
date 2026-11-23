@@ -94,3 +94,6 @@ __pycache__/
 src/pipeline/venv/
 src/pipeline/__pycache__/
 src/pipeline/.pytest_cache/
+
+# Parent/tutor teaching notes are child data: never committed (src/engine/teachingNotes.ts)
+src/context/*/teaching_notes.md

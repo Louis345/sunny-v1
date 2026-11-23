@@ -6,7 +6,8 @@ import { VALID_VALUES } from "./plannerTransport";
 import { deriveNativeActivity } from "./assignmentPlanner";
 import { explainerPageTool } from "./spellingTeachingTools";
 import { rewardBreakTool } from "./plannerMenu";
-import type { LearningCycleMathItem } from "./learningCycleRepository";
+import type { LearningCycleMathItem, PlannerReadBack } from "./learningCycleRepository";
+import { READ_BACK_GRADES, settleReadBack, type ReadBackInput } from "./plannerReadBack";
 import { queryRecordTool } from "./recordQuery";
 import { claimHowSheLearnsTool, pastWeeksTool, type PastWeeksArchive } from "./pastWeeks";
 import { conceptKey, type PaperReadinessCall } from "./readyOnPaper";
@@ -28,6 +29,8 @@ export type SuccessorFacts = {
   creatureEncounters?: boolean;
   /** Contract 56: the decision carries the Planner's self-review. Older frozen questions lack it and replay as asked. */
   selfReview?: boolean;
+  /** The ids a read-back may cite (her words, answers, prediction evaluations, parent notes); offered means read_back is asked. */
+  readBack?: { evidenceIds: string[] };
   /** Contract 56: a generated-game step can be aimed at one error. Older frozen questions lack it. */
   aimedGames?: boolean;
   /** Law 16: the reward break is on every board's menu. Older frozen questions lack it and replay as asked. */
@@ -55,7 +58,7 @@ type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
 type Encounter = "quest" | "boss";
 type Step = { buildFrom?: string; id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; reward?: true; problemIds?: string[]; checkFirst?: boolean; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string; focus?: string; libraryGame?: string };
 type SelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
-type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview };
+type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview; readBack?: PlannerReadBack };
 type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
 export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: Finished; draft?: Finished; selfChecks?: number;
   /** Problems the Planner wrote on this board (2026-11-10), by id. */
@@ -92,6 +95,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
     return { ok: true, value: { buildFrom: from } };
   };
   const allWordIds = [...new Set(facts.builtIns.flatMap(row => row.wordIds))];
+  const readBackIds = new Set(facts.readBack?.evidenceIds ?? []);
   const strings = z.array(z.string().min(1));
   // Quest and Boss are offered only when the decision may authorize them, so older frozen questions keep their exact tools.
   const encounters = (["quest", "boss"] as const).filter(name => facts.allowedActions.includes(`generate_${name}`));
@@ -137,6 +141,15 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           what_i_keep: text("What worked for her, from her answers and her session retros (what she understood, enjoyed or got right), that you keep."),
           what_i_change_now: text("What you change now, and why that is a better try than the last."),
         }).strict().describe(`Your review of your own track record before deciding: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side.`) } : {}),
+        ...(facts.readBack ? { read_back: z.object({
+          previous_theory: text("Your theory going into this board, read back as written above."),
+          grade: z.enum(READ_BACK_GRADES).describe("That theory against the new evidence: supported, revised, falsified, or unclear."),
+          why: text("Why, from what she did and said since."),
+          evidence_ids: z.array(z.string()).describe("The bracketed ids above that your grade rests on (said:…, ans-…, evaluation:…, note:…). A grade citing none is saved as unclear."),
+          how_she_thinks: text("Your one belief about how she thinks about this skill, from her words, her wrong answers and what needed help. Not her score, the order of games or her mood."),
+          competing_explanation: text("The other explanation that fits the same evidence."),
+          board_tells_apart: text("Which problems on this board come out differently under your belief and under the competing explanation, and what each predicts she answers."),
+        }).strict().optional().describe("Before anything else: read back and grade your last theory (forced each board; code saves it with the decision).") } : {}),
         ...(played.length ? { game_notes: z.array(z.object({ game: pickFrom(played.map(row => row.nodeId), "none", "the games Sunny built for her that she played", "A game she played: its nodeId from that list in the question."), verdict: z.enum(["keep", "fix", "retire"]),
           why: text("Why, from how she played it: her answers, her time to a first answer, what she said.") }).strict()).optional()
           .describe("Your note on games she played: keep (bring it back, with new content via build_from), fix (what to change), or retire (do not build from it again). The builder reads your latest note.") } : {}),
@@ -187,13 +200,18 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (unknownItem) return { ok: false, error: `ready_on_paper: ${unknownItem} is not one of her ${problems ? "problems" : "words"}; valid: ${validItems.join(", ")}` };
         state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve, change: input.change, testNext: input.test_next,
           nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis,
+          ...(facts.readBack ? { readBack: settleReadBack((input as { read_back?: ReadBackInput }).read_back, readBackIds) } : {}),
           ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}),
           ...(calls?.length ? { expectations: calls.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}),
           ...(notes?.length ? { gameNotes: notes.map(row => ({ nodeId: row.game, verdict: row.verdict, why: row.why })) } : {}),
           ...(schoolForecast ? { schoolForecast } : {}),
           ...(ready?.length ? { readyOnPaper: ready.map(row => ({ concept: row.concept.trim(), chance: row.chance, why: row.why, proof: row.proof, ...(row.items?.length ? { items: [...new Set(row.items)] } : {}) })) } : {}) };
         state.result = undefined;
-        return { ok: true, result: { action: input.progression_action } };
+        const readBack = state.decision.readBack;
+        // Said inside the same conversation (never a veto): a grade on nothing real is saved as unclear.
+        const readBackNote = !facts.readBack || !readBack ? {} : readBack.missing ? { read_back: "not given: saved as unclear. Call decide again with read_back to grade your last theory." }
+          : readBack.claimedGrade || readBack.unknownEvidenceIds?.length ? { read_back: `saved as ${readBack.grade}${readBack.unknownEvidenceIds?.length ? `; not offered ids: ${readBack.unknownEvidenceIds.join(", ")}` : ""}${readBack.claimedGrade ? `; your grade ${readBack.claimedGrade} cited no offered id` : ""}. Call decide again to fix.` } : {};
+        return { ok: true, result: { action: input.progression_action, ...readBackNote } };
       } }),
     problems ? tool({ name: "add_step", description: "Add one step: a game on the menu, built for her from her chart and this step's story, with any of her recorded problems. Returns its step_id.",
       schema: z.object({ built_in: enumOf([...fresh.keys()], "none").describe("The game for this step."),

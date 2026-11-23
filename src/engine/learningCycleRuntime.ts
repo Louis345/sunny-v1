@@ -9,8 +9,11 @@ import { handoffSection } from "./sessionHandoff";
 import { scorecardSection, timeRecord } from "./sessionScorecard";
 import { observationNode } from "./observationNode";
 import { gameTrackRecord } from "./gameTrackRecord";
+import { conceptSignalSection } from "./conceptSignal";
+import { teachingNotesSection } from "./teachingNotes";
+import { READ_BACK_GRADES, missingReadBack, theoryReadBackSection } from "./plannerReadBack";
 import { childFeedbackSection, ownerReplanLine, plannerCallsSection, schoolTestSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
-import type { PlannerExpectation } from "./learningCycleRepository";
+import type { PlannerExpectation, PlannerReadBack } from "./learningCycleRepository";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isItemIntakeMathCycle, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
@@ -129,6 +132,7 @@ export type CanonicalProgressionDecision = {
   revisedHypothesis?: string;
   /** Its review of its own track record before deciding (contract 56). Decisions saved earlier have none. */
   selfReview?: PlannerSelfReview;
+  readBack?: PlannerReadBack;
   expectations?: PlannerExpectation[];
   /** The Planner's school-test forecast at this decision, with its model (owner, 2026-11-13). */
   schoolForecast?: SchoolForecast;
@@ -710,6 +714,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     ...(contentDecisions.length > 0 ? { contentDecisions } : {}),
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis.trim() } : {}),
     ...(parseSelfReview(row.selfReview) ? { selfReview: parseSelfReview(row.selfReview) } : {}),
+    ...(row.readBack && typeof row.readBack === "object" && READ_BACK_GRADES.includes((row.readBack as PlannerReadBack).grade) ? { readBack: structuredClone(row.readBack as PlannerReadBack) } : {}),
     ...(Array.isArray(row.gameNotes) ? { gameNotes: (row.gameNotes as Array<Record<string, unknown>>).filter(note => typeof note?.nodeId === "string" && ["keep", "fix", "retire"].includes(String(note.verdict)) && typeof note.why === "string")
       .map(note => ({ nodeId: String(note.nodeId), verdict: note.verdict as "keep" | "fix" | "retire", why: String(note.why).trim() })) } : {}),
     ...(row.schoolForecast && typeof row.schoolForecast === "object" ? { schoolForecast: row.schoolForecast as SchoolForecast } : {}),
@@ -1057,7 +1062,14 @@ ${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game
     Object.assign(record,{stops:record.nodes,prediction_evaluations:record.predictionEvaluations,learning_history:childContext.learningHistory,prior_plan:(childContext as Record<string,unknown>).priorPlan,time:timeRecord(cycle,opts)});
     delete record.nodes; delete record.predictionEvaluations;
     const {learningHistory:_history,...chartInline}=childContext as Record<string,unknown>; delete chartInline.priorPlan;
-    // Math: her recorded problems exactly as saved at intake, never re-authored; the menu is the one menu minus math's stated exceptions.
+    // How she thinks, apart from counts (owner 2026-11-22), and the theory the Planner must read back and grade.
+    const conceptSignal=conceptSignalSection(cycle,opts);
+    const thinkingSection=`${theoryReadBackSection(cycle)}\n${conceptSignal.text}`;
+    // A parent's or tutor's teaching notes come first, as outside knowledge (owner 2026-11-22).
+    const teachingNotes=chart.teachingNotes??[];
+    const notesSection=`${teachingNotesSection(teachingNotes)}\n`;
+    const readBackFacts={readBack:{evidenceIds:[...new Set([...teachingNotes.map(note=>note.id),...conceptSignal.evidenceIds,...evaluationIds])]}};
+        // Math: her recorded problems exactly as saved at intake, never re-authored; the menu is the one menu minus math's stated exceptions.
     const mathQuestion=math?(()=>{
       const saved=new Map<string,NonNullable<SuccessorFacts["problems"]>[number]>();
       for(const item of cycle.nodes.flatMap(node=>Object.values(node.evidenceContract.itemContracts??{})))if(!saved.has(item.id))saved.set(item.id,item);
@@ -1070,10 +1082,10 @@ ${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game
       const facts:SuccessorFacts={builtIns:[],
         // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
         ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
-        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),...libraryFacts,rerunnable:()=>false};
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,...readBackFacts,aimedGames:true,problems,answeredProblemIds,writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),...libraryFacts,rerunnable:()=>false};
       const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
-1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
+1. decide: first read_back: your theory going into this board, graded against what she did and said, citing the bracketed ids below; your one belief about how she thinks and a competing explanation. Then one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
 2. Unless you await calibration, build the next board: add_step for each step${facts.rewardBreak?", add_reward for a Mystery reward break (recorded as play, apart from her learning evidence)":""}, then set_order and, when she should pick her path, add_choice. Then finish_board.
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-problem answers, assistance and exposure are in the evidence below; her companion talks with her during each activity.
 Games on the menu:
@@ -1081,7 +1093,8 @@ ${JSON.stringify((facts.activities??[]).map(row=>row.id))}
 generated-game is a new game Sunny builds for her from her chart and the story you write for that step, around the problems you give it. It can be aimed at one specific error you name in its focus. Sunny scores her first answer to each problem against the answer recorded at intake. add_problem writes a new problem for her (harder, or a step past her worksheet); Sunny computes its answer from the arithmetic you give, and it counts as unseen. check_first marks a step that checks what she does on her own; a problem she has answered before is recorded as practice there, never as an unseen check.
 ${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content:
 ${JSON.stringify(facts.playedGames)}
-`:""}${mathTrackRecordSection(cycle)}
+`:""}${notesSection}${mathTrackRecordSection(cycle)}
+${thinkingSection}
 ${plannerJournalSection(cycle)}
 ${plannerCallsSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
@@ -1108,12 +1121,12 @@ ${offered.some(action=>action==="generate_quest"||action==="generate_boss")?`Que
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
       // Contract 56: the decision carries its self-review, and her built-for-her game can be aimed at one error.
-      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),...libraryFacts,
+      selfReview:true,...readBackFacts,aimedGames:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),...libraryFacts,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=mathQuestion?.prompt??`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
-1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
+1. decide: first read_back: your theory going into this board, graded against what she did and said, citing the bracketed ids below; your one belief about how she thinks and a competing explanation. Then one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
 2. Unless you await calibration, build the next board: add_step for each step, add_explainer for a new lesson page${facts.rewardBreak?", add_reward for a Mystery reward break (recorded as play, apart from her learning evidence)":""}, then set_order and, when she should pick her path, add_choice. Then finish_board.
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
 Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
@@ -1121,7 +1134,8 @@ ${JSON.stringify(facts.activities!.map(row=>row.id))}
 ${facts.activities!.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. It can be aimed at one specific error you name in its focus. What she picks and replays shows what she enjoys.
 `:""}${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content:
 ${JSON.stringify(facts.playedGames)}
-`:""}${spellingTrackRecordSection(cycle)}
+`:""}${notesSection}${spellingTrackRecordSection(cycle)}
+${thinkingSection}
 ${plannerJournalSection(cycle)}
 ${plannerCallsSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
@@ -1417,10 +1431,16 @@ async function decideOnce(
   if (!replay && contentDecisions?.length) {
     applyEvidenceBasedMathContentDecisions(cycle.childId, contentDecisions, decisionEvidenceIds, opts);
   }
+  // Every board planned from now on carries a read-back (owner 2026-11-22): none given is saved as unclear and logged,
+  // never a reason to stop the board. A replayed decision keeps what it had.
+  const readBack = decision.readBack ?? (replay ? undefined : missingReadBack());
+  if (readBack?.missing) console.log(` 🎮 [planner-read-back] [missing] [recorded-unclear] homework=${cycle.homeworkId}`);
+  else if (decision.readBack) console.log(` 🎮 [planner-read-back] [graded] [${decision.readBack.grade}] homework=${cycle.homeworkId} cited=${decision.readBack.evidenceIds.length} unknown=${decision.readBack.unknownEvidenceIds?.length ?? 0}${decision.readBack.claimedGrade ? ` claimed=${decision.readBack.claimedGrade}` : ""}`);
   const saved = transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
     type: "theory_decided",
     decision: {
       ...decision,
+      ...(readBack ? { readBack } : {}),
       nextAction: decision.progressionAction,
       evidenceIds,
       predictionEvaluationIds: citedEvaluationIds,
