@@ -15,6 +15,9 @@ export type PlannerTool<S, I = any> = {
 };
 /** Types each handler's input from its own schema: `const tool = toolFor<State>(); tool({ ... })`. */
 export const toolFor = <S>() => <Sch extends z.ZodType>(tool: Omit<PlannerTool<S, z.infer<Sch>>, "schema"> & { schema: Sch }): PlannerTool<S> => tool as PlannerTool<S>;
+/** maxErrors counts consecutive turns that each held a mistake, not mistakes in total: every mistake goes back to the
+ * model to fix (Ila board 13, 2026-11-23: three bad calls in one parallel turn ended the decision before it could read
+ * them). maxCalls and maxTurns stay the runaway guard (Law 2). */
 export type ToolLoopCaps = { maxCalls: number; maxErrors: number; maxTurns: number };
 export const DEFAULT_TOOL_LOOP_CAPS: ToolLoopCaps = { maxCalls: 40, maxErrors: 3, maxTurns: 10 };
 export type ToolLoopStop = "finished" | "cap_calls" | "cap_errors" | "cap_turns";
@@ -63,7 +66,7 @@ export async function runPlannerToolLoop<S>(input: {
   else if (GRAMMAR_TOO_LARGE.delete(input.label)) console.log(` 🎮 [planner-tools] [${input.label}] [strict-grammar-too-large] [memory-expired] retry-strict`);
   let tools = plannerToolDefinitions(input.tools, { unlocked });
   if (unlocked) console.log(` 🎮 [planner-tools] [${input.label}] [strict-grammar-too-large] [start-unlocked] tools=${tools.length} left=${unlockedLeft - 1}`);
-  let turns = 0, calls = 0, errors = 0;
+  let turns = 0, calls = 0, errors = 0, erringTurns = 0;
   const done = (stop: ToolLoopStop) => {
     console.log(` 🎮 [planner-tools] [${input.label}] [${stop}] turns=${turns} calls=${calls} errors=${errors}`);
     return { state: input.state, stats: { turns, calls, errors, stop } };
@@ -84,14 +87,15 @@ export async function runPlannerToolLoop<S>(input: {
     messages.push({ role: "assistant", content: response.content });
     const uses = response.content.filter((block): block is Anthropic.Messages.ToolUseBlock => block.type === "tool_use");
     if (!uses.length) {
-      errors += 1;
+      errors += 1; erringTurns += 1;
       console.log(` 🎮 [planner-tools] [${input.label}] [text-only] turn=${turns}`);
-      if (errors >= caps.maxErrors) return done("cap_errors");
+      if (erringTurns >= caps.maxErrors) return done("cap_errors");
       messages.push({ role: "user", content: "Use the tools to build the board. Call the finish tool when it is complete." });
       continue;
     }
     const answers: Anthropic.Messages.ToolResultBlockParam[] = [];
     let capped: ToolLoopStop | undefined;
+    const errorsBefore = errors;
     for (const use of uses) {
       if (calls >= caps.maxCalls) { capped = "cap_calls"; break; }
       calls += 1;
@@ -108,6 +112,8 @@ export async function runPlannerToolLoop<S>(input: {
     if (capped) return done(capped);
     messages.push({ role: "user", content: answers });
     if (input.finished(input.state)) return done("finished");
-    if (errors >= caps.maxErrors) return done("cap_errors");
+    erringTurns = errors > errorsBefore ? erringTurns + 1 : 0;
+    if (erringTurns >= caps.maxErrors) return done("cap_errors");
+    if (errors > errorsBefore) console.log(` 🎮 [planner-tools] [${input.label}] [errors] [returned-to-model] turn=${turns} errors=${errors - errorsBefore} erring_turns=${erringTurns}/${caps.maxErrors}`);
   }
 }

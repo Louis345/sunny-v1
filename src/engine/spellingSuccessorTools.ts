@@ -44,6 +44,9 @@ export type SuccessorFacts = {
    * and the ones she has already answered. Spelling and older frozen questions have none. */
   problems?: LearningCycleMathItem[];
   answeredProblemIds?: string[];
+  /** Math: each earlier board step's id and the recorded problems it showed, so a based_on naming a step that showed
+   * exactly one problem is read as that problem (Ila board 13, 2026-11-23). Older frozen questions have none. */
+  stepProblems?: Record<string, string[]>;
   /** Games Sunny built for her that she played (owner, 2026-11-09): a new generated-game can start from one, so she
    * keeps the mechanic she already learned with new content. Older frozen questions have none. */
   playedGames?: Array<{ nodeId: string; title: string; answers: number; right: number; minutesToFirstAnswer?: number | null; tutorNote?: string }>;
@@ -106,6 +109,17 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   const encounters = (["quest", "boss"] as const).filter(name => facts.allowedActions.includes(`generate_${name}`));
   const encounterFor = (action: string): Encounter | undefined => action === "generate_quest" ? "quest" : action === "generate_boss" ? "boss" : undefined;
   const problems = facts.problems ? new Map(facts.problems.map(item => [item.id, item])) : undefined;
+  /** based_on must be a real recorded problem. A step id that showed exactly one is read as that problem; anything else
+   * is answered in the conversation with where problem ids are. */
+  const basedOn = (raw: string): { ok: true; id: string } | { ok: false; error: string } => {
+    const id = raw.trim();
+    if (problems?.has(id)) return { ok: true, id };
+    const shown = [...new Set(facts.stepProblems?.[id] ?? [])].filter(row => problems?.has(row));
+    if (shown.length === 1) return { ok: true, id: shown[0] };
+    if (shown.length) return { ok: false, error: `${id} is a board step that showed ${shown.length} problems (${shown.join(", ")}); based_on takes one problem id: pick one of those.` };
+    const valid = [...(problems?.keys() ?? [])];
+    return { ok: false, error: `${id} is not one of her recorded problems. based_on takes an id from Her recorded problems in the question (a step id names a stop, not a problem); valid: ${valid.slice(0, 40).join(", ")}${valid.length > 40 ? ` and ${valid.length - 40} more` : ""}` };
+  };
   const answered = new Set(facts.answeredProblemIds ?? []);
   // The Planner writes as many new problems as it wants (owner, 2026-11-11); only the tool loop's call bound limits it.
   // Ids keep the shape ${idPrefix}-problem-N in writing order, so saved turns of an older frozen question replay to the same ids.
@@ -348,7 +362,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
     ...(facts.pastWeeks?.claims ? [claimHowSheLearnsTool<SuccessorState>(facts.pastWeeks)!] : []),
     ...(facts.pastWeeks?.claims?.asOfSequence !== undefined ? [queryRecordTool<SuccessorState>(facts.pastWeeks.childId, facts.pastWeeks.claims.asOfSequence)] : []),
     ...(writeProblems ? [tool({ name: "add_problem", description: "Write a new problem for her, harder or different from her worksheet, to push her past what she has done. Give the arithmetic that produces its answer: Sunny computes the answer from it and scores her against that, so a wrong key can never mark her wrong. Returns the problem's id for add_step; it counts as unseen.",
-      schema: z.object({ based_on: pickFrom([...problems!.keys()], "none", "her recorded problems", "The worksheet problem this one grows from, by id."), prompt: text("The problem exactly as she will see it, with every number she needs."),
+      schema: z.object({ based_on: z.string().min(1).describe("The recorded problem this one grows from: an id from Her recorded problems in the question (a step id names a stop, not a problem)."), prompt: text("The problem exactly as she will see it, with every number she needs."),
         answer_expression: z.string().min(1).max(200).describe("Numbers and + - * / ( ) only, giving the answer, for example 298 + 171 - 402."),
         unit: z.string().max(30).optional(), why: text("Why this problem, for her, now.") }).strict(),
       run: (state, input) => {
@@ -358,12 +372,14 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         try { answer = Number(Function(`"use strict"; return (${expression});`)()); } catch { return { ok: false, error: "answer_expression does not compute" }; }
         if (!Number.isFinite(answer)) return { ok: false, error: "answer_expression does not give a number" };
         answer = Math.round(answer * 1e9) / 1e9;
-        const base = problems!.get(input.based_on)!, id = nextProblemId(state);
+        const source = basedOn(input.based_on);
+        if (!source.ok) return source;
+        const base = problems!.get(source.id)!, id = nextProblemId(state);
         state.written = { ...(state.written ?? {}), [id]: { id, prompt: input.prompt.trim(), lineage: { sourceEvidenceIds: [...base.lineage.sourceEvidenceIds, `planner-written:${id}`], exposure: "unseen", measurementRole: "practice" },
           response: { mode: "numeric", expected: answer, ...(input.unit?.trim() ? { unit: input.unit.trim() } : {}) } } as LearningCycleMathItem };
         state.result = undefined;
-        console.log(` 🎮 [planner-tools] [problem-written] id=${id} based_on=${input.based_on} answer=${answer}`);
-        return { ok: true, result: { problem_id: id, answer } };
+        console.log(` 🎮 [planner-tools] [problem-written] id=${id} based_on=${source.id}${source.id !== input.based_on ? ` from_step=${input.based_on}` : ""} answer=${answer}`);
+        return { ok: true, result: { problem_id: id, answer, based_on: source.id } };
       } })] : []),
     tool({ name: "remove_step", description: "Remove a step you added, and take it off the order and the choice.",
       schema: z.object({ step_id: text("A step_id you were given.") }).strict(),

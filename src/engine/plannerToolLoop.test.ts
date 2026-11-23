@@ -69,6 +69,21 @@ describe("planner tool loop", () => {
     expect(script.requests).toHaveLength(3);
   });
 
+  it("returns three bad calls in one turn to the model; the corrected next turn finishes the board (Ila board 13, 2026-11-23)", async () => {
+    const script = scripted(
+      reply({ name: "add", input: { word: "zebra" } }, { name: "add", input: { word: "zebra" } }, { name: "finish", input: { title: "Board" } }, { name: "add", input: { word: "sign" } }),
+      reply({ name: "add", input: { word: "know" } }, { name: "finish", input: { title: "Board" } }));
+    const result = await run(script.send, { ...DEFAULT_TOOL_LOOP_CAPS, maxErrors: 3 });
+    expect(result.stats).toEqual({ turns: 2, calls: 6, errors: 3, stop: "finished" });
+    expect(script.requests[1].messages.at(-1).content.filter((block: any) => block.is_error)).toHaveLength(3);
+  });
+
+  it("stops after consecutive turns that each erred, however few errors each held (runaway guard)", async () => {
+    const script = scripted(reply({ name: "add", input: { word: "sign" } }), reply({ name: "add", input: { word: "zebra" } }), reply({ name: "add", input: { word: "zebra" } }), reply({ name: "add", input: { word: "zebra" } }), reply({ name: "add", input: { word: "sign" } }));
+    const result = await run(script.send, { ...DEFAULT_TOOL_LOOP_CAPS, maxErrors: 3 });
+    expect(result.stats).toMatchObject({ turns: 4, errors: 3, stop: "cap_errors" });
+  });
+
   it("stops at the call cap and does not run calls beyond it", async () => {
     const script = scripted(reply({ name: "add", input: { word: "sign" } }, { name: "add", input: { word: "sign" } }, { name: "add", input: { word: "sign" } }));
     const result = await run(script.send, { maxCalls: 2, maxErrors: 3, maxTurns: 10 });
