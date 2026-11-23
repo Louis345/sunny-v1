@@ -47,6 +47,26 @@ function herWords(cycle: Pick<LearningCycleRecordV2, "childId" | "createdAt">, o
   return said.sort((a, b) => a.at.localeCompare(b.at)).slice(-MAX_WORDS);
 }
 
+/** Room-talk digests since this assignment began (room_talk, one file per day; 2026-11-23): her words heard while her
+ * companion was minimized, summarized once per session, quotes checked against what was heard. */
+function roomTalk(cycle: Pick<LearningCycleRecordV2, "childId" | "createdAt">, opts: LearningCycleRepositoryOptions): Array<{ id: string; at: string; summary: string; herWords: Array<{ quote: string; shows?: string }>; adultsTeaching: Array<{ quote: string; what?: string }> }> {
+  const dir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "room_talk");
+  const rows: ReturnType<typeof roomTalk> = [];
+  let files: string[] = [];
+  try { files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(name => /^\d{4}-\d{2}-\d{2}\.ndjson$/.test(name) && name.slice(0, 10) >= cycle.createdAt.slice(0, 10)).sort() : []; }
+  catch (error) { console.warn(` 🎮 [concept-signal] [room-talk] [unreadable] child=${cycle.childId} reason=${error instanceof Error ? error.message : String(error)}`); }
+  for (const file of files) {
+    let lines: string[] = [];
+    try { lines = fs.readFileSync(path.join(dir, file), "utf8").split("\n"); } catch { continue; }
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try { const row = JSON.parse(line); if (typeof row.id === "string" && typeof row.at === "string" && row.at >= cycle.createdAt) rows.push({ id: row.id, at: row.at, summary: String(row.summary ?? ""), herWords: row.herWords ?? [], adultsTeaching: row.adultsTeaching ?? [] }); }
+      catch { /* one unreadable line never hides the rest */ }
+    }
+  }
+  return rows.sort((a, b) => a.at.localeCompare(b.at)).slice(-6);
+}
+
 /** The Planner's own concept tag for each item, from its ready_on_paper calls (the latest call naming an item wins). */
 function conceptOfItem(cycle: Pick<LearningCycleRecordV2, "decisionHistory">): Map<string, string> {
   const concept = new Map<string, string>();
@@ -102,11 +122,17 @@ export function conceptSignalSection(cycle: LearningCycleRecordV2, opts: Learnin
     return `- ${concept || "Problems you have not tagged to a concept"}: ${shown.join("; ")}${hidden ? `; and ${hidden} earlier item${hidden === 1 ? "" : "s"} in read_record observations` : ""}`;
   });
 
-  console.log(` 🎮 [concept-signal] [built] homework=${cycle.homeworkId} her_words=${said.length} help_only=${helpOnly.length} wrong_groups=${groups.size}`);
+  const heard = roomTalk(cycle, opts);
+  evidenceIds.push(...heard.map(row => row.id));
+  console.log(` 🎮 [concept-signal] [built] homework=${cycle.homeworkId} her_words=${said.length} room_talk=${heard.length} help_only=${helpOnly.length} wrong_groups=${groups.size}`);
   const text = [
     "How she thinks, kept apart from right/wrong counts (facts laid out by code; what they mean is yours to infer).",
     "Everything she said to her companions on this assignment (verbatim from speech-to-text, newest last; read_record her_talk has the full talk with replies):",
     ...(said.length ? said.map(row => `- [said:${row.id}] ${minute(row.at)}: "${clip(row.words)}"`) : ["- Nothing she said is recorded on this assignment yet."]),
+    "What the kiosk mic heard at the table while her companion was minimized (one cheap-model digest per session; anyone in the room may be talking; quotes were checked against what was heard; read_record room_talk has them all):",
+    ...(heard.length ? heard.flatMap(row => [`- [${row.id}] ${minute(row.at)}: ${clip(row.summary, 300)}`,
+      ...row.herWords.map(quote => `  - she: "${clip(quote.quote)}"${quote.shows ? ` (${clip(quote.shows, 120)})` : ""}`),
+      ...row.adultsTeaching.map(quote => `  - an adult: "${clip(quote.quote)}"${quote.what ? ` (${clip(quote.what, 120)})` : ""}`)]) : ["- Nothing recorded yet."]),
     "Right only with help (right with help, not yet right on her own):",
     ...(helpOnly.length ? helpOnly : ["- None."]),
     "Her wrong answers, exactly as she gave them, grouped by your own concept tags from ready_on_paper:",

@@ -60,6 +60,7 @@ import { type ModelMessage } from "ai";
 import { grantSpellingHelpOnRequest, markCurrentSpellingSupport, recordSpellingAudio, replyGivesSpelling, snapshotOnSpellingItem } from "./spellingSpeechEvidence";
 import { createSpeechTools, speechScopeFor } from "./companionSpeechTools";
 import { createReplayWordTools } from "./companionReplayTool";
+import { RoomTalkBuffer, summarizeAndSaveRoomTalk } from "./roomTalk";
 import type { HomeworkExtractionResult } from "../agents/psychologist/psychologist";
 import { GameBridge } from "./game-bridge";
 import {
@@ -215,6 +216,8 @@ export class SessionManager {
   private activeGameNarrationRequestId: string | null = null;
   private gameNarrationPlaybackTimer: ReturnType<typeof setTimeout> | null = null;
   private companionPresence: "collapsed" | "summoned" = "collapsed";
+  /** What the mic hears while her companion is minimized; one digest goes to her record at session end (2026-11-23). */
+  private roomTalk = new RoomTalkBuffer();
   private companionDispositionAfterSpeech:
     | "standby_after_speech"
     | "await_child_response" = "standby_after_speech";
@@ -1476,6 +1479,12 @@ export class SessionManager {
 
     const ts = new Date().toISOString();
     console.log(`  🏁 [${ts}] Ending session for ${this.childName}`);
+    if (shouldPersistSessionData()) {
+      const lines = this.roomTalk.lines();
+      this.roomTalk = new RoomTalkBuffer();
+      void summarizeAndSaveRoomTalk({ childId: endChildId, sessionId: this.sessionId, lines })
+        .catch((error: unknown) => console.error(" 🔴 [room-talk] [digest] [failed]", error));
+    }
 
     if (this.clearSessionTimer) {
       this.clearSessionTimer();
@@ -1813,8 +1822,10 @@ export class SessionManager {
       nodeId: this.currentBoardSnapshot?.nodeId,
       sendFinal: (text) => this.send(/^[a-z]$/i.test(text.trim()) ? "interim" : "final", { text }),
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
-      recordEvent: (component, action, fields) =>
-        this.debugRecorder.recordEvent(component, action, fields),
+      recordEvent: (component, action, fields) => {
+        if (action === "ambient_ignored") this.roomTalk.add(new Date().toISOString(), transcript);
+        this.debugRecorder.recordEvent(component, action, fields);
+      },
     })) return void this.voiceLatency?.discardLatest("ignored");
 
     let state = this.turnSM.getState();

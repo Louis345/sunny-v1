@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { conceptSignalSection, observationEvidenceId } from "./conceptSignal";
 
 // Owner + Saori, 11/22: in five minutes both parents saw Ila treats rounding as changing the digit she looks at
@@ -51,6 +51,8 @@ function contextRoot(lines: Array<Record<string, unknown>>) {
 }
 
 describe("the concept signal: how she thinks, apart from right and wrong counts", () => {
+  // Times are the family clock (2026-11-23 fix): 23:23 UTC is 18:23 EST.
+  beforeEach(() => { vi.stubEnv("SUNNY_FAMILY_TIME_ZONE", "America/New_York"); });
   it("lays out her words about understanding, help-dependence and her actual wrong answers per concept, with citable ids", () => {
     const rootDir = contextRoot([
       { id: "ci-1", childId: "lab-child", callSource: "activity_help", questionText: "I don't understand the concept.", createdAt: "2026-11-22T23:23:36.000Z" },
@@ -59,9 +61,9 @@ describe("the concept signal: how she thinks, apart from right and wrong counts"
     ]);
     const { text, evidenceIds } = conceptSignalSection(ilaShapedCycle(), { rootDir });
     // All her words on this assignment, verbatim, dated, citable: no keyword list picks which ones the Planner sees.
-    expect(text).toContain(`[said:ci-1] 2026-11-22 23:23: "I don't understand the concept."`);
-    expect(text).toContain(`[said:ci-2] 2026-11-22 23:25: "Can you help me? Forty five, forty six."`);
-    expect(text).toContain(`[said:ci-3] 2026-11-22 23:40: "I get it now, it goes to the big house!"`);
+    expect(text).toContain(`[said:ci-1] 2026-11-22 18:23 EST: "I don't understand the concept."`);
+    expect(text).toContain(`[said:ci-2] 2026-11-22 18:25 EST: "Can you help me? Forty five, forty six."`);
+    expect(text).toContain(`[said:ci-3] 2026-11-22 18:40 EST: "I get it now, it goes to the big house!"`);
     expect(text).not.toContain("[said:old]");
     // Right only after help: 865 was right only once Elli helped.
     expect(text).toMatch(/Right only with help[^\n]*\n- "Round 865 to the nearest hundred\." \(Rounding to hundreds\): right with help 1 time; on her own she wrote "800"/);

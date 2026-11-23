@@ -35,6 +35,7 @@ src/context/*/activity_results/
 src/context/*/attempts/*.ndjson
 src/context/*/choice_events/
 src/context/*/companion_interactions/
+src/context/*/room_talk/
 src/context/*/ratings/*.ndjson
 src/context/*/session_notes/*.md
 src/context/*/themes/*.json

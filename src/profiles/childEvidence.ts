@@ -17,7 +17,7 @@ export type EvidenceSource = { where: string; read: string[]; excluded?: string;
 /** Sections read_record answers from the saved question (built in learningCycleRuntime). */
 export const FROZEN_RECORD_SECTIONS = ["lifecycle", "assignment", "theory", "predictions", "prediction_evaluations", "evidence", "observations", "stops", "learning_history", "prior_plan", "time", "decisions", "school_forecasts"] as const;
 /** Sections read_record answers live from her files (this module). */
-export const LIVE_RECORD_SECTIONS = ["her_talk", "child_signals", "session_notes", "choices", "ratings", "motivation", "about_her", "teaching_notes", "companion_memory", "sessions", "session_transcripts", "screens_and_narration"] as const;
+export const LIVE_RECORD_SECTIONS = ["her_talk", "child_signals", "session_notes", "choices", "ratings", "motivation", "about_her", "teaching_notes", "companion_memory", "sessions", "session_transcripts", "screens_and_narration", "room_talk"] as const;
 export type LiveRecordSection = typeof LIVE_RECORD_SECTIONS[number];
 
 /** Keyed by the first path segment under `src/context/<child>/`, plus `chart:` and `logs:` sources outside it. */
@@ -30,6 +30,8 @@ export const CHILD_EVIDENCE_SOURCES: Record<string, EvidenceSource> = {
     read: ["question: her words about understanding (concept signal)", "read_record: her_talk"], trust: "speech-to-text from the kiosk mic: other people in the room can be captured as her" },
   "child_signals": { where: "child_signals/<day>.ndjson: frustration, help, preference, as the companion observed them", read: ["question: recent preference signals (child chart)", "read_record: child_signals"],
     trust: "the kiosk mic recorded the parents' conversation as Ila's help requests on 2026-11-23 about 02:23 UTC; a signal is an observation, not her confirmed words" },
+  "room_talk": { where: "room_talk/<day>.ndjson: one digest per session of what the kiosk mic heard while her companion was minimized (a cheap model's summary; quotes kept only when really heard)",
+    read: ["question: her words about understanding (concept signal)", "read_record: room_talk"], trust: "anyone in the room may be speaking: her, her parents, her sister" },
   "session_notes": { where: "session_notes/<day>.md", read: ["read_record: session_notes"] },
   "choice_events": { where: "choice_events/<day>.ndjson: routes and options she picked", read: ["read_record: choices"] },
   "ratings": { where: "ratings/*.ndjson: her ratings of activities", read: ["read_record: ratings"] },
@@ -110,6 +112,8 @@ export function readChildEvidenceSection(section: LiveRecordSection, input: Chil
   const logsRoot = input.logsRoot ?? input.rootDir ?? process.cwd();
   try {
     switch (section) {
+      // What the kiosk mic heard while her companion was minimized, as one digest per session (2026-11-23).
+      case "room_talk": return ndjsonRows(path.join(dir, "room_talk"), input.asOf, row => row.at);
       case "her_talk": return ndjsonRows(path.join(dir, "companion_interactions"), input.asOf).map(row => ({ id: row.id, at: row.createdAt, call: row.callSource, she_said: clip(row.questionText), companion_said: clip(row.companionText) }));
       case "child_signals": return ndjsonRows(path.join(dir, "child_signals"), input.asOf).map(row => ({ id: row.childSignalId, at: row.createdAt, type: row.signalType, dimension: row.dimension, valence: row.valence, source: row.source, activity: row.activityId, observed: clip(row.evidenceText) }));
       case "choices": return ndjsonRows(path.join(dir, "choice_events"), input.asOf);
