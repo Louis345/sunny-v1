@@ -198,9 +198,22 @@ it("asks every built game for narration of on-screen text only; her companion do
   for (const ask of [buildSpellingGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir }), buildMathGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir })]) {
     expect(ask).not.toMatch(/speaks for the game/);
     expect(ask).not.toMatch(/companion reads the instruction aloud/i);
-    expect(ask).toContain("A narrator reads aloud only what is on screen");
     expect(ask).toContain('text: "<the same on-screen text>"');
-    expect(ask).toMatch(/never chat, praise or her name/);
+  }
+});
+
+// Owner 2026-11-23 (board 13, "Tap the peek digit"): the ask told every game a narrator reads its instructions, so
+// every game was narrated and the designer never chose. The narrator is one tool the designer may use or not; the
+// Planner sees what each game said (read_board_wording) and what it yielded, and keeps or drops it.
+it("offers the narrator as the designer's choice, not a requirement", async () => {
+  const { buildSpellingGameAsk, buildMathGameAsk } = await import("./spellingGameBuilder");
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
+  for (const ask of [buildSpellingGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir }), buildMathGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir })]) {
+    expect(ask).toMatch(/narrator.*(your choice|if you want)/i);
+    expect(ask).not.toMatch(/The narrator reads the instruction aloud/);
+    expect(ask).not.toMatch(/A narrator reads aloud only what is on screen/);
+    expect(ask).not.toMatch(/never chat, praise or her name/);
   }
 });
 
