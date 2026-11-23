@@ -2023,8 +2023,8 @@ export class SessionManager {
           `${ev.correct ? "✅" : "❌"} (${ev.note})`,
       );
       userMessage =
-        `[Spelling verdict: Ila said "${transcript}" for "${this.activeWord}" — ` +
-        `${ev.correct ? "this is CORRECT, celebrate and move on" : "this is INCORRECT, encourage and give a hint"}]\n\n` +
+        `[Spelling verdict: ${this.childName} said "${transcript}" for "${this.activeWord}" — ` +
+        `${ev.correct ? "correct" : `not correct (${ev.note})`}. Respond in your own words.]\n\n` +
         transcript;
     }
 

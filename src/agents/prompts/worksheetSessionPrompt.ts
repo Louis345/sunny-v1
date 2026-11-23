@@ -164,7 +164,7 @@ export function buildWorksheetToolPrompt(opts: {
   lines.push(`2. Look at the worksheet image again AS IF FOR THE FIRST TIME`);
   lines.push(`3. Count the coins fresh — do not copy from your earlier message`);
   lines.push(
-    `4. If your fresh count matches the child, say "You're right, let me recount — I see it now!"`,
+    `4. If your fresh count matches the child, tell her plainly, in your own words, that she was right and you recounted`,
   );
   lines.push(
     `5. If your fresh count still differs, count together out loud one coin at a time`,
@@ -266,7 +266,7 @@ export function buildWorksheetToolPrompt(opts: {
     `- Do NOT call canvasShow (worksheet) more than once per problem. Call it once to present, then use sessionLog when the child answers. Calling it again for the same problem just wastes time.`,
   );
   lines.push(
-    `- If the child says they can't see the worksheet, say "It should be on your screen — can you check?" Do NOT call canvasShow again.`,
+    `- If the child says they can't see the worksheet, it is already on her screen: ask her, in your own words, to check it. Do NOT call canvasShow again.`,
   );
   lines.push(
     `- Do NOT call canvasShow while ${childName} is mid-sentence or talking about something`,

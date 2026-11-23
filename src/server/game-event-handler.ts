@@ -991,7 +991,7 @@ export function handleReadingProgress(s: SM, payload: Record<string, unknown>): 
       );
 
       void s.handleEndOfTurn(
-        "[reading_progress] event=complete — the reader finished the karaoke story. Reply with exactly one short sentence acknowledging the reading. Do not call canvasShow or refresh karaoke unless the child or parent/caregiver explicitly asks for something new.",
+        "[reading_progress] event=complete — the reader finished the karaoke story. Respond to her finishing it in your own words. Do not call canvasShow or refresh karaoke unless the child or parent/caregiver explicitly asks for something new.",
         true,
         { fromReadingComplete: true },
       ).catch((err: unknown) => console.error(err));
