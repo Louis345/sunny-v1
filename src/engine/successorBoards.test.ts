@@ -456,6 +456,25 @@ describe("successor boards (contract 21)", () => {
     expect(generateHtml).toHaveBeenCalledTimes(supportSuccessor.instruments.length);
   });
 
+  it("contract 63: a decision that cites no prediction evaluation is accepted", async () => {
+    const rootDir = root();
+    const input = cycleInput();
+    input.academicPredictions = [{
+      predictionId: "pred-1", theoryId: "theory-1", constructId: "math.multiplication", context: "baseline", horizon: "now",
+      eligibility: { sources: ["independent_probe"], maxDelayDays: 7 },
+      expectedMetric: { key: "accuracy", min: 0.5, max: 1 }, predictedErrorPatterns: [], confidence: 0.6,
+      evidenceIds: ["pdf:1"], intervention: "baseline", evidenceLimit: "independent_performance", createdAt: "2026-09-30T00:00:00.000Z",
+    }];
+    createLearningCycle(input, { rootDir, now: new Date("2026-10-01T00:00:00.000Z") });
+    const observedAt = new Date("2026-10-01T00:30:00.000Z");
+    complete(rootDir, "facts", "s1", "b-1", true, {}, observedAt);
+    complete(rootDir, "story", "s1", "b-2", true, {}, observedAt);
+    const decided = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir, now: new Date("2026-10-01T01:00:00.000Z") });
+    expect(decided.predictionEvaluations.length).toBeGreaterThan(0);
+    expect(decided.lifecycle).not.toBe("blocked");
+    expect(preparingBoardInstance(decided)).toBeTruthy();
+  });
+
   it("test 11: the successor cites valid evidence and the Planner's prediction evaluations", async () => {
     const rootDir = root();
     const input = cycleInput();
@@ -470,8 +489,10 @@ describe("successor boards (contract 21)", () => {
     complete(rootDir, "facts", "s1", "b-1", true, {}, observedAt);
     const evaluated = complete(rootDir, "story", "s1", "b-2", true, {}, observedAt)!;
     expect(evaluated.lifecycle).toBe("baseline_evaluating");
-    await expect(advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir, now: new Date("2026-10-01T01:00:00.000Z") }))
-      .rejects.toThrow("canonical_progression_prediction_evaluation_citation_required");
+    // Contract 63 (owner 2026-11-24): citing evaluations is offered, never required; citing one that was not offered
+    // is still refused (honest record). Human-caught 11/23: board 15 blocked on the old "citation required" check.
+    await expect(advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => ({ ...decision("generate_support", supportSuccessor), predictionEvaluationIds: ["not-offered"] }) }, { rootDir, now: new Date("2026-10-01T01:00:00.000Z") }))
+      .rejects.toThrow("canonical_progression_unknown_prediction_evaluation");
     const withEvaluations = getLearningCycle(CHILD, HW, { rootDir })!;
     const evaluationIds = withEvaluations.predictionEvaluations.map((entry) => entry.evaluationId);
     expect(evaluationIds.length).toBeGreaterThan(0);

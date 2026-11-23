@@ -763,7 +763,7 @@ function assertPredictionCitations(decision:Pick<CanonicalProgressionDecision,'p
   const allowed = new Set(cycle.predictionEvaluations.map(evaluation => evaluation.evaluationId));
   const cited = decision.predictionEvaluationIds ?? [];
   if (cited.some(id => !allowed.has(id))) throw new Error("canonical_progression_unknown_prediction_evaluation");
-  if (allowed.size > 0 && cited.length === 0) throw new Error("canonical_progression_prediction_evaluation_citation_required");
+  // Contract 63: citing evaluations is offered, never required (board 15 blocked on this on 2026-11-23).
 }
 
 function progressionEvidence(cycle:LearningCycleRecordV2) {
