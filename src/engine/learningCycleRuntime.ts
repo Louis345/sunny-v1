@@ -826,7 +826,7 @@ export function authorizeCanonicalPlannerRetry(input: {childId:string; homeworkI
     // An item-intake math decision that went to the retired single form (2026-11-08). The retry opens a new
     // evidence batch, so the Planner decides through the shared tools; the received answer stays on disk as it is.
     console.log(` 🎮 [canonical-progression] [retry] [math-shared-tools] homework=${cycle.homeworkId} blocked_decision=${input.blockedDecisionId} old_receipt_kept=${checkpoint.draftDir}`);
-  } else if (blocked.reason.startsWith("planner_decision_invalid:provider_stage_request_changed:") || blocked.reason.startsWith("provider_outcome_uncertain:") || blocked.reason.startsWith("planner_decision_invalid:canonical_progression_tools_unfinished:") || toolsRunTruncated) {
+  } else if (blocked.reason.startsWith("planner_decision_invalid:provider_stage_request_changed:") || blocked.reason.startsWith("provider_outcome_uncertain:") || blocked.reason.startsWith("planner_decision_invalid:canonical_progression_tools_unfinished:") || blocked.reason === "planner_decision_invalid:canonical_progression_prediction_evaluation_citation_required" || toolsRunTruncated) {
     // The collided or cut-off attempt's saved turns and drawing are set aside (never deleted), so the code decides fresh.
     const superseded = path.join(checkpoint.draftDir,"superseded",input.blockedDecisionId.replace(/[^a-zA-Z0-9_-]+/g,"_"));
     fs.mkdirSync(superseded,{recursive:true});
