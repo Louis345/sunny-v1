@@ -526,6 +526,9 @@ export function isRetryablePlannerBlock(reason: string, cycle?: Pick<LearningCyc
   return reason === "planner_decision_invalid:planner_response_max_tokens"
     || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")
     || reason.startsWith("provider_outcome_uncertain:")
+    // The Planner's tool conversation ended unfinished (Ila board 13, 2026-11-23: the old total error cap). Every answer
+    // was received and code refused inputs, so nothing paid is uncertain; one owner-approved retry decides fresh.
+    || reason.startsWith("planner_decision_invalid:canonical_progression_tools_unfinished:")
     || (reason === "planner_decision_invalid:board_definition_missing" && Boolean(cycle && isItemIntakeMathCycle(cycle)));
 }
 

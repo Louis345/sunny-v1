@@ -8,7 +8,7 @@ import { runItemsIntake } from "../scripts/itemsIntake";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import * as canvas from "./adventureBoardCanvas";
 import { prepareSuccessorBoard } from "./canonicalProgressionGenerator";
-import { currentBoardInstance } from "./learningBoardInstances";
+import { currentBoardInstance, successorResumeAction } from "./learningBoardInstances";
 import { getLearningCycle, isRetryablePlannerBlock, transitionLearningCycle } from "./learningCycleRepository";
 import * as runtime from "./learningCycleRuntime";
 import type { ToolLoopRequest } from "./plannerToolLoop";
@@ -187,5 +187,25 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(decided.decisionHistory.at(-1)?.eventType).toBe("theory_decided");
     expect(decided.lifecycle).toBe("baseline_generating");
     expect(robot.requests[0].tools[0].name).toBe("decide");
+  });
+  // 2026-11-23, Ila's board 13 on Saori: the decision hit the old total error cap after one parallel turn of three
+  // refused add_problem calls and the cycle blocked on tools_unfinished:cap_errors. Neither the owner replan (not from
+  // blocked) nor authorize-recovery (not a retryable reason) could reopen it, so she could not get the board the owner
+  // approved. Why the lab missed it: no lab Planner ever ended unfinished. The block is deterministic (code refused
+  // inputs, every answer was received), so one owner-approved retry decides fresh with the old turns set aside.
+  it("lets the owner retry a decision blocked because the Planner's tools ended unfinished; session start then decides it", async () => {
+    const f = await playedMathCycle();
+    const blocked = transitionLearningCycle(childId, f.homeworkId, f.played.revision, { type: "block", reason: "planner_decision_invalid:canonical_progression_tools_unfinished:cap_errors" }, f.opts);
+    const block = blocked.decisionHistory.at(-1)!;
+    expect(isRetryablePlannerBlock(block.reason, blocked)).toBe(true);
+    const log = vi.spyOn(console, "log");
+    const reopened = runtime.authorizeCanonicalPlannerRetry({ childId, homeworkId: f.homeworkId, blockedDecisionId: block.decisionId, reason: "Owner approved board 13 after the error-cap fix" }, f.opts);
+    expect(reopened.lifecycle).toBe("baseline_evaluating");
+    expect(successorResumeAction(reopened)).toBe("decide");
+    expect(log.mock.calls.flat().join("\n")).toContain("[canonical-progression] [retry] [superseded]");
+    const robot = nextBoardRobot();
+    const decided = await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: robot.client, draw: plainDraw }, f.opts);
+    expect(decided.decisionHistory.at(-1)?.eventType).toBe("theory_decided");
+    expect(decided.lifecycle).toBe("baseline_generating");
   });
 });
