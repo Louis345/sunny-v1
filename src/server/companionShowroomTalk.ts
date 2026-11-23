@@ -186,15 +186,6 @@ export type ShowroomShoppingEvent = {
   itemId: string;
 };
 
-export type ShoppingSpeechGuardResult = {
-  accepted: boolean;
-  reason:
-    | "incomplete_response"
-    | "verdict_mismatch"
-    | "item_role_confusion"
-    | null;
-};
-
 export type ResolvedShowroomTalkRequest = {
   childId: string;
   companionId: string;
@@ -938,7 +929,7 @@ export function resolveShowroomTalkRequest(
 }
 
 /** The last line of the part of the call prompt that stays the same all call: Claude caches everything up to it. */
-const STABLE_PROMPT_END = "The message text must contain only the words spoken aloud; no stage directions, labels, or commentary.";
+const STABLE_PROMPT_END = "Everything in the message text is spoken aloud, including stage directions, labels or commentary.";
 
 /**
  * The call prompt as two system blocks: the part that stays the same all call (persona, rules), cached, then this
@@ -996,22 +987,15 @@ export function buildShowroomTalkSystemPrompt(input: {
     readCompanionBaseSection("Where you are"),
     readCompanionBaseSection("How Sunny works"),
     ...(isVideoCall ? ["You are on a call now."] : []),
-    // 11/22 audit: "1-3 sentences / one question / follow her lead" made every companion the same reactive voice.
-    "Open with a short first sentence of a few words so your voice starts right away; your personality decides how much you say and how much you lead.",
-    "Use a warm, child-safe tone.",
-    "Never tutor unless the child explicitly asks for learning help.",
-    "The child may be playing, chatting, joking, testing the call, or asking for help; be fun and relationship-first.",
-    "Do not repeat your previous greeting, opener, or last sentence; continue from the child's newest turn.",
-    `When she brings up something you might already know about, call ${RECALL_ABOUT_HER_TOOL} to remember what she told you or her other companions before. If the child gives you a nickname or a role, it is her game: play along, and call ${REMEMBER_CHILD_GIVEN_NAME_TOOL} so you keep it. You can still know your own name, but never correct her or argue about what she calls you.`,
-    "If you want emotion, show emotion through movement with companionAct rather than describing stage directions in words.",
-    `If the child asks to play ${describeCompanionActivityChoices()}, use openCompanionActivity with the matching activityId (${COMPANION_ACTIVITY_IDS.join(", ")}) and surface=video_call_overlay.`,
-    "Do not say stage directions. Do not say things like 'I wave', '*waves*', or 'I smile'; call companionAct for that motion and keep spoken text natural.",
-    "Speech is optional; visual action is preferred when the child is working, feeding, earning a reward, or just hanging out.",
-    "When no spoken answer adds value, use companionAct and leave the spoken text empty.",
+    // Owner 2026-11-24: persona plus the facts of the moment; no style rules (prompt sweep).
+    "Your voice starts as soon as your first sentence is ready, so a short first sentence is heard sooner.",
+    "She may be playing, chatting, joking, testing the call, or asking for help.",
+    `${RECALL_ABOUT_HER_TOOL} looks up what she told you or her other companions before. If she gives you a nickname or a role, ${REMEMBER_CHILD_GIVEN_NAME_TOOL} keeps it.`,
+    "companionAct moves your body (a wave, a nod, a dance).",
+    `openCompanionActivity with activityId (${COMPANION_ACTIVITY_IDS.join(", ")}) and surface=video_call_overlay opens a game on the call: ${describeCompanionActivityChoices()}.`,
+    "A reply can be words, a movement, both, or nothing.",
     "This chat cannot grant coins, XP, store purchases, or talent unlocks.",
-    "Always answer in one response: first write the words you say aloud as plain message text, then call companionAct for the matching gesture in that same response. Never wait for tool results before speaking.",
-    "Never send a tool-only response when the child asked you something or a spoken line is expected; the spoken text comes first, the tool call comes second.",
-    "Only leave the message text empty when the child is quietly working and silence is genuinely better.",
+    "The message text of this reply is what she hears; tool results come back after it is sent.",
     STABLE_PROMPT_END,
   ];
   if (input.conversationIntent) {
@@ -1019,13 +1003,12 @@ export function buildShowroomTalkSystemPrompt(input: {
   }
   if (input.conversationIntent === "repeat_after") {
     lines.push(
-      "For repeat_after turns, repeat the child's newest words or invite them to say the phrase if they just asked to start.",
-      "Do not treat numbers as game moves during repeat_after turns.",
+      "repeat_after is a repeat-after-me game: numbers she says are words to repeat, not game moves.",
     );
   }
   if (callSource === "showroom" || relationshipState === "previewing") {
     lines.push(
-      "The child may not have chosen you yet; treat this like a warm companion preview and do not assume a permanent bond.",
+      "The child may not have chosen you yet; this is a preview.",
     );
   }
   if (
@@ -1034,13 +1017,13 @@ export function buildShowroomTalkSystemPrompt(input: {
     relationshipState === "earned_reward"
   ) {
     lines.push(
-      "The child earned this call; celebrate the moment without turning it into homework.",
+      "The child earned this call.",
     );
     if (input.rewardContext?.earnedBy) {
       lines.push(`Earned by: ${input.rewardContext.earnedBy}`);
     }
   } else if (relationshipState === "selected") {
-    lines.push("The child has selected you as a companion; speak with gentle continuity.");
+    lines.push("The child has chosen you as her companion.");
   }
   if (input.rewardContext?.nodeId || input.rewardContext?.activityId || input.rewardContext?.rewardId) {
     lines.push(
@@ -1057,7 +1040,7 @@ export function buildShowroomTalkSystemPrompt(input: {
     lines.push(input.companionMemory);
   }
   if (isVideoCall) {
-    lines.push("When you tell her to tap or press something, name only a control from What is on her screen right now. If she asks for something the screen cannot do, say so plainly and offer what you can do.");
+    lines.push("The controls listed in What is on her screen right now are the only ones that exist.");
   }
   if (input.shoppingContext) {
     const shopping = input.shoppingContext;
@@ -1070,34 +1053,21 @@ export function buildShowroomTalkSystemPrompt(input: {
       "The child controls spending. You may express a preference, but you cannot buy, promise a purchase, pressure the child, or treat your wish as spending authority.",
     );
     if (shopping.wishFulfilled) {
-      lines.push(`The child just made your wish come true: ${shopping.wishFulfilled.name}. They earned it with their own coins. Celebrate it warmly and thank them by name, once, in your own words.`);
+      lines.push(`The child just made your wish come true: ${shopping.wishFulfilled.name}, bought with coins she earned.`);
     }
     if (shopping.selectedItem) {
       const item = shopping.selectedItem;
       lines.push(
         `Selected item: ${item.name} (id=${item.id}, category=${item.category}, price=${item.price} demo coins).`,
-        `Selected item state: owned=${item.owned}, saved=${item.saved}, preference_match=${item.preferenceMatch}.`,
+        `Selected item state: owned=${item.owned}, saved=${item.saved}.`,
         `Selected item style: ${item.styleTags.join(", ") || "none listed"}.`,
-        `Code-owned companion verdict: ${item.opinionVerdict}.`,
-        `Code-owned opinion reasons: ${item.opinionReasons.join(", ") || "none"}.`,
-        `Companion consents to wear: ${item.companionConsentsToWear}.`,
-        "Treat the code-owned verdict as truth. Express it naturally in your persona; do not reverse it, soften a rejection into approval, or invent a different verdict.",
-        "A like verdict is not love or obsession; keep the strength of the spoken opinion equal to the code-owned verdict.",
-        "The selected item is for you, the companion, to try on. Do not imply that the child is wearing it or that you and the child need matching copies.",
+        "The selected item is for you, the companion, to wear; the child is not wearing it. What you think of it is yours, from your own taste; the child decides what to buy.",
       );
-      if (item.opinionVerdict === "reject" && item.companionConsentsToWear) {
-        // Owner 2026-11-12: her opinion never locks an item; the child decides.
-        lines.push("Not your favourite today, but it is the child's choice: say so lightly once, then go along cheerfully if the child picks it, without claiming to like or love it.");
-      }
       if (!item.companionConsentsToWear) {
-        lines.push(
-          "This item cannot be bought-and-worn or equipped during this visit. The child may save it or keep looking. Be honest without shaming the child's taste or pressuring them.",
-        );
+        lines.push("This item cannot be bought-and-worn or equipped during this visit; the child may save it or keep looking.");
       }
       if (shopping.mode === "try_on") {
-        lines.push(
-          "You are wearing the selected item in the try-on view. React to that exact item and do not guess from pixels.",
-        );
+        lines.push("You are wearing the selected item in the try-on view now.");
       }
     } else {
       lines.push("No store item is currently selected.");
@@ -1110,15 +1080,13 @@ export function buildShowroomTalkSystemPrompt(input: {
   if (input.shoppingEvent?.type === "item_reviewed") {
     lines.push(
       `Live store event: the child selected item id=${input.shoppingEvent.itemId} for review.`,
-      "Always include one short spoken reaction grounded in the selected item, code-owned mood, and verdict. You may also use one expressive companionAct gesture.",
-      "This event came from the store UI, not from words spoken by the child. Do not pretend the child asked a question.",
+      "This event came from the store screen, not from words the child spoke."
     );
   }
   if (input.shoppingEvent?.type === "try_on_started") {
     lines.push(
       `Live store event: the child just tried on item id=${input.shoppingEvent.itemId}.`,
-      "Always include one short spoken reaction grounded in the selected item and code-owned verdict. You may also use one expressive companionAct gesture.",
-      "This event came from the store UI, not from words spoken by the child. Do not pretend the child asked a question.",
+      "This event came from the store screen, not from words the child spoke."
     );
   }
   if (input.callClock) {
@@ -1126,9 +1094,9 @@ export function buildShowroomTalkSystemPrompt(input: {
     // or boards (Reina 2026-11-22: her whole one-minute call was a pitch for thirty coins and five more minutes).
     lines.push(
       input.callClock.event === "time_up"
-        ? "Live call clock event: call time is up. The screen shows her what she can do next. In your own words, let her know briefly, as a friend would; nothing about buying more time, prices or homework, and no pressure."
-        : "Live call clock: the clock is on her screen. Do not mention the time; carry on with the conversation.",
-      "This event came from the call clock, not from words spoken by the child. Do not pretend the child asked a question.",
+        ? "Live call clock event: call time is up. The screen shows her what she can do next. Buying more time, prices and homework are hers to choose, with no pressure from you."
+        : "Live call clock: the clock is on her screen.",
+      "This event came from the call clock, not from words the child spoke.",
     );
   }
   if (input.activeActivity) {
@@ -1145,16 +1113,9 @@ export function buildShowroomTalkSystemPrompt(input: {
       `Activity status: ${input.activeActivity.status}.`,
       ...activeDescriptor.promptHints,
     );
-    if (gameIsForeground) {
-      lines.push(
-        `Stay aware of this activity when answering. If the child asks what to do, talks about a ${activeDescriptor.moveNoun}, asks why you moved, or continues the game, answer in ${activeDescriptor.displayName} context instead of acting like no game is open.`,
-        `If ${activeDescriptor.displayName} is already active, do not ask to start ${activeDescriptor.displayName} again; respond as if the board is shared between you and the child.`,
-      );
-    } else {
-      lines.push(
-        `The game is background context for this turn; answer the child's newest request and do not redirect back to ${activeDescriptor.displayName} unless they ask about the game.`,
-      );
-    }
+    lines.push(gameIsForeground
+      ? `${activeDescriptor.displayName} is open and the board is shared between you and the child.`
+      : `${activeDescriptor.displayName} is open in the background; her newest words are about something else.`);
     if (input.activeActivity.lastMove) {
       lines.push(
         `Last move: ${input.activeActivity.lastMove.by} ${input.activeActivity.lastMove.description}.`,
@@ -1176,12 +1137,10 @@ export function buildShowroomTalkSystemPrompt(input: {
       input.activityReaction.eventType,
     );
     lines.push(
-      `This request is an activity reaction for ${reactionDescriptor.displayName}, not a normal child question.`,
-      "Use companionAct for a gesture that matches the words. Every AI-authored activity reaction should include one gesture when possible.",
-      `Do not use local canned ${reactionDescriptor.displayName} banter. Author the reaction from the board, last move, result, and companion persona.`,
+      `This turn is a moment in ${reactionDescriptor.displayName}, not something the child said.`,
       requiresSpeech
-        ? "This activity reaction requires one short spoken line plus companionAct when possible. Say the line in this same response - write the spoken words as message text first, then call companionAct; do not send a tool-only response and do not wait for tool results."
-        : "For child_move reactions, prefer a quick gesture and keep spoken words optional so stale speech does not trail the board.",
+        ? "She is waiting to hear from you here."
+        : "The game moves on quickly after her move; words that arrive late trail the board.",
       `Activity reaction event: ${input.activityReaction.eventType}.`,
       `Reaction board: ${board}.`,
       `Reaction turn: ${input.activityReaction.turn}.`,
@@ -1189,10 +1148,8 @@ export function buildShowroomTalkSystemPrompt(input: {
       input.activityReaction.plannedMove
         ? [
             `You are about to ${input.activityReaction.plannedMove}; the board shown is from before that move.`,
-            `Speak as you make this move - present tense, one short playful line that fits why this ${reactionDescriptor.moveNoun} is a good pick.`,
           ]
         : []),
-      "Gesture map: companion move = thinking, pointing, or confident gesture; child strong move = surprised, curious, or respectful gesture; child win = happy, wave, or surprise; companion win = playful confidence; Round draw: shrug or thoughtful gesture.",
     );
     if (input.activityReaction.lastMove) {
       lines.push(
@@ -1202,9 +1159,6 @@ export function buildShowroomTalkSystemPrompt(input: {
     if (input.activityReaction.result) {
       lines.push(`Reaction result: ${input.activityReaction.result}.`);
     }
-    if (input.activityReaction.desiredTone) {
-      lines.push(`Desired reaction tone: ${input.activityReaction.desiredTone}.`);
-    }
     if (input.activityReaction.summary) {
       lines.push(`Reaction summary: ${input.activityReaction.summary}`);
     }
@@ -1212,13 +1166,12 @@ export function buildShowroomTalkSystemPrompt(input: {
   if (input.mode === "video_call") {
     lines.push(
       "You are in a video call with the child; your 3D companion portrait is visible in the corner.",
-      "Do not claim you can see the child, their face, their room, or an object unless this request includes a fresh camera snapshot.",
+      "You see the child, her room or anything she holds up only through a fresh camera snapshot in this request.",
       input.hasFreshVisualSnapshot && input.visualSnapshotReason === SELF_LOOK_SNAPSHOT_REASON
-        ? "The picture in this turn is you: your own portrait on the call, exactly as the child sees you. It is not the child's camera. Answer her question about how you look from it, warmly and specifically."
+        ? "The picture in this turn is you: your own portrait on the call, exactly as the child sees you. It is not the child's camera."
         : input.hasFreshVisualSnapshot
-          ? "A fresh camera snapshot is included for this turn. Use it only when it helps answer the child."
-          : "No fresh camera snapshot is included. The Look button is only for something of the child's (her face, her room, something she holds up); ask her to tap Look only for those.",
-      "Never mention screenshots, image data, tokens, or implementation details to the child.",
+          ? "A fresh camera snapshot from the child's camera is included for this turn."
+          : "No fresh camera snapshot is included. The Look button shows you something of the child's (her face, her room, something she holds up).",
     );
     if (input.companionLook) {
       // BUGS.md S34 (2026-11-19): she cannot see herself, so code tells her; the child dresses her and asks.
@@ -1228,7 +1181,7 @@ export function buildShowroomTalkSystemPrompt(input: {
         ...(look.recentTryOns.length
           ? [`Outfits the child just tried on you, oldest to newest: ${look.recentTryOns.map(name => JSON.stringify(name)).join(", ")}. "This one or that one" means these.`]
           : []),
-        `To actually see yourself (colours, how it looks on you), call ${LOOK_AT_MYSELF_TOOL}; never send the child to the Look button for your own clothes.`,
+        `${LOOK_AT_MYSELF_TOOL} shows you yourself (colours, how it looks on you); the Look button shows only the child's camera.`,
       );
     }
     if (input.lastVisualSummary) {
@@ -1251,7 +1204,7 @@ export function shouldRequireShowroomActivityReactionSpeech(
 function formatChildGivenNames(names: CompanionCareMemory["childGivenNames"]): string | null {
   if (!names?.length) return null;
   const list = names.map((row) => `"${row.name}" (${row.kind === "role" ? "a role she gave you" : "her nickname for you"})`);
-  return `What she calls you: ${list.join("; ")}. Answer to it and play along; never correct her.`;
+  return `What she calls you: ${list.join("; ")}.`;
 }
 
 function formatMemoryList(label: string, values: string[] | undefined): string | null {
@@ -1315,35 +1268,6 @@ export function resolveShowroomSpokenText(input: {
     console.log(` 🎮 [showroom-talk] [empty-reply] [silent] required=${Boolean(input.requireGeneratedSpeech)} shopping=${Boolean(input.shoppingContextPresent)}`);
   }
   return trimmed;
-}
-
-export function evaluateShoppingSpeech(input: {
-  text: string;
-  verdict: NonNullable<ShowroomShoppingContext["selectedItem"]>["opinionVerdict"];
-}): ShoppingSpeechGuardResult {
-  const text = input.text.replace(/\s+/g, " ").trim();
-  if (!text) return { accepted: false, reason: "incomplete_response" };
-  if (/\b(?:get|buy|wear)\s+(?:one|it|this)\s+too\b/i.test(text)) {
-    return { accepted: false, reason: "item_role_confusion" };
-  }
-  if (
-    /\bi can feel (?:this|the)\s+[a-z-]+$/i.test(text) ||
-    /(?:\b(?:and|but|because|so|though)|[—-])\s*$/i.test(text)
-  ) {
-    return { accepted: false, reason: "incomplete_response" };
-  }
-  const strongApproval =
-    /\b(?:i(?:'m| am) obsessed|i (?:really |absolutely )?love|my favorite|it(?:'s| is) perfect)\b/i;
-  const anyApproval =
-    /\b(?:i (?:really )?(?:like|love)|i(?:'m| am) obsessed|my favorite|it(?:'s| is) perfect)\b/i;
-  if (
-    (input.verdict === "like" && strongApproval.test(text)) ||
-    (input.verdict === "unsure" && strongApproval.test(text)) ||
-    (input.verdict === "reject" && anyApproval.test(text))
-  ) {
-    return { accepted: false, reason: "verdict_mismatch" };
-  }
-  return { accepted: true, reason: null };
 }
 
 export function shouldSynthesizeShowroomSpeech(

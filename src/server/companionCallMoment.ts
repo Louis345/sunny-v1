@@ -34,26 +34,24 @@ export function buildCallMomentTurn(input: { moment: CallMoment; recentLines?: s
   if (input.moment === "showroom_intro") {
     return [
       "(Note from the showroom, not words from her: the child is looking at you in the companion showroom and tapped to hear you. You may not know each other yet.)",
-      "Introduce yourself to her as yourself, from who you really are and what your life is like. Keep it short.",
-      "Never use a stock introduction you could say to anyone, and do not bring up coins, rewards, or homework.",
+      "She wants to hear who you are. Coins, rewards and homework are not part of this moment.",
     ].join("\n");
   }
   if (input.moment === "showroom_plead") {
     return [
       "(Note from the showroom, not words from her: the child tapped to hear why she should pick you as her companion.)",
-      "Tell her, as yourself, why she should pick you: something true about you and what being friends would be like. Keep it short; no begging and no stock pitch.",
+      "She wants to hear from you before she chooses.",
     ].join("\n");
   }
   if (input.moment === "opening") {
     return [
       "(Note from the call, not words from her: the call just connected and nobody has spoken yet.)",
-      "Say your first words to her, as yourself. Start from something real: what you remember about her, how long it has been since you last talked, or something going on in your own life right now.",
-      "Never open with a stock greeting you could say to anyone, and do not bring up call time, coins, rewards, or homework.",
+      "What you remember about her and your own life are above. Call time, coins, rewards and homework are not part of this moment.",
     ].join("\n");
   }
   return [
     "(Note from the call, not words from her: she is hanging up now.)",
-    "Say goodbye in your own words, from this call, short enough to finish before the screen closes.",
+    "The screen closes in a few seconds.",
     lines.length ? `What was said on this call, oldest first:\n${lines.join("\n")}` : "Almost nothing was said on this call.",
   ].join("\n");
 }

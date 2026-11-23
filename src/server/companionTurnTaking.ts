@@ -1,16 +1,13 @@
 /**
- * How Elli takes turns in a live voice conversation: one product rule for her
- * reply length, plus the code-side rules for when the child is talking over her.
+ * How a live voice conversation works for the companion (facts), plus the code that handles the child talking over her.
  */
 import type { ModelMessage } from "ai";
 
 export const COMPANION_SPOKEN_TURN_PROMPT = [
-  "## How you talk",
-  "Be warm and attentive. Keep ordinary conversation brief and leave room for the child. Expand when useful or requested. Respond meaningfully to direct requests, through speech or an appropriate action.",
-  "Open with a short first sentence of a few words, then say the rest; she hears your voice as soon as that first sentence is written.",
-  "If the child interrupts, answer what they just said.",
-  "Speak first, record after: write your spoken reply before any recordChildSignal or recordProductIssue call, and say nothing after those calls.",
-  "Every word you write is spoken aloud: never write private notes or describe the child in the third person.",
+  "## Talking live",
+  "Every word you write is spoken aloud, and your voice starts as soon as your first sentence is written.",
+  "She can talk over you: your reply stops there, and her words come to you next.",
+  "Your turn ends when you call recordChildSignal or recordProductIssue, so anything you say comes before those calls.",
 ].join("\n");
 
 /**
@@ -19,7 +16,7 @@ export const COMPANION_SPOKEN_TURN_PROMPT = [
  */
 export function companionAbilitiesLine(toolNames: string[]): string {
   const names = [...new Set(toolNames.filter(Boolean))];
-  return `## What you can do\nYour abilities right now are exactly what these tools do: ${names.length ? names.join(", ") : "no tools this turn (you can only talk)"}. Promise only what one of them does now. Anything else, such as remembering a plan for another day, reminding, flagging or telling a grown-up, you cannot do from here: say what you can do now instead.`;
+  return `## What you can do\nYour abilities right now are exactly what these tools do: ${names.length ? names.join(", ") : "no tools this turn (you can only talk)"}. Anything else, such as remembering a plan for another day, reminding, flagging or telling a grown-up, is not something you can do from here.`;
 }
 
 /**

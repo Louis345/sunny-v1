@@ -84,7 +84,7 @@ export class GameNarrationRouter {
     if (!screenKnown && !namesIt) console.log(` 🎮 [game-narration] [screen] [unknown] reading the game's line`);
     if (namesIt || !onScreen) {
       console.log(` 🎮 [game-narration] [routed] [companion-fact] reason=${namesIt ? "names_child" : "not_on_screen"}`);
-      return { to: "companion", fact: `The game wanted to say aloud: "${line}". It was not spoken (the narrator reads only what is on screen). Use it only if it helps her, in your own words; staying quiet is fine.` };
+      return { to: "companion", fact: `The game wanted to say aloud: "${line}". It was not spoken (the narrator reads only what is on screen).` };
     }
     const spokenKey = tokens(line).join(" ");
     if (this.spoken.has(spokenKey) && !REPLAY.test(String(metadata.reason ?? ""))) {
@@ -94,7 +94,7 @@ export class GameNarrationRouter {
     this.spoken.add(spokenKey);
     if (this.spoken.size > MAX_LINES) this.spoken.delete(this.spoken.values().next().value as string);
     console.log(` 🎮 [game-narration] [routed] [narrator] kind=screen_text`);
-    return { to: "narrator", kind: "screen_text", text: line, fact: `The game's narrator just read aloud: "${line}". She heard it; do not repeat it.` };
+    return { to: "narrator", kind: "screen_text", text: line, fact: `The game's narrator just read aloud: "${line}". She heard it.` };
   }
 }
 

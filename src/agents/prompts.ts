@@ -131,7 +131,7 @@ export function buildCanvasContext(canvas: Record<string, unknown>): string {
   }
 
   if (parts.length === 0) return "";
-  return `[${parts.join(". ")}. Do NOT re-draw what is already showing unless the child explicitly asks or the content needs to change.]`;
+  return `[${parts.join(". ")}. This is already on screen.]`;
 }
 
 /** Extract a spelling word list from raw homework OCR content. */
@@ -507,9 +507,8 @@ function useAdventureMapVoiceSlimPrompt(subject: SessionSubject, worksheetMode =
 function adaptiveMicroProbeInstructions(): string {
   return [
     "## Adaptive micro-probes",
-    "You may use recordChildSignal only for narrow learning signals after a natural moment: a real choice, strong reaction, repeated error, hint request, stop/change request, parent comment, or visible frustration.",
-    "If the child or parent/caregiver reports a Sunny bug, confusing activity flow, companion lag, content mismatch, or UI blocker, use recordProductIssue. That is product evidence, not preference evidence.",
-    "If the child answers, record it as stated_preference with evidenceText. If you directly observe a behavior, record it as observed_behavior. A stated preference is useful evidence, not truth.",
+    "recordChildSignal saves something you noticed about how she learns into her record: a choice, a strong reaction, a repeated error, a hint request, a stop or change request, a parent comment, or frustration. What she says is stated_preference; what you see her do is observed_behavior. A stated preference is evidence, not truth.",
+    "recordProductIssue saves a Sunny bug, confusing flow, lag, content mismatch or UI blocker for the grown-ups.",
   ].join("\n");
 }
 
@@ -679,7 +678,7 @@ export async function buildSessionPrompt(
   if (!homeworkContent || !homeworkContent.trim()) {
     const namePrefix = buildNamePrefix(childName);
     const soulBlock = [companionBase, individualMd.trim()].filter(Boolean).join("\n\n");
-    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nMatch their energy. Never use asterisks.`;
+    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today; reading, word games and open conversation are all available.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
     const manifest = sessionPromptCapabilitiesTail(subject, options);
     const beforeCare = `${body}${manifest}`;

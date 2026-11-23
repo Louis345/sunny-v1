@@ -179,12 +179,10 @@ export function prepareInstructionReadRequest(input: {
         : "The child asked Elli to read or explain the current prompt.",
       `Frozen prompt: ${JSON.stringify(prompt)}`,
       `Measurement role: ${input.measurementRole ?? "unknown"}.`,
-      "Use the live answer-hidden activity context. Speak naturally in one short, age-appropriate sentence.",
-      "Read or briefly simplify what the child needs to do; do not reveal, imply, or eliminate toward the answer and do not alter the choices or scoring contract.",
+      "The live activity context hides the answer. Pointing toward the answer, ruling choices out, or changing the choices would change what this item measures.",
       input.trigger === "guided_prompt"
-        ? "This was system-invited support, not evidence that the child asked for help; do not record a help-needed child signal."
-        : "This was child-requested support; record it only as support/interaction evidence, never mastery.",
-      "Return control to the activity unless a brief understanding question is genuinely needed.",
+        ? "The activity invited this, not her: it is not a help request from her."
+        : "She asked for this; it is saved as support, never mastery.",
     ].join("\n"),
     trace: {
       type: "instructional_companion_support",

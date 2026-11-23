@@ -325,7 +325,7 @@ export function handleGameEventForSession(
     const label = String(event.label ?? "").replace(/[^\p{L}\p{N} '’!?.,&-]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 60);
     console.log(` 🎮 [unlock-ceremony] [companion-notified] kind=${kind.toLowerCase()} node=${nodeId}`);
     void s.handleEndOfTurn(
-      `[board_event] Right now a ${kind} is opening on her board${label ? `: "${label}"` : ""}. The board went dark, it is rumbling, and in about three seconds a light will burst and the ${kind} will rise. React in one short, amazed line in your own words, as if you just felt something magical starting. Do not explain it, name problems, or open it for her.`,
+      `[board_event] Right now a ${kind} is opening on her board${label ? `: "${label}"` : ""}. The board went dark, it is rumbling, and in about three seconds a light will burst and the ${kind} will rise.`,
       true,
     ).catch((err: unknown) => console.error("  🔴 [unlock-ceremony] [companion-notified] failed:", err));
     return;
@@ -991,7 +991,7 @@ export function handleReadingProgress(s: SM, payload: Record<string, unknown>): 
       );
 
       void s.handleEndOfTurn(
-        "[reading_progress] event=complete — the reader finished the karaoke story. Respond to her finishing it in your own words. Do not call canvasShow or refresh karaoke unless the child or parent/caregiver explicitly asks for something new.",
+        "[reading_progress] event=complete — the reader finished the karaoke story; it stays on screen.",
         true,
         { fromReadingComplete: true },
       ).catch((err: unknown) => console.error(err));

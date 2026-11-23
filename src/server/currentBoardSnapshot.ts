@@ -360,11 +360,9 @@ export function buildCurrentBoardSnapshotContext(
       "The activity controls written answer visibility. Teaching is assistance, not an independent spelling result.");
     if (snapshot.spellingSupportMode === "stimulus_only") {
       lines.push("Purpose: establish what the child can spell independently; practice with full help comes after this check. Whole-word replay and task clarification support that measurement; syllables, letters and spelling demonstrations would supply part of the answer.",
-        "If she asks for help spelling it, be honest that this one is hers to try, help comes next, and a best guess or Not sure is fine.",
-        "Use replayWord for the activity’s own whole-word audio when she wants to hear it. Answer what she actually says: offering a replay is not a reply to everything, and an offer she did not take up needs no repeating. The private stimulus is held by the activity, not supplied in this context.");
+        "replayWord plays the activity’s own whole-word audio. teachWord gives you the word so you can teach it; her answer on it is then recorded as help. A best guess or Not sure are answers too. The private stimulus is held by the activity, not supplied in this context.");
     } else {
       lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
-        "When the child asks for help with this word or is clearly stuck, help her learn it together: demonstrate and adapt, using her feedback to judge what helps. Otherwise follow her lead.",
         "Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available. The canonical target comes from this activity, not room conversation.");
       if (snapshot.plannerRead) lines.push(`The Planner's current read on her learning (a hypothesis to notice as you practice, not a script): ${snapshot.plannerRead}`);
       const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
@@ -376,9 +374,9 @@ export function buildCurrentBoardSnapshotContext(
           "Available teaching reference: whole-word sounds, vowel nuclei and stress; Elli chooses the demonstration, pacing and explanation.",
           "Phonemes describe spoken sounds; written spelling chunks may differ from spoken syllables, and silent letters have no separate sound.");
       } else {
-        lines.push("Pronunciation reference unavailable. Use your language knowledge and available audio or authored sound cues; acknowledge uncertainty about unfamiliar pronunciations.");
+        lines.push("No pronunciation reference is available for this word.");
       }
-      lines.push("Do not grade the child's pronunciation from transcript text. Specific pronunciation judgments require audio assessment evidence.");
+      lines.push("The transcript cannot show how she pronounced a word; only audio assessment evidence can.");
     }
   }
   if (snapshot.loading) {

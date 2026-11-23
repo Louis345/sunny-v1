@@ -260,7 +260,6 @@ import {
   createShowroomCompanionActCommand,
   createShowroomTalkCompletedEvent,
   createShowroomTalkPhaseCommand,
-  evaluateShoppingSpeech,
   getShowroomCompanionActivityTools,
   getShowroomCompanionActTools,
   getShowroomRelationshipTools,
@@ -364,7 +363,6 @@ const COMPANION_TALK_SONNET_MODEL =
   process.env.SUNNY_COMPANION_TALK_MODEL ?? "claude-sonnet-4-5";
 const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
 const VIDEO_CALL_FLASH_TTS_MODEL = "eleven_flash_v2_5";
-const MAX_SHOWROOM_SPEECH_RETRIES = 1;
 const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventName>([
   "call_started",
   "call_ended",
@@ -2489,82 +2487,6 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         text = extractAnthropicText(afterTool) || text;
       } else {
         latencySpans.toolFollowupMs = 0;
-      }
-      const shoppingVerdict =
-        talk.shoppingContext?.selectedItem?.opinionVerdict;
-      if (shoppingVerdict) {
-        let speechGuard = evaluateShoppingSpeech({
-          text,
-          verdict: shoppingVerdict,
-        });
-        for (
-          let retryCount = 0;
-          !speechGuard.accepted && retryCount < MAX_SHOWROOM_SPEECH_RETRIES;
-          retryCount += 1
-        ) {
-          console.warn(
-            ` 🎮 [showroom-talk] shopping_speech_retry companion=${talk.companionId} reason=${speechGuard.reason ?? "unknown"}`,
-          );
-          safeRecordCompanionVideoCallTrace({
-            callTraceId: talk.callTraceId,
-            turnId: talk.turnId,
-            eventName: "shopping_speech_retry",
-            childId: talk.childId,
-            companionId: talk.companionId,
-            callSource: talk.callSource,
-            relationshipState: talk.relationshipState,
-            payload: {
-              reason: speechGuard.reason,
-              retryCount: retryCount + 1,
-              verdict: shoppingVerdict,
-              itemId: talk.shoppingContext?.selectedItem?.id,
-            },
-          });
-          const retryStartedAt = Date.now();
-          const retriedMessage = await client.messages.create({
-            model: HOMEWORK_SONNET_MODEL,
-            max_tokens: 140,
-            system: [
-              system,
-              `The previous draft was rejected by the shopping speech guard for ${speechGuard.reason ?? "invalid speech"}. Answer the child's newest words again with one complete, natural sentence grounded in the selected item and exact code-owned verdict. The item is for you, the companion. Do not call tools.`,
-            ].join("\n"),
-            messages: messages as Anthropic.MessageParam[],
-            tools: showroomTools,
-            tool_choice: { type: "none" },
-          });
-          latencySpans.speechRetryMs =
-            (latencySpans.speechRetryMs ?? 0) + (Date.now() - retryStartedAt);
-          text = extractAnthropicText(retriedMessage);
-          speechGuard = evaluateShoppingSpeech({
-            text,
-            verdict: shoppingVerdict,
-          });
-        }
-        if (!speechGuard.accepted) {
-          console.error(
-            ` 🎮 [showroom-talk] shopping_speech_guard_failed companion=${talk.companionId} reason=${speechGuard.reason ?? "unknown"}`,
-          );
-          safeRecordCompanionVideoCallTrace({
-            callTraceId: talk.callTraceId,
-            turnId: talk.turnId,
-            eventName: "shopping_speech_guard_failed",
-            childId: talk.childId,
-            companionId: talk.companionId,
-            callSource: talk.callSource,
-            relationshipState: talk.relationshipState,
-            payload: {
-              reason: speechGuard.reason,
-              verdict: shoppingVerdict,
-              itemId: talk.shoppingContext?.selectedItem?.id,
-            },
-          });
-          return res.status(502).json({
-            ok: false,
-            code: "companion_shopping_response_unavailable",
-            error: `${companion.name} needs a moment to think about that. Please ask again.`,
-            retryable: true,
-          });
-        }
       }
       const spokenText = resolveShowroomSpokenText({
         rawText: text,
