@@ -1,18 +1,11 @@
 /**
- * The honesty boundary for an open problem's answer (owner, 11/23: "try typing 49" on try 5 of a checkpoint, and the same
- * line shown as text while Elli was muted). GAME_REVEAL_RULE asks the companion to keep a check's answer private; this is
- * where code holds it to that. Every reply sentence passes here before it is shown or spoken (text and voice are one
- * stream), so a sentence stating the open item's frozen answer is:
- *   - withheld, while the item is a check of what she can do alone (any role but practice or instruction);
- *   - allowed on a practice or instruction item, and reported so the record marks the item assisted.
- * How to help (meaning first, a question, a smaller step) stays the companion's judgment; code never adds words.
+ * Record honesty for an open problem's answer (owner, 11/23: "I don't want filters"). Elli's words are never withheld or
+ * changed. Each reply sentence is read once on its way out; one that states the open item's frozen answer is reported so
+ * the record marks that item "with help". What she says, and whether to say it, is hers.
  */
 import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 
 export type OpenAnswerItem = { nodeId: string; itemId: string; expected: number; role?: string; prompt?: string };
-
-const REVEAL_ALLOWED_ROLES = new Set(["practice", "instruction"]);
-export const revealAllowed = (item: OpenAnswerItem): boolean => REVEAL_ALLOWED_ROLES.has(String(item.role));
 
 const ONES: Record<string, number> = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19 };
@@ -64,21 +57,19 @@ export function openAnswerItem(
 const SENTENCE_END = /[.!?]+(?=\s)\s*|\n+/g;
 
 /**
- * A streaming filter for the companion's reply. With no open item it passes chunks through untouched. With one, it holds
- * text to the end of each sentence and lets the sentence out only if it does not state the answer (or the item allows it).
+ * Reads the companion's reply as it streams. With no open item chunks pass straight through. With one, text is passed on
+ * a sentence at a time so each whole sentence can be checked for the answer; every sentence goes out unchanged.
  */
 export function createAnswerRevealFilter(
   resolveItem: () => OpenAnswerItem | undefined,
-  onReveal: (sentence: string, item: OpenAnswerItem, allowed: boolean) => void,
+  onReveal: (sentence: string, item: OpenAnswerItem) => void,
 ) {
   let pending = "";
   let item: OpenAnswerItem | undefined;
   let resolved = false;
   const check = (sentence: string): string => {
-    if (!item || !statesAnswer(sentence, item)) return sentence;
-    const allowed = revealAllowed(item);
-    onReveal(sentence, item, allowed);
-    return allowed ? sentence : "";
+    if (item && statesAnswer(sentence, item)) onReveal(sentence, item);
+    return sentence;
   };
   return {
     push(chunk: string): string {
@@ -105,13 +96,13 @@ export function createAnswerRevealFilter(
 /** What the gate needs from a live session: the open item now, and where a reveal is recorded. */
 export type AnswerGateSession = {
   openAnswerItem?(): OpenAnswerItem | undefined;
-  noteAnswerReveal?(sentence: string, item: OpenAnswerItem, allowed: boolean): void;
+  noteAnswerReveal?(sentence: string, item: OpenAnswerItem): void;
 };
 
 export function answerGateForSession(session: AnswerGateSession) {
   return createAnswerRevealFilter(
     () => { try { return session.openAnswerItem?.(); } catch (error) { console.error(" 🎮 [answer-reveal] [item] [unavailable]", error); return undefined; } },
-    (sentence, item, allowed) => session.noteAnswerReveal?.(sentence, item, allowed),
+    (sentence, item) => session.noteAnswerReveal?.(sentence, item),
   );
 }
 

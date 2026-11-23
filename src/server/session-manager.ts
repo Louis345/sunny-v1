@@ -1227,7 +1227,7 @@ export class SessionManager {
     return next;
   }
 
-  /** The problem open on her screen whose answer code keeps private (answerRevealGate.ts). */
+  /** The problem open on her screen, so a stated answer can be recorded as help (answerRevealGate.ts). */
   public openAnswerItem(): OpenAnswerItem | undefined {
     const bound = this.mathDiscoverySupport;
     if (!bound) return undefined;
@@ -1235,16 +1235,13 @@ export class SessionManager {
   }
 
   /** A reply sentence stated the open problem's answer: withheld on a check, or allowed and recorded as help on practice. */
-  public noteAnswerReveal(sentence: string, item: OpenAnswerItem, allowed: boolean): void {
-    console.log(` 🎮 [answer-reveal] [${allowed ? "allowed-assisted" : "withheld"}] item=${item.itemId} role=${item.role ?? "unknown"}`);
-    this.debugRecorder.recordEvent("answer_reveal", allowed ? "allowed_assisted" : "withheld", { itemId: item.itemId, nodeId: item.nodeId, role: item.role, sentence });
-    if (allowed) {
-      const support = this.mathDiscoverySupport;
-      const id = `answer_revealed:${this.sessionId}:${item.itemId}`;
-      if (support?.itemId === item.itemId && !support.supportIds.includes(id)) support.supportIds.push(id);
-      return;
-    }
-    this.noteExternalEvent({ source: "answer_reveal", occurredAt: Date.now(), summary: `Code did not say or show your sentence "${sentence.trim().slice(0, 200)}": it states the answer to the open problem, which is a check of what she can do alone. The answer stays hers to find; help her reason toward it.` });
+  /** Elli stated the open answer: her words went out unchanged, and the item is recorded as helped. */
+  public noteAnswerReveal(sentence: string, item: OpenAnswerItem): void {
+    console.log(` 🎮 [answer-reveal] [recorded-assisted] item=${item.itemId} role=${item.role ?? "unknown"}`);
+    this.debugRecorder.recordEvent("answer_reveal", "recorded_assisted", { itemId: item.itemId, nodeId: item.nodeId, role: item.role, sentence });
+    const support = this.mathDiscoverySupport;
+    const id = `answer_revealed:${this.sessionId}:${item.itemId}`;
+    if (support?.itemId === item.itemId && !support.supportIds.includes(id)) support.supportIds.push(id);
   }
 
   public getSpellingLaunch() { return this.spellingLaunch ? {...this.spellingLaunch} : undefined; } public getSessionDir(): string | undefined { return this.debugRecorder?.sessionDir; }

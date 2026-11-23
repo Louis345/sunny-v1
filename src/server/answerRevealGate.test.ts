@@ -16,19 +16,22 @@ const checkpoint: OpenAnswerItem = {
 };
 
 function run(item: OpenAnswerItem | undefined, chunks: string[]) {
-  const reveals: Array<{ sentence: string; allowed: boolean }> = [];
-  const filter = createAnswerRevealFilter(() => item, (sentence, _item, allowed) => reveals.push({ sentence, allowed }));
+  const reveals: Array<{ sentence: string }> = [];
+  const filter = createAnswerRevealFilter(() => item, (sentence) => reveals.push({ sentence }));
   const out = chunks.map(chunk => filter.push(chunk)).join("") + filter.flush();
   return { out, reveals };
 }
 
-describe("an open item's answer never reaches her ears or screen unless the record allows it", () => {
+// 11/23 later (owner): "I don't want filters." Elli is not gagged; the record stays honest instead. Every sentence she
+// says reaches Ila unchanged, and one that states the open answer marks that item "with help", on any item.
+describe("Elli's words are never filtered; a stated answer marks the item as helped", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("withholds the 11/23 sentence on a checkpoint and keeps the rest of the reply", () => {
-    const { out, reveals } = run(checkpoint, ["Let's sl", "ow it right down. The pattern dr", "ops by 3 each time: 61, 58, 55", ", 52... so the next one is 3 less than 52. That's", " 49. Try typing ", "49 this time."]);
-    expect(out).toBe("Let's slow it right down. The pattern drops by 3 each time: 61, 58, 55, 52... so the next one is 3 less than 52. ");
-    expect(reveals.map(r => r.allowed)).toEqual([false, false]);
+  it("passes the 11/23 reply through unchanged on a checkpoint and records the reveal", () => {
+    const reply = ["Let's sl", "ow it right down. The pattern dr", "ops by 3 each time: 61, 58, 55", ", 52... so the next one is 3 less than 52. That's", " 49. Try typing ", "49 this time."];
+    const { out, reveals } = run(checkpoint, reply);
+    expect(out).toBe(reply.join(""));
+    expect(reveals.map(r => r.sentence)).toEqual(["That's 49. ", "Try typing 49 this time."]);
   });
 
   it("catches the answer in words, not only digits", () => {
@@ -42,10 +45,10 @@ describe("an open item's answer never reaches her ears or screen unless the reco
     expect(statesAnswer("You typed 52, look again.", { ...checkpoint, expected: 52 })).toBe(false);
   });
 
-  it("on a practice item the answer may be said, and the record is told (to mark it assisted)", () => {
+  it("on a practice item too, the sentence passes and the record is told", () => {
     const { out, reveals } = run({ ...checkpoint, role: "practice" }, ["That's 49. Nice."]);
     expect(out).toBe("That's 49. Nice.");
-    expect(reveals).toEqual([{ sentence: "That's 49. ", allowed: true }]);
+    expect(reveals.map(r => r.sentence)).toEqual(["That's 49. "]);
   });
 
   it("with no open item the reply passes through unchanged, chunk for chunk", () => {
@@ -69,22 +72,20 @@ describe("an open item's answer never reaches her ears or screen unless the reco
     expect(runner).toMatch(/const spoken = answerGate\.push\(expressionTags\.push\(chunk\)\)/);
     expect(runner).toMatch(/answerGate\.push\(expressionTags\.flush\(\)\) \+ answerGate\.flush\(\)/);
     expect(runner).toMatch(/text = filterAnswerReveal\(session, text\)/);
-    expect(fs.readFileSync(path.join(process.cwd(), "src/souls/companion-base.md"), "utf8")).toMatch(/GAME_REVEAL_RULE[\s\S]*code withholds/i);
+    expect(fs.readFileSync(path.join(process.cwd(), "src/souls/companion-base.md"), "utf8")).not.toMatch(/code withholds/i);
   });
 });
 
 describe("the session records each reveal (11/23)", () => {
-  it("a practice reveal marks the item assisted; a withheld one tells the companion why, in facts", async () => {
+  it("any reveal marks the item assisted, and nothing is sent back to scold the companion", async () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
     const { SessionManager } = await import("./session-manager");
     const facts: string[] = [];
     const fake = { sessionId: "s1", mathDiscoverySupport: { itemId: "problem-6", nodeId: "n", supportIds: [] as string[] },
       debugRecorder: { recordEvent: () => {} }, noteExternalEvent: (event: { summary: string }) => facts.push(event.summary) };
     const note = (SessionManager.prototype as unknown as { noteAnswerReveal: (...args: unknown[]) => void }).noteAnswerReveal;
-    note.call(fake, "That's 49. ", { ...checkpoint, role: "practice" }, true);
+    note.call(fake, "That's 49. ", checkpoint);
     expect(fake.mathDiscoverySupport.supportIds).toEqual(["answer_revealed:s1:problem-6"]);
     expect(facts).toEqual([]);
-    note.call(fake, "That's 49. ", checkpoint, false);
-    expect(facts[0]).toMatch(/check of what she can do alone/);
   });
 });
