@@ -41,6 +41,7 @@ it("every turn shows Elli what she said to her in the last few minutes, as facts
   const block = context.slice(context.indexOf("[What you said to her in the last few minutes")).split("\n\n")[0];
   expect(block).toContain("I can't give you letters or sounds");
   expect(block.split("\n").filter(line => /\b(do not|don't|never|must not)\b/i.test(line))).toEqual([]);
+  expect(block).not.toMatch(/nagging|lands better/i); // facts only; what to make of them is hers
 });
 
 it("the shared persona says how long a reply to her runs", () => {

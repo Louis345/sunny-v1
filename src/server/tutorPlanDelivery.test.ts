@@ -29,23 +29,12 @@ const turn = async () => {
   return context.slice(context.indexOf("[Her tutor's plan"));
 };
 
-it("once Elli's reply carries a plan line, later turns tell her she already said it (and only that line)", async () => {
-  const { noteCompanionReplyForTutorPlan } = await import("./urgentLearningSupport");
-  expect(await turn()).not.toContain("already said");
-  noteCompanionReplyForTutorPlan("ila-lab", "Hi Ila! I love your bow today.");
-  expect(await turn()).not.toContain("already said");
-  noteCompanionReplyForTutorPlan("ila-lab", "Quick check: does your keyboard show ABC up in the corner?");
+// 11/23 (owner: personas, no rules): the word-overlap tracker that stamped "You already said this to her" on plan lines is
+// gone. Elli has her own conversation; the plan reaches her as the Planner wrote it, every turn, with nothing added.
+it("the Planner's plan reaches Elli as written, with no code commentary on what she already said", async () => {
   const block = await turn();
-  const keyboardLine = block.split("\n").find(line => line.includes("keyboard shows ABC"))!;
-  expect(keyboardLine).toContain(`You already said this to her: "Quick check: does your keyboard show ABC up in the corner?"`);
-  expect(block.split("\n").find(line => line.includes("Keep the typed production"))).not.toContain("already said");
-  expect(block.split("\n").filter(line => /\b(do not|don't|never|must not)\b/i.test(line))).toEqual([]);
-});
-
-it("a new Planner decision starts its lines fresh", async () => {
-  const { noteCompanionReplyForTutorPlan } = await import("./urgentLearningSupport");
-  noteCompanionReplyForTutorPlan("ila-lab", "Does your keyboard show ABC?");
-  expect(await turn()).toContain("already said");
-  cycle.decisionHistory.push({ ...cycle.decisionHistory[0], decisionId: "d10" });
-  expect(await turn()).not.toContain("already said");
+  expect(block).toContain("Before play, check her keyboard shows ABC, not the Japanese input.");
+  expect(block).not.toContain("already said");
+  const support = await import("./urgentLearningSupport") as Record<string, unknown>;
+  expect(support.noteCompanionReplyForTutorPlan).toBeUndefined();
 });
