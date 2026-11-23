@@ -6,7 +6,7 @@ import { typedSpellingForChart } from "./spellingKeyboardInput";
 import { takeCompanionHelpItemIds } from "./companionItemHelp";
 import { retroThenDecide } from "../engine/retroBeforeDecision";
 import { writeSessionHandoff } from "../engine/sessionHandoff";
-import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall } from "./bossDropAward";
+import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall, stopEarnsChest } from "./bossDropAward";
 import { awardBirthdayGiftOnCompletion, awardCreatureEncounterOnCompletion, countBoardForCreatures, registerCreatureRoutes } from "./creatureCare";
 import type { CoinOffer } from "../shared/companionCareTypes";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
@@ -1215,7 +1215,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
           });
       }
-      const finishedForReward = becameCompleted && body.result.completed === true && body.result.won !== false && body.result.earlyExit !== true;
+      const finishedForReward = becameCompleted && stopEarnsChest(body.result);
+      if (becameCompleted && !finishedForReward) console.log(` 🎮 [learning-cycle-route] [node-chest] [not-earned] child=${childId} node=${nodeId} rewardBreak=${body.result.rewardBreak !== undefined} earlyExit=${body.result.earlyExit === true} won=${String(body.result.won)}`);
       // Every finished stop opens a treasure chest that pays its coins; the Boss keeps its flat coins and loot card.
       const nodeChest = finishedForReward ? awardNodeChestOnCompletion(finalCycle, nodeId) : undefined;
       // A creature appears only where the Planner placed one (owner, 2026-11-08); boards count toward milestones.

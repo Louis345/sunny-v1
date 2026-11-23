@@ -25,6 +25,13 @@ export function awardBossDropOnCompletion(cycle: LearningCycleRecordV2, nodeId: 
   }
 }
 
+/** A chest (and any creature or birthday gift) is earned only by a stop she finished (Ila, 2026-11-22: "when I
+ * didn't finish, I go to the treasure chest"). A Mystery reward break ends by time up or her leaving; the break
+ * itself was the reward, so its end opens nothing. */
+export function stopEarnsChest(result: Record<string, unknown>): boolean {
+  return result.completed === true && result.won !== false && result.earlyExit !== true && result.rewardBreak === undefined;
+}
+
 /** Every other finished stop opens a treasure chest (owner, 2026-11-06): rolled once, saved, and paid into
  * her companion's coins. It replaces the flat per-stop coins. A failure is logged and never blocks her completion. */
 export function awardNodeChestOnCompletion(cycle: LearningCycleRecordV2, nodeId: string, roll?: () => number): { chest: NodeChest; balance: number } | undefined {
