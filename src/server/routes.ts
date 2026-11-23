@@ -1,3 +1,4 @@
+import { companionAbilitiesLine } from "./companionTurnTaking";
 import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
 import { kioskLiveWeather } from "./liveWeather";
 import { takeServerTries, withServerTries } from "./itemAttemptFacts";
@@ -2323,7 +2324,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       // The system prompt is static across a call (persona + room + memory);
       // caching it cuts Claude's time-to-first-token on every later turn.
       const cachedSystem: Anthropic.TextBlockParam[] = [
-        { type: "text", text: system, cache_control: { type: "ephemeral" } },
+        { type: "text", text: `${system}\n${companionAbilitiesLine(showroomTools.map(tool => tool.name))}`, cache_control: { type: "ephemeral" } },
       ];
       // Game beats (activity reactions, move packets) ride the fast model;
       // social turns keep Sonnet for persona and memory nuance.
@@ -2971,7 +2972,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ...getShowroomSelfLookTools({ mode: talk.mode, visualSnapshot: talk.visualSnapshot }),
         ];
         // The stable part is cached (tools + persona/rules); this turn's facts follow uncached.
-        const cachedSystem = cacheableShowroomSystem(system);
+        const cachedSystem = cacheableShowroomSystem(`${system}\n${companionAbilitiesLine(showroomTools.map(tool => tool.name))}`);
         const talkModel = talk.activityReaction
           ? process.env.SUNNY_COMPANION_GAME_MODEL || GAME_GRADE_HAIKU_MODEL
           : COMPANION_TALK_SONNET_MODEL;

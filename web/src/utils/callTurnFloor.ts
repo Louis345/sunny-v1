@@ -6,13 +6,9 @@ import { assign, createActor, setup } from "xstate";
  * and a bare stop is never sent to the companion as a question (it answered "stop" with "want to hear more?").
  * Code only routes the turn; what the companion says next comes from the live call.
  */
-const STOP_WORDS = new Set(["stop", "wait", "pause", "shh", "shhh", "hush", "quiet", "enough", "hold", "on", "be", "please", "okay", "ok", "no", "hey", "um", "uh", "it", "just", "talking"]);
-const STOP_CORE = new Set(["stop", "wait", "pause", "shh", "shhh", "hush", "quiet", "enough", "hold"]);
+import { isOnlyStopWords } from "../../../src/shared/stopWords";
 
-export function isOnlyStopWords(text: string): boolean {
-  const words = text.toLowerCase().replace(/[^a-z\s']/g, " ").split(/\s+/).filter(Boolean);
-  return words.length > 0 && words.length <= 6 && words.every((word) => STOP_WORDS.has(word)) && words.some((word) => STOP_CORE.has(word));
-}
+export { isOnlyStopWords };
 
 type Ctx = { turn: number };
 type Ev =

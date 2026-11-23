@@ -14,6 +14,15 @@ export const COMPANION_SPOKEN_TURN_PROMPT = [
 ].join("\n");
 
 /**
+ * What she can really do, from the tools this turn actually has (owner eval 11/22: "I promise… tomorrow", "I'll flag
+ * that" with no tool to flag). Code states the abilities; the companion decides what to say.
+ */
+export function companionAbilitiesLine(toolNames: string[]): string {
+  const names = [...new Set(toolNames.filter(Boolean))];
+  return `## What you can do\nYour abilities right now are exactly what these tools do: ${names.length ? names.join(", ") : "no tools this turn (you can only talk)"}. Promise only what one of them does now. Anything else, such as remembering a plan for another day, reminding, flagging or telling a grown-up, you cannot do from here: say what you can do now instead.`;
+}
+
+/**
  * History for a reply the child cut off: their message, only what Elli had
  * actually said, and a note that she was interrupted, so her next turn does not
  * assume the child heard the rest.

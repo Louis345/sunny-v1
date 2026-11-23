@@ -1,5 +1,6 @@
 import { liveItemNode } from "./liveItemBinding";
 import { openAnswerItem, type OpenAnswerItem } from "./answerRevealGate";
+import { isOnlyStopWords } from "../shared/stopWords";
 import { itemAnsweredRight } from "./itemAttemptFacts";
 import { canonicalJourneyLaunchable } from '../engine/learningCycleRepository';
 import { reactToRewardDrop } from "./bossDropAward";
@@ -1842,6 +1843,15 @@ export class SessionManager {
 
     let state = this.turnSM.getState();
     if (state === "IDLE") this.preAudioRestarts = 0;
+    // Her bare stop ends her companion's turn in a game too (a5811f4c did the call screen); it is never a question.
+    if (isOnlyStopWords(transcript) && (this.companionPresence === "summoned" || state === "PROCESSING" || state === "SPEAKING")) {
+      if (state === "PROCESSING" || state === "SPEAKING" || state === "CANVAS_PENDING") this.bargeIn("child_speech");
+      this.turnSM.clearPendingTranscript("child_said_stop");
+      this.debugRecorder.recordTranscript("user", transcript);
+      this.send("final", { text: transcript });
+      console.log(` 🎮 [companion] [stopped] [by-child] reason=bare_stop state=${state}`);
+      return void this.voiceLatency?.discardLatest("ignored");
+    }
     if (urgentRoute && !checkUserGoodbye(transcript)) {
       if (
         state === "PROCESSING" ||
