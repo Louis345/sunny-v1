@@ -56,6 +56,7 @@ import {
 import { buildLongitudinalLearningHistory, readBoardDesignHistory, type LongitudinalLearningHistory } from "../engine/longitudinalLearning";
 import { readChildSignals } from "../engine/childSignals";
 import { currentFactsBlock } from "./soulCurrentFacts";
+import { livingProfileLines, readLivingProfile } from "../chart/livingProfile";
 
 export type ChildProfileManifest = {
   childId: string;
@@ -244,7 +245,9 @@ function readChildVoice(childId: string, rootDir: string, profile: LearningProfi
     const soul = fs.readFileSync(path.join(contextDir(rootDir, childId), "soul.md"), "utf8");
     const kept = soul.split(/^(?=## )/m).filter(section => ABOUT_HER_SECTIONS.test(section.match(/^## (.+)$/m)?.[1]?.trim() ?? ""));
     const about = kept.join("\n").trim().slice(0, 6000);
-    aboutHer = about ? [currentFactsBlock(childId, { rootDir, lasting: true }), about].filter(Boolean).join("\n\n") : null;
+    // What she told her companions, in her own words, newer than the soul file (2026-11-23: the Planner and builder read this).
+    const living = livingProfileLines(readLivingProfile(childId));
+    aboutHer = about || living ? [currentFactsBlock(childId, { rootDir, lasting: true }), living && `## What she has told her companions lately\n${living}`, about].filter(Boolean).join("\n\n") : null;
   } catch {
     // A child without a soul file is planned from her chart alone.
   }

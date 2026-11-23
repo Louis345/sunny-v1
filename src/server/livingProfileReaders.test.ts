@@ -55,3 +55,17 @@ it("one command removes a wrong fact, and the topic falls back to the one before
   expect(lines.join("\n")).toContain("f1");
   await expect(runForgetChildFact(["--child", "lab-reina", "--fact", "f2"], { log: () => undefined })).rejects.toThrow("reason");
 });
+
+// Owner 2026-11-23: facts a child told her companions reached the older soul reader but not the chart's childVoice,
+// which the learning-cycle Planner and the game builder read. Why the lab missed it: the test above checked only the
+// older reader.
+it("the chart's childVoice, which the Planner and game builder read, carries what she told her companions", async () => {
+  const { getChildChart } = await import("../profiles/childChart");
+  fs.writeFileSync(path.join(root, "src/context/lab-reina/learning_profile.json"), JSON.stringify({
+    demographics: { age: 9, grade: 3, diagnoses: [], learningStyle: "mixed", attentionSpan: "moderate", iepActive: false },
+    rewardPreferences: {}, sessionStats: { totalSessions: 0, totalWordsMastered: 0, currentStreak: 0 }, moodHistory: [] }));
+  const aboutHer = getChildChart("lab-reina", { rootDir: root }).childVoice.aboutHer ?? "";
+  expect(aboutHer).toContain("Reina doesn't like wrestling anymore; she got hurt.");
+  expect(aboutHer).toContain('Her words: "I got hurt"');
+  expect(aboutHer).not.toContain("Reina loves wrestling with her dad.");
+});
