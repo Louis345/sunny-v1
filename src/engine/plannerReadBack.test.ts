@@ -135,14 +135,15 @@ describe("the Planner reads its last theory back before each board", () => {
     expect(journal).toContain("How she thinks: She changes the digit she looks at");
   });
 
-  it("B3: a parent's teaching note is read first, before her track record, and the read-back may cite it", async () => {
+  it("B3: a parent's teaching note is shown ahead of her answers, and the read-back may cite it", async () => {
     const f = await ilaShapedRounding();
     fs.writeFileSync(path.join(resolveChildContextDir(childId, f.opts), "teaching_notes.md"), "## 2026-11-22 Parent\nMeaning first worked: about 10 or about 20?\n");
     const planner = robot(request => ({ ...baseDecision(request), read_back: { previous_theory: "x", grade: "revised", why: "y", evidence_ids: ["note:2026-11-22:1"], how_she_thinks: "z", competing_explanation: "w", board_tells_apart: "v" } }));
     await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: planner.client, draw: plainDraw }, f.opts);
     const prompt = promptOf(planner.requests[0]);
     expect(prompt).toContain("[note:2026-11-22:1] 2026-11-22, Parent:");
-    expect(prompt.indexOf("Teaching notes from outside Sunny")).toBeLessThan(prompt.indexOf("Her track record on each problem"));
+    expect(prompt.indexOf("Every answer she gave on this assignment")).toBeGreaterThan(-1);
+    expect(prompt.indexOf("Teaching notes from outside Sunny")).toBeLessThan(prompt.indexOf("Every answer she gave on this assignment"));
     expect(getLearningCycle(childId, f.homeworkId, f.opts)!.decisionHistory.at(-1)!.readBack).toMatchObject({ grade: "revised", evidenceIds: ["note:2026-11-22:1"] });
   });
 
@@ -156,7 +157,7 @@ describe("the Planner reads its last theory back before each board", () => {
     expect(tools.map((tool: any) => tool.name)).toContain("read_board_wording");
     const prompt = promptOf(planner.requests[0]);
     expect(prompt).toContain("read_board_wording");
-    expect(prompt).toMatch(/question your own wording/i);
+    expect(prompt).toContain("read_board_wording shows the exact words your last board said to her.");
     // Board 1 as she met it: the Planner's own story and aim, and the words inside the built game.
     const wording = boardWording(getLearningCycle(childId, f.homeworkId, f.opts)!, 1, f.opts) as any;
     expect(wording.stops.map((stop: any) => stop.title)).toEqual(["Fuji Check", "Stay or Roll"]);

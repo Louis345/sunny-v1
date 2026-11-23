@@ -25,7 +25,8 @@ import { recordProductIssue } from "./productIssues";
 // carries her per-word record and the Planner's journal, and the Planner writes a self-review it is held to.
 const roots: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
-const noDoNot = (text: string) => text.split("\n").filter(line => /\b(do not|don't|never|must not)\b/i.test(line));
+// "ask_parents ... never waits for a reply" (2026-11-23) states how the tool behaves, not a rule.
+const noDoNot = (text: string) => text.split("\n").filter(line => /\b(do not|don't|never|must not)\b/i.test(line.replace("it never waits for a reply", "")));
 
 it("lays out her track record per word: right on her own and with help, what she wrote, where she practiced it", () => {
   const section = spellingTrackRecordSection(ilaLikeIntrospectionCycle());
@@ -87,7 +88,7 @@ function liveFixture() {
 }
 const promptOf = (request: any): string => { const first = request.messages[0].content; return typeof first === "string" ? first : first.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n"); };
 
-it("shows the next-board Planner her track record and its journal, requires its self-review, and writes the journal file", async () => {
+it("shows the next-board Planner her track record and its journal, offers a self-review, and writes the journal file", async () => {
   const f = liveFixture();
   f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
   await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
@@ -97,7 +98,8 @@ it("shows the next-board Planner her track record and its journal, requires its 
   expect(first).toContain("Your journal: what you tried on earlier boards and what happened");
   expect(first).toContain("- No earlier decisions on this list yet.");
   const decide = f.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema;
-  expect(decide.required).toContain("self_review");
+  // Contract 63 (2026-11-23): only status, reason and progression_action are the decision; the self-review is offered.
+  expect(decide.required).toEqual(["status", "reason", "progression_action"]);
   expect(Object.keys(decide.properties.self_review.properties)).toEqual(["what_i_tried", "what_happened", "why", "what_i_keep", "what_i_change_now"]);
   // The self-review is stored with the decision, and readable in her folder.
   let cycle = getLearningCycle(childId, homeworkId, f.opts)!;
@@ -134,10 +136,14 @@ const facts = (overrides: Partial<SuccessorFacts> = {}): SuccessorFacts => ({
 const decideInput = { status: "revised", reason: "import is still inport.", progression_action: "generate_support", preserve: [], change: ["Aim a game at m before p."], test_next: [], next_evidence_required: [], prediction_evaluation_ids: [], revised_hypothesis: "" };
 const review = { what_i_tried: "Radar twice.", what_happened: "inport each time.", why: "Same practice, same error.", what_i_keep: "She liked the radar.", what_i_change_now: "A game aimed at m before p." };
 
-it("answers a new decide without a self-review with a tool error, and keeps older questions and saved decisions working", () => {
+it("accepts a decide without a self-review, saves one when given, and keeps older questions and saved decisions working", () => {
   const kit = spellingSuccessorToolkit(facts({ selfReview: true, aimedGames: true }));
   const decide = kit.tools.find(row => row.name === "decide")!;
-  expect(decide.schema.safeParse(decideInput).success).toBe(false);
+  const without = decide.schema.safeParse(decideInput);
+  expect(without.success).toBe(true);
+  const bare = kit.initialState();
+  expect(decide.run(bare, without.data)).toMatchObject({ ok: true });
+  expect(bare.decision?.selfReview).toBeUndefined();
   const state = kit.initialState();
   const parsed = decide.schema.safeParse({ ...decideInput, self_review: review });
   expect(parsed.success).toBe(true);

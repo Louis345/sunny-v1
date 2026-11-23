@@ -119,11 +119,13 @@ describe("code checks every history id the grammar no longer lists", () => {
   });
 
   // 2026-11-13: the Planner's school-test forecast, word by word, is checked by code before it is locked.
-  it("school_test_forecast: every word, chances 0 to 1; math: a score range in order", () => {
+  // 2026-11-23 (contract 63): the forecast may name some of her words; "every word" was a forced field and is gone.
+  it("school_test_forecast: her words only, chances 0 to 1; math: a score range in order", () => {
     const { call, facts } = session(history(small));
     const words = [...new Set(facts.builtIns.flatMap(row => row.wordIds))];
     const all = words.map(word => ({ word, chance: 0.7, why: "w" }));
-    expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], school_test_forecast: all.slice(1) }))).toMatchObject({ ok: false, error: expect.stringContaining(`missing ${words[0]}`) });
+    expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], school_test_forecast: all.slice(1) }))).toMatchObject({ ok: true });
+    expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], school_test_forecast: [...all, { word: "word-made-up", chance: 0.5, why: "w" }] }))).toMatchObject({ ok: false, error: expect.stringContaining("word-made-up is not one of her words") });
     expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], school_test_forecast: [...all.slice(1), { word: words[0], chance: 1.4, why: "w" }] }))).toMatchObject({ ok: false, error: expect.stringContaining("between 0 and 1") });
     expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], school_test_forecast: all }))).toMatchObject({ ok: true });
     const math = session(history({ ...small, problems: 3 }));

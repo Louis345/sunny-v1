@@ -20,10 +20,9 @@ describe("companion call personas", () => {
     expect(companionIds.sort()).toEqual(["elli", "hikari", "kefla", "matilda", "melty", "princess", "tene", "towa", "yukari"]);
   });
 
-  it.each(companionIds)("%s is a person: her own life, what she does on 'I don't know', how she builds on ideas", (id) => {
+  it.each(companionIds)("%s is a person: her own life and how she builds on ideas", (id) => {
     const persona = read(`src/prompts/companions/${id}/personality.md`);
     expect(persona).toMatch(/^## Her life/m);
-    expect(persona).toMatch(/^## When the child says "I don't know"/m);
     expect(persona).toMatch(/^## When the child has an idea/m);
     expect(persona).not.toMatch(/Two sentences max/i);
   });

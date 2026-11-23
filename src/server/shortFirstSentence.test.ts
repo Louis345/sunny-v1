@@ -8,7 +8,7 @@ import { buildShowroomTalkSystemPrompt } from "./companionShowroomTalk";
 // (model_first_token → tts_first_text) was logged but never judged. Why the lab missed it: nothing asked for a short opener.
 describe("the companion opens with a short first sentence, so her voice starts sooner", () => {
   it("homework sessions", () => {
-    expect(COMPANION_SPOKEN_TURN_PROMPT).toMatch(/short first sentence/i);
+    expect(COMPANION_SPOKEN_TURN_PROMPT).toMatch(/your voice starts as soon as your first sentence is written/i);
   });
 
   it("FaceTime calls", () => {

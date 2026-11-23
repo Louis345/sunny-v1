@@ -51,7 +51,7 @@ describe("FaceTime companion knows what it is wearing (S34)", () => {
   it("never sends her to the camera button for her own clothes", () => {
     const text = prompt({ companionLook: { outfit: "Sleeveless Dress", accessory: "", recentTryOns: [] } });
     expect(text).toContain(LOOK_AT_MYSELF_TOOL);
-    expect(text).toMatch(/Look button.*only for something of the child's/);
+    expect(text).toContain("the Look button shows only the child's camera");
   });
 
   it("tells her a self picture is herself, not the child's camera", () => {

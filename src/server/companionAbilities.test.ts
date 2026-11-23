@@ -9,7 +9,7 @@ describe("a companion is told exactly what it can do, from its live tools", () =
   it("names the live tools and nothing else as her abilities", () => {
     const line = companionAbilitiesLine(["companionAct", "recordProductIssue"]);
     expect(line).toContain("companionAct, recordProductIssue");
-    expect(line).toMatch(/promise/i);
+    expect(line).toContain("is not something you can do from here");
     expect(companionAbilitiesLine([])).toMatch(/no tools this turn/);
   });
 

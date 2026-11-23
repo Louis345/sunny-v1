@@ -15,7 +15,7 @@ const ceremony = (extra: Record<string, unknown> = {}) =>
   ({ type: "unlock_ceremony", kind: "quest", nodeId: "p:quest-1", label: "Kitaro's Lantern Quest", ...extra });
 
 describe("the companion notices a Quest or Boss opening", () => {
-  it("tells her live what is opening, for a reaction in her own words", () => {
+  it("tells her live what is opening", () => {
     const s = session();
     handleGameEventForSession(s as never, ceremony());
     expect(s.handleEndOfTurn).toHaveBeenCalledTimes(1);
@@ -23,7 +23,7 @@ describe("the companion notices a Quest or Boss opening", () => {
     expect(note).toMatch(/^\[board_event\]/);
     expect(note).toContain("Quest");
     expect(note).toContain("Kitaro's Lantern Quest");
-    expect(note).toMatch(/own words/);
+    expect(note).toContain("is opening on her board");
     expect(replay).toBe(true);
   });
 

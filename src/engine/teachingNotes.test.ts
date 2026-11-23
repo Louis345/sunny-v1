@@ -19,7 +19,7 @@ function withNotes(text: string) {
   return rootDir;
 }
 
-describe("parent teaching notes, read first as outside knowledge", () => {
+describe("parent teaching notes, as outside knowledge", () => {
   it("reads each dated entry with its writer and gives it an id the Planner can cite", () => {
     const rootDir = withNotes(`# Teaching notes\n\nAnything above the first dated heading is ignored.\n\n## 2026-11-22 Parent (mother)\nShe rounds by changing the digit she looks at.\nMeaning first worked: "19 classmates: about 10 or 20?"\n\n## 2026-11-20 Tutor\nShort sessions.\n\n## not a date\nSkipped.\n`);
     const notes = readTeachingNotes("lab-child", { rootDir });
@@ -28,7 +28,8 @@ describe("parent teaching notes, read first as outside knowledge", () => {
       { id: "note:2026-11-22:1", date: "2026-11-22", source: "Parent (mother)", text: `She rounds by changing the digit she looks at.\nMeaning first worked: "19 classmates: about 10 or 20?"` },
     ]);
     const section = teachingNotesSection(notes);
-    expect(section).toMatch(/^Teaching notes from outside Sunny \(read these first/);
+    expect(section).toMatch(/^Teaching notes from outside Sunny \(a parent or tutor, dated, with who wrote it\):/);
+    expect(section).not.toContain("read these first");
     expect(section).toContain(`[note:2026-11-22:1] 2026-11-22, Parent (mother):`);
   });
 

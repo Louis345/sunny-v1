@@ -583,14 +583,11 @@ describe("companion showroom talk contract", () => {
 
     expect(prompt).toContain("You are Kefla");
     expect(prompt).toContain("crystal");
-    // 11/22 audit: length comes from her personality, not one rule for every companion.
-    expect(prompt).toContain("your personality decides how much you say and how much you lead");
     expect(prompt).not.toContain("1-3 short sentences");
-    expect(prompt).toContain("companionAct");
-    expect(prompt).toContain("show emotion through movement");
-    expect(prompt).toContain("first write the words you say aloud as plain message text");
-    expect(prompt).toContain("Never wait for tool results before speaking");
-    expect(prompt).toContain("Never send a tool-only response when the child asked you something");
+    // 11/24 prompt sweep: facts, not rules. companionAct moves her body; what she hears is the message text.
+    expect(prompt).toContain("companionAct moves your body");
+    expect(prompt).toContain("short first sentence is heard sooner");
+    expect(prompt).toContain("The message text of this reply is what she hears; tool results come back after it is sent.");
     expect(prompt).not.toContain("award coins");
     expect(prompt).not.toContain("award XP");
   });
@@ -608,7 +605,7 @@ describe("companion showroom talk contract", () => {
 
     expect(prompt).toContain("video-call companion friend");
     expect(prompt).toContain("never sounds like a teacher");
-    expect(prompt).toContain("Never tutor unless the child explicitly asks");
+    expect(prompt).toContain("You are on a call now.");
     // 11/22 audit: on a call she is a friend with her own life, not a purely reactive echo.
     expect(prompt).toContain("time with a friend. You have your own life");
     expect(prompt).not.toContain("follow the child's conversational lead");
@@ -653,12 +650,12 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("Companion wish: a celestial headpiece");
     expect(prompt).toContain("The child controls spending");
     expect(prompt).toContain("wearing the selected item in the try-on view");
-    expect(prompt).toContain("Code-owned companion verdict: reject");
-    expect(prompt).toContain("A like verdict is not love or obsession");
     expect(prompt).toContain("The selected item is for you, the companion");
+    expect(prompt).toContain("the child decides what to buy");
     expect(prompt).toContain("cannot be bought-and-worn or equipped");
-    expect(prompt).toContain("Always include one short spoken reaction");
-    expect(prompt).not.toContain("silence or a gesture feels more natural");
+    expect(prompt).toContain("Live store event: the child just tried on item id=royal-crown.");
+    expect(prompt).toContain("This event came from the store screen, not from words the child spoke.");
+    expect(prompt).not.toContain("Code-owned companion verdict");
   });
 
   it("keeps an active game as background when the child is just socializing", () => {
@@ -682,8 +679,7 @@ describe("companion showroom talk contract", () => {
     });
 
     expect(prompt).toContain("Conversation intent: social.");
-    expect(prompt).toContain("The game is background context for this turn");
-    expect(prompt).toContain("do not redirect back to tic-tac-toe");
+    expect(prompt).toContain("tic-tac-toe is open in the background; her newest words are about something else.");
   });
 
   it("protects repeat-after turns from being interpreted as tic-tac-toe moves", () => {
@@ -707,8 +703,7 @@ describe("companion showroom talk contract", () => {
     });
 
     expect(prompt).toContain("Conversation intent: repeat_after.");
-    expect(prompt).toContain("repeat the child's newest words");
-    expect(prompt).toContain("Do not treat numbers as game moves");
+    expect(prompt).toContain("numbers she says are words to repeat, not game moves");
   });
 
   it("guards against repeated greetings and repeated game confusion", () => {
@@ -729,8 +724,7 @@ describe("companion showroom talk contract", () => {
       },
     });
 
-    expect(prompt).toContain("Do not repeat your previous greeting");
-    expect(prompt).toContain("do not ask to start tic-tac-toe again");
+    expect(prompt).toContain("tic-tac-toe is open and the board is shared between you and the child.");
   });
 
   it("tells Claude activity reactions must be AI-authored and gesture matched", () => {
@@ -752,9 +746,9 @@ describe("companion showroom talk contract", () => {
       },
     });
 
-    expect(prompt).toContain("activity reaction");
-    expect(prompt).toContain("Use companionAct for a gesture that matches the words");
-    expect(prompt).toContain("Round draw: shrug or thoughtful gesture");
+    expect(prompt).toContain("This turn is a moment in tic-tac-toe, not something the child said.");
+    expect(prompt).toContain("She is waiting to hear from you here.");
+    expect(prompt).toContain("Reaction result: draw.");
     expect(prompt).not.toContain("Use local canned tic-tac-toe banter");
   });
 
@@ -792,7 +786,7 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("Board: 1=X, 2=empty, 3=empty, 4=empty, 5=O");
     expect(prompt).toContain("Current turn: child.");
     expect(prompt).toContain("Last move: companion placed O on square 5.");
-    expect(prompt).toContain("Stay aware of this activity");
+    expect(prompt).toContain("tic-tac-toe is open and the board is shared between you and the child.");
   });
 
   it("tells Claude whether a call is previewing or an earned reward", () => {
@@ -825,8 +819,6 @@ describe("companion showroom talk contract", () => {
 
     expect(showroomPrompt).toContain("may not have chosen you yet");
     expect(rewardPrompt).toContain("earned this call");
-    expect(rewardPrompt).toContain("celebrate");
-    expect(rewardPrompt).toContain("without turning it into homework");
     expect(rewardPrompt).toContain("finished word radar");
   });
 
@@ -998,10 +990,9 @@ describe("companion showroom talk contract", () => {
     });
 
     expect(prompt).toContain("You are in a video call");
-    expect(prompt).toContain("Do not claim you can see");
-    expect(prompt).toContain("fresh camera snapshot");
+    expect(prompt).toContain("You see the child, her room or anything she holds up only through a fresh camera snapshot in this request.");
     // BUGS.md S34 (2026-11-19): the Look button is for the child's things; her own clothes come from facts or lookAtMyself.
-    expect(prompt).toContain("ask her to tap Look only for those");
+    expect(prompt).toContain("No fresh camera snapshot is included. The Look button shows you something of the child's");
     expect(prompt).toContain("The child was holding a blue marker.");
   });
 
@@ -1075,10 +1066,8 @@ describe("companion showroom talk contract", () => {
       hasFreshVisualSnapshot: true,
     });
 
-    expect(prompt).toContain("Do not say stage directions");
-    expect(prompt).toContain("Do not say things like");
-    expect(prompt).toContain("I wave");
-    expect(prompt).toContain("call companionAct");
+    expect(prompt).toContain("Everything in the message text is spoken aloud, including stage directions, labels or commentary.");
+    expect(prompt).toContain("companionAct moves your body");
   });
 
   it("passes companionAct as a real Anthropic tool and parses tool_use commands", () => {
@@ -1152,8 +1141,7 @@ describe("companion showroom talk contract", () => {
       hasFreshVisualSnapshot: false,
     });
 
-    expect(prompt).toContain("Speech is optional");
-    expect(prompt).toContain("visual action is preferred");
+    expect(prompt).toContain("A reply can be words, a movement, both, or nothing.");
     expect(prompt).not.toContain("Always include words for Elli to say aloud");
     expect(prompt).not.toContain("even when you call companionAct");
   });
@@ -1179,8 +1167,7 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain(
       "You are about to place your O on square 5; the board shown is from before that move.",
     );
-    expect(prompt).toContain("Speak as you make this move");
-    expect(prompt).toContain("Say the line in this same response");
+    expect(prompt).toContain("She is waiting to hear from you here.");
   });
 
   it("does not synthesize fallback speech for companionAct-only turns", () => {
@@ -1210,38 +1197,6 @@ describe("companion showroom talk contract", () => {
         shoppingContextPresent: true,
       }),
     ).toBe("");
-  });
-
-  it("rejects incomplete, verdict-changing, and item-role-confused shopping speech", () => {
-    const evaluateShoppingSpeech = (
-      showroomTalkContract as typeof showroomTalkContract & {
-        evaluateShoppingSpeech?: (input: {
-          text: string;
-          verdict: "love" | "like" | "unsure" | "reject";
-        }) => { accepted: boolean; reason: string | null };
-      }
-    ).evaluateShoppingSpeech;
-    expect(
-      evaluateShoppingSpeech?.({ text: "I can feel this navy", verdict: "like" }),
-    ).toEqual({ accepted: false, reason: "incomplete_response" });
-    expect(
-      evaluateShoppingSpeech?.({
-        text: "I am obsessed with this dress!",
-        verdict: "like",
-      }),
-    ).toEqual({ accepted: false, reason: "verdict_mismatch" });
-    expect(
-      evaluateShoppingSpeech?.({
-        text: "Are you going to get one too?",
-        verdict: "like",
-      }),
-    ).toEqual({ accepted: false, reason: "item_role_confusion" });
-    expect(
-      evaluateShoppingSpeech?.({
-        text: "I like this navy dress; it feels polished today.",
-        verdict: "like",
-      }),
-    ).toEqual({ accepted: true, reason: null });
   });
 
   it("does not let companionAct-only turns fall through to the thinking fallback", () => {
@@ -1327,16 +1282,6 @@ describe("companion showroom talk contract", () => {
     ).toBe(false);
   });
 
-  it("bounds shopping speech repair to one text-only retry and traces why it happened", () => {
-    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
-
-    expect(routeSource).toContain("MAX_SHOWROOM_SPEECH_RETRIES = 1");
-    expect(routeSource).toContain("shopping_speech_retry");
-    expect(routeSource).toContain("shopping_speech_guard_failed");
-    expect(routeSource).toContain("companion_tool_rejected");
-    expect(routeSource).toContain('tool_choice: { type: "none" }');
-  });
-
   it("keeps tic-tac-toe activity reactions to one Claude round trip when speech is already present and records latency spans", () => {
     const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
 
@@ -1384,7 +1329,7 @@ describe("call clock events", () => {
     expect(prompt).toContain("Live call clock event: call time is up");
     expect(prompt).toContain("12 coins");
     expect(prompt).toContain("5 more minutes cost 30 coins");
-    expect(prompt).toContain("not from words spoken by the child");
+    expect(prompt).toContain("This event came from the call clock, not from words the child spoke.");
   });
 
   it("counts the minute she is using when she buys more time", () => {
@@ -1420,7 +1365,7 @@ describe("a companion's rejection is an opinion the child can overrule", () => {
     expect(resolved.ok).toBe(true);
     if (!resolved.ok) return;
     const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "aurora", personality: "warm", mode: "video_call", shoppingContext: resolved.request.shoppingContext });
-    expect(prompt).toContain("Not your favourite today, but it is the child's choice");
+    expect(prompt).toContain("What you think of it is yours, from your own taste; the child decides what to buy.");
     expect(prompt).not.toContain("cannot be bought-and-worn");
   });
 });

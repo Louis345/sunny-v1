@@ -175,7 +175,8 @@ describe("spelling next-board tools", () => {
   it("answers mistakes with reasons and refuses an incomplete finish", () => {
     const { call } = session();
     expect(call("finish_board", { title: "T", endpoint_label: "E", single_path_reason: "r" })).toMatchObject({ ok: false, error: expect.stringContaining("decide") });
-    expect(call("decide", decision({ progression_action: "collect_more_evidence", prediction_evaluation_ids: [] }))).toMatchObject({ ok: false, error: expect.stringContaining("prediction_evaluation_ids") });
+    // Contract 63 (54fba4fb): a decision that cites no prediction evaluation is accepted.
+    expect(call("decide", decision({ progression_action: "collect_more_evidence", prediction_evaluation_ids: [] }))).toMatchObject({ ok: true });
     call("decide", decision());
     expect(call("finish_board", { title: "T", endpoint_label: "E", single_path_reason: "r" })).toMatchObject({ ok: false, error: expect.stringContaining("add_step") });
     const a = (call("add_step", step("act-3", "Radar")) as any).result.step_id;

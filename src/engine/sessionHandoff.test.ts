@@ -24,6 +24,7 @@ const node = { nodeId: "radar", role: "baseline", title: "radar", state: "ready"
 it("leaves the Planner a factual note when a session's retro is skipped because she gave no answers", async () => {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-handoff-skip-")); roots.push(rootDir);
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context"));
+  vi.stubEnv("SUNNY_FAMILY_TIME_ZONE", "America/New_York");
   createLearningCycle({ childId: "lab-child", homeworkId: "hw", domain: "spelling", assignment: { title: "hw", contentFingerprint: "hw", capturedEvidenceIds: ["x"], targets: [] },
     academicTheory: { theoryId: "t", revision: 1, hypothesis: "h", supportCriteria: [], reviseCriteria: [], falsifyCriteria: [] }, engagementTheory: null, nodes: [node] as never }, { rootDir });
   const sessionDir = path.join(rootDir, "logs/sessions/s9"); fs.mkdirSync(sessionDir, { recursive: true });
@@ -33,7 +34,7 @@ it("leaves the Planner a factual note when a session's retro is skipped because 
   expect(await writeSessionHandoff({ childId: "lab-child", sessionDir, homeworkId: "hw", client: { messages: { create } } as never }, { rootDir })).toBeUndefined();
   expect(create).not.toHaveBeenCalled();
   const section = handoffSection(getLearningCycle("lab-child", "hw", { rootDir })!, { rootDir });
-  expect(section).toContain("No retro for session s9 (2026-11-10 15:00): she gave no answers in it (play only).");
+  expect(section).toContain("No retro for session s9 (2026-11-10 10:00 EST): she gave no answers in it (play only).");
 });
 
 it("counts a decision whose session had nothing to retro as N/A, and a missing retro as a failure", () => {

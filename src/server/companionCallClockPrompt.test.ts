@@ -12,20 +12,20 @@ const clockLines = (prompt: string) => {
 const base = { companionId: "matilda", companionName: "Matilda", showroomTheme: "garden", personality: "warm", mode: "video_call" as const };
 
 describe("call clock: no coin pitch", () => {
-  it("time up: she says it in her own words, with no coins, prices, boards or homework", () => {
+  it("time up: the facts, with no coins, boards or spending pressure", () => {
     for (const coins of [10, 90]) {
       const prompt = clockLines(buildShowroomTalkSystemPrompt({ ...base, callClock: { event: "time_up", minutesLeft: 0, coins, price: 30, minutes: 5 } }));
       expect(prompt).toContain("call time is up");
       expect(prompt).not.toMatch(/coins|another board|5 more minutes cost|afford/i);
-      expect(prompt).toMatch(/own words/);
+      expect(prompt).toContain("Buying more time, prices and homework are hers to choose, with no pressure from you.");
     }
   });
 
-  it("minute left and minutes bought: the screen shows the time, so she does not mention it", () => {
+  it("minute left and minutes bought: the screen shows the time, with no coin pitch", () => {
     for (const event of ["minute_left", "minutes_bought"] as const) {
       const prompt = clockLines(buildShowroomTalkSystemPrompt({ ...base, callClock: { event, minutesLeft: 1, coins: 90, price: 30, minutes: 5 } }));
       expect(prompt).not.toMatch(/coins|another board|Mention it/i);
-      expect(prompt).toMatch(/do not mention the time/i);
+      expect(prompt).toContain("Live call clock: the clock is on her screen.");
     }
   });
 

@@ -271,7 +271,8 @@ describe("spelling pronunciation context", () => {
     const value = snapshot({ game: "word-radar", itemId: "item-title", currentTarget: "title", answerVisibility: "hidden", assessmentMode: true });
     const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help me" });
     expect(context).toContain("practice with full help comes after this check");
-    expect(context).toContain("offering a replay is not a reply to everything");
+    expect(context).toContain("replayWord plays the activity’s own whole-word audio.");
+    expect(context).toContain("teachWord gives you the word so you can teach it; her answer on it is then recorded as help.");
   });
 
   it.each([
@@ -286,7 +287,7 @@ describe("spelling pronunciation context", () => {
     expect(context).not.toContain("Model the whole word, then");
     expect(context).toContain("written spelling chunks may differ from spoken syllables");
     expect(context).toContain("silent letters have no separate sound");
-    expect(context).toContain("Do not grade the child's pronunciation from transcript text");
+    expect(context).toContain("The transcript cannot show how she pronounced a word; only audio assessment evidence can.");
   });
 
   it("does not turn explicit assessment into teaching just because text is visible", () => {
@@ -297,7 +298,7 @@ describe("spelling pronunciation context", () => {
 
   it("does not invent a pronunciation reference for an unknown word", () => {
     const context = buildCurrentBoardSnapshotContext(snapshot({ game: "spell-check", currentTarget: "zzzxqnotaword", answerVisibility: "visible" }));
-    expect(context).toContain("Pronunciation reference unavailable");
+    expect(context).toContain("No pronunciation reference is available for this word.");
     expect(context).not.toContain("Syllable count:");
   });
 

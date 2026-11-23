@@ -62,6 +62,6 @@ describe("companion mission inheritance", () => {
     const context = buildCurrentBoardSnapshotContext(snapshot);
     expect(context).toContain("raincoat");
     expect(context).not.toContain("Purpose: help the child learn this word together");
-    expect(context).toContain("When the child asks for help with this word or is clearly stuck");
+    expect(context).toContain("Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available.");
   });
 });
