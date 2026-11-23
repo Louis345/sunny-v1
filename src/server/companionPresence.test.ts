@@ -47,9 +47,7 @@ it("every turn shows Elli what she said to her in the last few minutes, as facts
 it("the shared persona says how long a reply to her runs", () => {
   const base = fs.readFileSync(path.join(process.cwd(), "src/souls/companion-base.md"), "utf8");
   // 11/22: no hardcoded age; her age comes from her chart facts.
-  expect(base).toMatch(/Children talk in short bursts/);
   expect(base).not.toMatch(/She is eight|She is nine/);
-  // No fixed sentence count (owner, 2026-10-22: the scripted "one or two short sentences" rule was removed on purpose).
-  expect(base).not.toMatch(/one or two short sentences/);
-  expect(base).toMatch(/cuts you off/);
+  // 11/23 (owner: personas, no rules): how long she talks is her persona's, not a shared rule.
+  expect(base).not.toMatch(/one or two (short )?sentences|short bursts|cuts you off/);
 });

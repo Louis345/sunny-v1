@@ -11,21 +11,18 @@ const companionBase = readFileSync(
   "utf8",
 );
 
-describe("companion-base.md rules (BUG 4)", () => {
-  it("contains GAME_REVEAL_RULE", () => {
-    expect(companionBase).toContain("GAME_REVEAL_RULE");
+// 11/23 (owner: "it's just persona driven. No rules."): the base is persona + where you are + how Sunny works.
+describe("companion-base.md is situation and facts, not rules", () => {
+  it("names the persona, the two modes and the record facts", () => {
+    expect(companionBase).toContain("Your persona says who you are");
+    expect(companionBase).toContain("**Tutoring.**");
+    expect(companionBase).toContain("**On a call.**");
+    expect(companionBase).toContain("recorded as help");
   });
 
-  it("GAME_REVEAL_RULE forbids narrating target word", () => {
-    const ruleIdx = companionBase.indexOf("GAME_REVEAL_RULE");
-    const ruleSection = companionBase.slice(ruleIdx, ruleIdx + 400);
-    expect(ruleSection.toLowerCase()).toContain("target word");
-  });
-
-  it("GAME_REVEAL_RULE applies during active game", () => {
-    const ruleIdx = companionBase.indexOf("GAME_REVEAL_RULE");
-    const ruleSection = companionBase.slice(ruleIdx, ruleIdx + 400);
-    expect(ruleSection.toLowerCase()).toContain("game");
+  it("carries no rule words", () => {
+    expect(companionBase).not.toMatch(/\b(never|always|must|do not|don't|at most|only when)\b/i);
+    expect(companionBase).not.toContain("GAME_REVEAL_RULE");
   });
 });
 
@@ -65,10 +62,8 @@ it("assembles teaching freedom without canned praise or practice letter bans",as
  expect(prompt).not.toContain('Never suggest which letter to pick');
  expect(prompt).not.toContain('one response only');
  expect(prompt).not.toContain('Never replace speech with only an emote');
- expect(prompt).toContain('letter names');
- expect(prompt).toContain('assistance');
- expect(prompt).toContain('The child chooses Wheel letters');
- expect(prompt).toContain('hidden puzzle letters and answers remain private');
+ expect(prompt).toContain('pronunciation_model');
+ expect(prompt).toContain('recorded as help');
 });
 
 it("gives Elli a teaching purpose without a personality instruction to withdraw from frustration", async () => {
@@ -76,6 +71,5 @@ it("gives Elli a teaching purpose without a personality instruction to withdraw 
  const prompt=await buildSessionPrompt('synthetic-prompt-probe' as never,resolve(__dirname,'../companions/elli.md'),'Assigned spelling words',[],'homework',{carePlan:null});
  expect(prompt).not.toContain('She never sounds like a teacher');
  expect(prompt).not.toContain('Elli backs off and just');
- expect(prompt).toContain('Evaluation establishes what the child can do independently');
- expect(prompt).toContain('Practice helps the child learn');
+ expect(prompt).toContain('On practice, help is the point');
 });

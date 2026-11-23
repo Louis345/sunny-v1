@@ -610,7 +610,7 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("never sounds like a teacher");
     expect(prompt).toContain("Never tutor unless the child explicitly asks");
     // 11/22 audit: on a call she is a friend with her own life, not a purely reactive echo.
-    expect(prompt).toContain("friend with your own life");
+    expect(prompt).toContain("time with a friend. You have your own life");
     expect(prompt).not.toContain("follow the child's conversational lead");
     expect(prompt).not.toContain("interactive Sunny learning companion");
   });

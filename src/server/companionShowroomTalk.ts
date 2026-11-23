@@ -992,11 +992,10 @@ export function buildShowroomTalkSystemPrompt(input: {
     `Call source: ${callSource}.`,
     `Relationship state: ${relationshipState}.`,
     `Persona notes: ${input.personality}`,
-    // The shared base every companion inherits, for the part that applies in a call (owner 2026-11-15).
-    readCompanionBaseSection("Side conversations and things that go wrong"),
-    readCompanionBaseSection("Words in other languages"),
-    // Who she is on a call: her own life, never an echo (owner 2026-11-22).
-    ...(isVideoCall ? [readCompanionBaseSection("On a call")] : []),
+    // The shared base every companion inherits: where she is and how Sunny works (owner 11/23: personas, no rules).
+    readCompanionBaseSection("Where you are"),
+    readCompanionBaseSection("How Sunny works"),
+    ...(isVideoCall ? ["You are on a call now."] : []),
     // 11/22 audit: "1-3 sentences / one question / follow her lead" made every companion the same reactive voice.
     "Open with a short first sentence of a few words so your voice starts right away; your personality decides how much you say and how much you lead.",
     "Use a warm, child-safe tone.",

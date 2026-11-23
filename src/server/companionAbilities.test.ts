@@ -25,9 +25,8 @@ describe("a companion is told exactly what it can do, from its live tools", () =
 describe("on a call she answers what the child said and leaves room, instead of adding something every turn", () => {
   it("the call section no longer demands an addition every turn, and says to leave room", () => {
     const base = fs.readFileSync(path.join(process.cwd(), "src/souls/companion-base.md"), "utf8");
-    const call = base.slice(base.indexOf("## On a call"), base.indexOf("## Words in other languages"));
-    expect(call).not.toMatch(/always adds something/);
-    expect(call).toMatch(/leave (her )?room/i);
-    expect(call).not.toMatch(/\b\d+ words\b/);
+    const call = base.slice(base.indexOf("**On a call.**"), base.indexOf("## How Sunny works"));
+    expect(call).toContain("time with a friend");
+    expect(call).not.toMatch(/always adds something|\b\d+ words\b/);
   });
 });
