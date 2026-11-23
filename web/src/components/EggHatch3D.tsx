@@ -137,7 +137,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
     if (announcer) {
       announcer.call({ event: "eggIntro" });
       announcer.cue("ready");
-    } else audioRef.current?.say("This one is just you. Ready? Go!");
+    }
   };
 
   const answerCheck = (question: OrbQuestion, given: string) => {
@@ -158,8 +158,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
       wobbleRef.current = 0.3;
       elliRef.current?.feel("relaxed");
       if (result.reason === "not-yet") {
-        if (announcerRef.current) announcerRef.current.call({ event: "eggNotYet" });
-        else audio?.say("Not yet. We'll practice that one more.");
+        announcerRef.current?.call({ event: "eggNotYet" });
       }
       setFeedback(result.reason === "not-yet" ? "Not yet. More practice!" : null);
     }
@@ -465,10 +464,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
           audio.play("boom", { volume: 0.8 });
           audio.play("fanfare", { volume: 0.8, jitter: 0 });
           window.setTimeout(() => audio.play("legendary", { volume: 0.7, jitter: 0 }), 400);
-          if (announcerRef.current) announcerRef.current.call({ event: "hatch", creatureId: creature.id });
-          else {
-            theme.caughtLine.forEach((line, index) => window.setTimeout(() => audio.say(line.text, line.lang), 900 + index * 1100));
-          }
+          announcerRef.current?.call({ event: "hatch", creatureId: creature.id });
           pet.visible = true;
           petShadow.visible = true;
           elli.dance();

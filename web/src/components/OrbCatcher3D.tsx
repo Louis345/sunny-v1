@@ -156,9 +156,8 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       missedThisQuestion.current = true;
       setStreak(0);
       audio?.setStreak(0);
-      // With a bank the announcer owns the voice (and may stay quiet); without one, the game's line.
-      if (announcerRef.current) announcerRef.current.call({ event: "miss" });
-      else audio?.say(theme.wrongLine.text, theme.wrongLine.lang);
+      // A recorded announcer clip or silence; the device voice never reads the game's line (audit 2026-11-22).
+      announcerRef.current?.call({ event: "miss" });
       setFeedback(theme.wrongLine.text);
       return;
     }
@@ -179,11 +178,8 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
     const word = question.kind === "spelling" ? question.answer : undefined;
     const event = onBeat ? "perfect" : nextStreak >= 3 && !question.missedBefore ? "streak" : "right";
     const called = announcerRef.current?.call({ event, streak: nextStreak, word, missedBefore: question.missedBefore }) ?? false;
-    // The announcer owns the voice when there is a bank: its own Ready? Go!, never the browser's on top.
-    if (!called) {
-      if (announcerRef.current) announcerRef.current.cue("ready");
-      else audio?.say(theme.cues.ready.text, theme.cues.ready.lang);
-    }
+    // The announcer's recorded Ready? Go!, or silence; never the browser's voice reading a line.
+    if (!called) announcerRef.current?.cue("ready");
     setFeedback(null);
     loadedRef.current = true;
     setNeedQuestion(false);
@@ -234,7 +230,6 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       console.warn(" 🎮 [orb-3d] [audio] [load-failed]", error);
       setVoiceReady(true);
     });
-    const say = (line: { text: string; lang?: "en" | "ja" }) => audio.say(line.text, line.lang);
     const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
     const cameraHome = new THREE.Vector3(0, 2.1, 7.4);
     camera.position.copy(cameraHome);
@@ -335,12 +330,8 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
         elli.feel("relaxed");
         const announcer = announcerRef.current;
         if (open.kind === "spelling") {
-          if (!announcer?.sayWord(open.prompt) && !announcer) {
-            audio.say("Listen.", "en");
-            audio.say(open.prompt, "en", 0.6);
-          }
-        } else if (!announcer) {
-          audio.say("Let's knock one out.", "en");
+          // The test word only: recorded when the bank has it, else the device voice says the word alone.
+          if (!announcer?.sayWord(open.prompt) && !announcer) audio.sayTestWord(open.prompt, 0.6);
         }
         setHintFor(open.id);
         console.log(` 🎮 [orb-3d] [hint] [given] id=${open.id}`);
@@ -567,10 +558,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             burst(orb.position, auraColor, 2.4);
             flash.intensity = 25;
             theme.cues.caught.forEach((key, index) => window.setTimeout(() => audio.play(key, { volume: 0.8, jitter: 0 }), index * 250));
-            if (announcerRef.current) announcerRef.current.call({ event: "catch", creatureId: creature.id });
-            else {
-              theme.caughtLine.forEach((line, index) => window.setTimeout(() => say(line), 500 + index * 1100));
-            }
+            announcerRef.current?.call({ event: "catch", creatureId: creature.id });
             setShakeLabel(null);
             setBanner(`Gotcha! ${creature.speciesName} joined your den!`);
             audio.muffle(false);
@@ -585,8 +573,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             cameraKick = 0.25;
             audio.play(theme.cues.breakFree, { volume: 0.7 });
             audio.tapeStop();
-            if (announcerRef.current) announcerRef.current.call({ event: "breakFree" });
-            else say(theme.breakFreeLine(roundRef.current));
+            announcerRef.current?.call({ event: "breakFree" });
             setShakeLabel(null);
             playAction("shrug", false);
             elli.feel("surprised");
@@ -840,7 +827,7 @@ export function QuestionCard({
     const speak = (): number => {
       const recorded = sayWord?.(question.prompt) ?? false;
       if (recorded !== false) return recorded;
-      audio?.say(question.prompt);
+      audio?.sayTestWord(question.prompt);
       return 0;
     };
     const wordDoneMs = speak();

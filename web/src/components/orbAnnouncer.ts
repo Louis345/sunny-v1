@@ -10,7 +10,7 @@ export interface AnnouncerAudio {
   duck(on: boolean): void;
   msToNextBeat(): number;
   /** The device voice, for a word this week's bank has no recording of. */
-  say(text: string): void;
+  sayTestWord(word: string): void;
   /** Stop the announcer's voice now (its clips and the device voice), leaving music and effects. */
   stopVoice(): void;
 }
@@ -124,7 +124,7 @@ export class OrbAnnouncer {
     const at = Math.max(now, this.busyUntil);
     this.timers.push(window.setTimeout(() => {
       this.floor.announcerStarted();
-      this.audio.say(word);
+      this.audio.sayTestWord(word);
     }, at - now));
     this.busyUntil = at + SPOKEN_WORD_MS;
     this.lastEnds.set(id, this.busyUntil);

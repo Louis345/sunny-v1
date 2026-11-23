@@ -27,7 +27,7 @@ function fakeAudio(msToNextBeat = 200) {
     has: (key) => loaded.has(key),
     duck: (on) => ducks.push(on),
     msToNextBeat: () => msToNextBeat,
-    say: (text) => spoken.push({ text, at: Date.now() }),
+    sayTestWord: (text) => spoken.push({ text, at: Date.now() }),
     stopVoice: () => undefined,
   };
   return { audio, played, ducks, spoken };

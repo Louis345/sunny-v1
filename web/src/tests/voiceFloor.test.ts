@@ -32,7 +32,7 @@ function fakeAudio() {
     has: (key) => loaded.has(key),
     duck: () => undefined,
     msToNextBeat: () => 0,
-    say: () => undefined,
+    sayTestWord: () => undefined,
     stopVoice: () => { stopped += 1; },
   };
   return { audio, played, stopped: () => stopped };

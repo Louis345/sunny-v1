@@ -19,7 +19,6 @@ export interface OrbThemePack {
   /** The beat of the main bed (measured from the file), so words and orbs land on it. */
   beat: OrbBeat;
   cues: {
-    ready: OrbLine;
     throw: string;
     impact: string[];
     shake: string;
@@ -33,8 +32,7 @@ export interface OrbThemePack {
   };
   /** What she sees and hears on each shake (a referee's count, spirit bells...). */
   shakeLabels: [string, string, string];
-  caughtLine: OrbLine[];
-  breakFreeLine: (round: number) => OrbLine;
+  /** On-screen card after a miss (never spoken by the device voice; audit 2026-11-22). */
   wrongLine: OrbLine;
   /** Adds the pack's props to the scene; returns a per-frame update. */
   decorate(scene: THREE.Scene, creatureAt: THREE.Vector3): (time: number) => void;
@@ -66,10 +64,8 @@ export const CHAMPIONSHIP_PACK: OrbThemePack = {
   beds: [{ key: "crowdLoop", volume: 0.5 }, { key: "music", volume: 0.9 }],
   // music-loop.mp3: about 95 beats a minute, first beat half a second in (measured 2026-11-11).
   beat: { bed: "music", bpm: 95, offset: 0.496 },
-  cues: { ready: { text: "Ready? Go!" }, throw: "riser", impact: ["takedown", "boom"], shake: "tick", caught: ["ringBell", "crowdCheer", "legendary"], breakFree: "pop", correct: "correct", syllable: "taiko", perfect: "levelUp" },
+  cues: { throw: "riser", impact: ["takedown", "boom"], shake: "tick", caught: ["ringBell", "crowdCheer", "legendary"], breakFree: "pop", correct: "correct", syllable: "taiko", perfect: "levelUp" },
   shakeLabels: ["One!", "Two!", "Three!"],
-  caughtLine: [{ text: "Pin!" }, { text: "すごい!", lang: "ja" }],
-  breakFreeLine: (round) => ({ text: round === 1 ? "Reversal! Get back in there!" : "So close! Next round!" }),
   wrongLine: { text: "Shake it off, champ. Try it again!" },
   decorate(scene, at) {
     // A wrestling ring around the creature: four posts, three ropes, and arena spotlights.
@@ -138,10 +134,8 @@ export const YOKAI_NIGHT_PACK: OrbThemePack = {
   beds: [{ key: "nightMusic", volume: 1 }],
   // opus-ila music.mp3: 120 beats a minute, loops cleanly on 44 beats (measured 2026-11-11).
   beat: { bed: "nightMusic", bpm: 120, offset: 0.044 },
-  cues: { ready: { text: "Ready? Go!" }, throw: "whoosh", impact: ["beam"], shake: "tick", caught: ["moonWake", "giggle"], breakFree: "softOops", correct: "arrive", syllable: "tap", perfect: "legendary" },
+  cues: { throw: "whoosh", impact: ["beam"], shake: "tick", caught: ["moonWake", "giggle"], breakFree: "softOops", correct: "arrive", syllable: "tap", perfect: "legendary" },
   shakeLabels: ["✨", "✨✨", "✨✨✨"],
-  caughtLine: [{ text: "You did it!" }, { text: "やった!", lang: "ja" }],
-  breakFreeLine: (round) => ({ text: round === 1 ? "Oh! It wiggled out. That's okay!" : "So close! Ready? Go!" }),
   wrongLine: { text: "Nice try! Let's hear it again." },
   decorate(scene, at) {
     // Paper lanterns swaying among the trees, and a small torii gate behind the spirit.

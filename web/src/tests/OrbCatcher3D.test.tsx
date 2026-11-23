@@ -41,7 +41,6 @@ describe("drill mode: answer to load an orb", () => {
   it("each child's pack carries her own count and lines over the same game", () => {
     expect(CHAMPIONSHIP_PACK.shakeLabels).toEqual(["One!", "Two!", "Three!"]);
     expect(YOKAI_NIGHT_PACK.wrongLine.text).not.toMatch(/wrong|no\b/i);
-    expect(CHAMPIONSHIP_PACK.caughtLine.some((line) => line.lang === "ja")).toBe(true);
   });
 });
 

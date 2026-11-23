@@ -261,13 +261,16 @@ export class OrbAudio {
     return beat ? (1 - beat.phase) * beat.seconds * 1000 : 0;
   }
 
-  /** Prototype voice: the browser speaks the line (Japanese lines in a Japanese voice when there is one). */
-  say(text: string, lang: "en" | "ja" = "en", rate?: number): void {
+  /**
+   * The device voice speaks only a test word when no recording has it (audit 2026-11-22: never a game line or cue;
+   * those are recorded announcer clips or silence).
+   */
+  sayTestWord(word: string, rate?: number): void {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     try {
-      const line = new SpeechSynthesisUtterance(text);
-      line.lang = lang === "ja" ? "ja-JP" : "en-US";
-      line.rate = rate ?? (lang === "ja" ? 1 : 1.05);
+      const line = new SpeechSynthesisUtterance(word);
+      line.lang = "en-US";
+      line.rate = rate ?? 1.05;
       line.pitch = 1.15;
       const voice = window.speechSynthesis.getVoices().find((candidate) => candidate.lang.startsWith(line.lang.slice(0, 2)));
       if (voice) line.voice = voice;
