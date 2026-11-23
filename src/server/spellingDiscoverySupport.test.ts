@@ -92,7 +92,7 @@ describe("live spelling assistance and audio provenance", () => {
     expect(context).not.toContain("spokenStimulus");
     expect(context).toContain("replayWord");
     expect(context).toContain('"answerVisibility":"hidden"');
-    expect(context).toContain("Spoken repetition is not a submitted spelling answer");
+    expect(context).toContain("saying letters aloud is not a submitted answer");
   });
   it("retires a pending reply on item advance, but rejects stale launch context", () => {
     const s=session() as any;

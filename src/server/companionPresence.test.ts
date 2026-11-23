@@ -22,11 +22,9 @@ const turn = async () => {
   return buildActivityCompanionContext({ snapshot, childId: "presence-lab", companionId: "Elli", presence: "summoned", spellingAssessment: assessment });
 };
 
-it("on a check word, Elli is told the ways she can help, not only what she holds back", async () => {
+it("on a check word, Elli gets facts, not a help list (owner 11/23: personas, no rules)", async () => {
   const context = await turn();
-  expect(context).toContain("Ways to help on a check word");
-  expect(context).toMatch(/in a short sentence/);
-  expect(context).toMatch(/a guess is great/i);
+  expect(context).not.toMatch(/Ways to help on a check word|a guess is great|own try before/i);
   expect(context).not.toMatch(/\bcircus\b/i);
 });
 

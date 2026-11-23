@@ -74,7 +74,7 @@ it("feeds Elli's real per-turn context: activity details appear only while the k
     const inActivity = turn({ screen: "activity", nodeId: "radar", activityTitle: "Final Radar" });
     expect(inActivity).toContain("Final Radar is open");
     expect(inActivity).toContain("Current item: word-3");
-    expect(inActivity).toContain("Activity-help objective");
+    expect(inActivity).not.toContain("Activity-help objective"); // 11/23: no rules, only what is on screen
     expect(turn(undefined)).toMatch(/screen is unknown/i);
   } finally {
     vi.unstubAllEnvs();
@@ -82,7 +82,7 @@ it("feeds Elli's real per-turn context: activity details appear only while the k
   }
 });
 
-it("tells Elli a check word gets the child's own try before any spelling help", async () => {
+it("tells Elli whether a word is a check or practice, as a fact, with no instructions on how to help", async () => {
   const fs = await import("node:fs"), os = await import("node:os"), path = await import("node:path");
   const { vi } = await import("vitest");
   const { buildActivityCompanionContext } = await import("./urgentLearningSupport");
@@ -95,8 +95,9 @@ it("tells Elli a check word gets the child's own try before any spelling help", 
       word: "night", artifactHash: "h", audioDelivered: true, supportIds: [], lettersVisible: false });
     const turn = (instrument: "recall_check" | "practice") => buildActivityCompanionContext({ snapshot, childId: "try-lab", companionId: "Elli",
       presence: "summoned", spellingAssessment: assessment(instrument) });
-    expect(turn("recall_check")).toContain("let her make her own try");
-    expect(turn("practice")).not.toContain("let her make her own try");
+    expect(turn("recall_check")).toContain("This word is a check: it measures what she spells on her own.");
+    expect(turn("practice")).toContain("This word is practice");
+    for (const text of [turn("recall_check"), turn("practice")]) expect(text).not.toMatch(/own try before|Ways to help|must not be revealed/);
   } finally {
     vi.unstubAllEnvs();
     fs.rmSync(root, { recursive: true, force: true });

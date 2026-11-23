@@ -49,7 +49,7 @@ describe("side-conversation clock (a tool every companion inherits)", () => {
 });
 
 describe("one shared base, inherited by every companion in every room", () => {
-  const section = () => readCompanionBaseSection("Side conversations and things that go wrong");
+  const section = () => readCompanionBaseSection("How Sunny works");
 
   it("lives in the shared base, written as judgment, not a script", () => {
     const text = section();

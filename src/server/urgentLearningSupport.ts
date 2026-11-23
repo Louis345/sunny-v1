@@ -271,15 +271,7 @@ export function buildActivityCompanionContext(input: {
     withoutRememberedPosition(readCompanionCareMemoryForPrompt(input.childId, input.companionId)),
   );
   const memory = remembered && [remembered,
-    "Memory is from past sessions: use it for who she is, never for where she is. Where she left off, what she just did and what is next come only from the live board and screen above; never offer a remembered game, round or level to resume."].join("\n");
-  const helpObjective = input.presence === "summoned" && input.snapshot && activityOnScreen
-    ? [
-        "Activity-help objective:",
-        "Resolve the child's request briefly from the answer-hidden activity context.",
-        "Ask one short understanding question only when it adds value; if you do, set companionAct presenceAfterSpeech=await_child_response.",
-        "Otherwise return control to the activity and allow the companion to return to standby.",
-      ].join("\n")
-    : "";
+    "That memory is from past sessions. Where she is now, what she just did and what is next are on the live board and screen above."].join("\n");
   let spelling = "";
   const assessment = input.spellingAssessment;
   if (assessment && activityOnScreen && input.snapshot?.itemId === assessment.itemId) {
@@ -289,21 +281,20 @@ export function buildActivityCompanionContext(input: {
       JSON.stringify({ itemId:assessment.itemId, ...(input.snapshot.spellingSupportMode === "pronunciation_model" ? {spokenStimulus:assessment.word} : {}),
         instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
         ...(cycle ? {lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null} : {recordedHistoryAvailable:false}) }),
-      "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
-      ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it.",
-        "Ways to help on a check word, before her answer is submitted: say the word again; say it in a short sentence, the way a teacher does on a spelling test; tell her a guess is great and that you will fix it together right after she sends it (she loves that part); cheer her on. She already knows letters wait until after her try, so the rule itself needs saying once at most."]),
+      "The activity takes her typed answer and grades it; saying letters aloud is not a submitted answer. These facts are newer than anything said earlier in the conversation.",
+      assessment.instrument === "practice" ? "This word is practice: help counts as part of learning it." : "This word is a check: it measures what she spells on her own.",
     ].join("\n");
   }
   // The school test as her goal plus facts (owner, 2026-11-08): Elli judges how much help fits.
   const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework, history: chart?.learningHistory,
-    instrument: spelling ? assessment?.instrument : undefined })
+    instrument: undefined })
     : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
   // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
   const health = sunnyHealthFacts(input.childId);
   const recent = recentRepliesFact(input.childId);
   // A pet she caught and has not named yet (Ila 11/22): a fact each turn, gone once she names it.
   const unnamedPets = unnamedPetFacts(input.childId);
-  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, unnamedPets, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; stays for every next problem in this game; another game or a check starts at normal pace).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, unnamedPets, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; stays for every next problem in this game; another game or a check starts at normal pace).`, memory, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
