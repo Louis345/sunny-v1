@@ -529,6 +529,8 @@ export function isRetryablePlannerBlock(reason: string, cycle?: Pick<LearningCyc
     // The Planner's tool conversation ended unfinished (Ila board 13, 2026-11-23: the old total error cap). Every answer
     // was received and code refused inputs, so nothing paid is uncertain; one owner-approved retry decides fresh.
     || reason.startsWith("planner_decision_invalid:canonical_progression_tools_unfinished:")
+    // Contract 63: a received decision refused only because code still required a citation (Ila board 15, 2026-11-23).
+    || reason === "planner_decision_invalid:canonical_progression_prediction_evaluation_citation_required"
     || (reason === "planner_decision_invalid:board_definition_missing" && Boolean(cycle && isItemIntakeMathCycle(cycle)));
 }
 

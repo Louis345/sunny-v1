@@ -231,3 +231,10 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(decided.lifecycle).toBe("baseline_generating");
   });
 });
+
+// Human-caught 11/23 (Ila board 15): the runtime refused a received decision for citing no prediction evaluation after
+// contract 63 made citations optional. Code refused it, nothing paid is uncertain, so one owner-approved retry is allowed.
+it("a decision blocked only because code required a citation can be retried with owner approval", () => {
+  expect(isRetryablePlannerBlock("planner_decision_invalid:canonical_progression_prediction_evaluation_citation_required")).toBe(true);
+  expect(isRetryablePlannerBlock("planner_decision_invalid:canonical_progression_unknown_prediction_evaluation")).toBe(false);
+});
