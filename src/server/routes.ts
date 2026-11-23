@@ -342,6 +342,7 @@ import {
 } from "../engine/returnedWorkPipeline";
 import type { ConfirmedReturnedWorkItem } from "../engine/longitudinalLearning";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { pronounceForTts } from "./ttsPronunciation";
 
 const companions = {
   Ila: ELLI,
@@ -2103,8 +2104,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       );
       const client = new ElevenLabsClient({ apiKey });
       const locators = getPronunciationLocators();
+      // Her name the way her profile spells it for the voice (Ila 11/22: "they're saying my name wrong").
       const audio = await client.textToSpeech.convert(voiceId, {
-        text,
+        text: pronounceForTts(text),
         modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
         ...(locators && { pronunciationDictionaryLocators: locators }),
       });
@@ -2615,7 +2617,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         const locators = getPronunciationLocators();
         const ttsStartedAt = Date.now();
         const audio = await elevenlabs.textToSpeech.convert(talk.voiceId, {
-          text: spokenText,
+          text: pronounceForTts(spokenText),
           modelId: ttsModelId,
           ...(!isVideoCallTts && locators && { pronunciationDictionaryLocators: locators }),
         });
