@@ -41,6 +41,7 @@ import {
   isCompanionTalkStreamSupported,
   streamCompanionTalk,
 } from "../utils/companionTalkStream";
+import { createCallTurnFloor } from "../utils/callTurnFloor";
 import { useDeepgramVideoCallStt } from "../hooks/useDeepgramVideoCallStt";
 import {
   buildCompanionVideoTraceUrl,
@@ -3850,6 +3851,8 @@ export function CompanionShowroom({
   const streamingSpeechRef = useRef<{ stop: () => void; context: AudioContext } | null>(
     null,
   );
+  /** Whose turn it is on the call (XState): her stop or her voice over the companion ends its turn (Ila 11/22). */
+  const callTurnFloorRef = useRef(createCallTurnFloor());
   const activityReactionRequesterRef = useRef<
     | ((
         reaction: ShowroomActivityReactionContext,
@@ -5223,13 +5226,21 @@ export function CompanionShowroom({
           const streamContext = new StreamAudioContextCtor!();
           const streamAnalyser = ensurePlaybackAnalyser(streamContext);
           streamAnalyser.connect(streamContext.destination);
+          // Ila 11/22: her "stop" wins. The turn floor (XState) holds this turn's stop from its first moment.
+          const turnFloor = callTurnFloorRef.current;
+          const floorTurn = turnFloor.companionTurnStarted(stopSpeech);
+          let floorTurnHandedOff = false;
           try {
             const stream = await streamCompanionTalk({
               url: `/api/companions/${encodeURIComponent(current.id)}/talk/stream`,
               payload,
               context: streamContext,
               sink: streamAnalyser,
+              onStart: (stopStream) => {
+                streamingSpeechRef.current = { stop: stopStream, context: streamContext };
+              },
               onFirstAudio: (latencyMs) => {
+                turnFloor.companionSpeaking();
                 speechAnalyserRef.current = streamAnalyser;
                 setShowroomTalkPhase("speaking");
                 playCurrentCompanionAnimation("talking", { loop: true });
@@ -5243,6 +5254,11 @@ export function CompanionShowroom({
                 });
               },
             });
+            if (stream.interrupted) {
+              console.log(` 🎮 [showroom-talk] [interrupted] [child-stopped] companion=${current.id} mode=${talkMode}`);
+              emitShowroomVideoCallTrace({ eventName: "audio_ended", turnId: traceTurnId, payload: { reason: "child_stopped", transport: "sse_stream" } });
+              return;
+            }
             const data = stream.data;
             const responseText =
               (typeof data.text === "string" && data.text.trim()) ||
@@ -5356,7 +5372,9 @@ export function CompanionShowroom({
             }
 
             streamingSpeechRef.current = { stop: stream.stop, context: streamContext };
+            floorTurnHandedOff = true;
             void stream.waitForPlaybackEnd().then(() => {
+              turnFloor.companionTurnEnded(floorTurn);
               console.log(
                 ` 🎮 [showroom-talk] audio_ended companion=${current.id} mode=${talkMode} transport=sse_stream`,
               );
@@ -5405,6 +5423,8 @@ export function CompanionShowroom({
             } else {
               throw streamErr;
             }
+          } finally {
+            if (!floorTurnHandedOff) turnFloor.companionTurnEnded(floorTurn);
           }
         }
 
@@ -5892,6 +5912,13 @@ export function CompanionShowroom({
       if (!showroomVideoChatOpen || !current) return;
       const transcript = text.trim();
       if (!transcript) return;
+      // Ila 11/22: a bare "stop"/"wait" stops the companion (even while it thinks) and is never sent as a question.
+      if (callTurnFloorRef.current.childFinal(transcript) === "listen") {
+        console.log(` 🎮 [showroom-video-chat] [stop-heard] [listening] chars=${transcript.length}`);
+        setShowroomTalkPhase("listening");
+        emitShowroomVideoCallTrace({ eventName: "speech_listen_start", payload: { source: "deepgram", reason: "child_said_stop", transcript } });
+        return;
+      }
       if (shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
         const dropped = speechDroppedWhileBusy(showroomTalkPhaseRef.current, transcript);
         if (dropped) {
@@ -5975,7 +6002,7 @@ export function CompanionShowroom({
 
   const handleDeepgramVideoCallBargeIn = useCallback(() => {
     console.log(" 🎮 [showroom-video-chat] deepgram_barge_in");
-    stopSpeech();
+    if (!callTurnFloorRef.current.childSpokeOver()) stopSpeech();
     setShowroomTalkPhase("listening");
     emitShowroomVideoCallTrace({
       eventName: "speech_listen_start",
