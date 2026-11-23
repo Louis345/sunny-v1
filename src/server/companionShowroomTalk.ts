@@ -68,7 +68,6 @@ const SHOWROOM_ACTIVITY_REACTION_EVENTS = new Set([
   "companion_move",
   "round_complete",
 ]);
-const SHOWROOM_TALK_FALLBACK_TEXT = "I'm here with you. Let's keep going.";
 // The call screen draws no pet yet, so a call companion is not offered the pet tool (2026-11-22: it would say a pet
 // came out that she cannot see). Homework sessions have it.
 const SHOWROOM_ONLY_OFF = new Set(["pet"]);
@@ -190,7 +189,6 @@ export type ShowroomShoppingEvent = {
 export type ShoppingSpeechGuardResult = {
   accepted: boolean;
   reason:
-    | "generic_fallback"
     | "incomplete_response"
     | "verdict_mismatch"
     | "item_role_confusion"
@@ -1312,12 +1310,12 @@ export function resolveShowroomSpokenText(input: {
   requireGeneratedSpeech?: boolean;
   shoppingContextPresent?: boolean;
 }): string {
+  // Owner rule (audit 2026-11-22): an empty model reply means she stays silent; never insert a line for her.
   const trimmed = input.rawText.trim();
-  if (trimmed) return trimmed;
-  if (input.companionCommandCount > 0) return "";
-  if (input.requireGeneratedSpeech) return "";
-  if (input.shoppingContextPresent) return "";
-  return SHOWROOM_TALK_FALLBACK_TEXT;
+  if (!trimmed && input.companionCommandCount === 0) {
+    console.log(` 🎮 [showroom-talk] [empty-reply] [silent] required=${Boolean(input.requireGeneratedSpeech)} shopping=${Boolean(input.shoppingContextPresent)}`);
+  }
+  return trimmed;
 }
 
 export function evaluateShoppingSpeech(input: {
@@ -1325,11 +1323,7 @@ export function evaluateShoppingSpeech(input: {
   verdict: NonNullable<ShowroomShoppingContext["selectedItem"]>["opinionVerdict"];
 }): ShoppingSpeechGuardResult {
   const text = input.text.replace(/\s+/g, " ").trim();
-  const normalized = text.toLowerCase();
   if (!text) return { accepted: false, reason: "incomplete_response" };
-  if (normalized === SHOWROOM_TALK_FALLBACK_TEXT.toLowerCase()) {
-    return { accepted: false, reason: "generic_fallback" };
-  }
   if (/\b(?:get|buy|wear)\s+(?:one|it|this)\s+too\b/i.test(text)) {
     return { accepted: false, reason: "item_role_confusion" };
   }

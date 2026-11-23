@@ -58,7 +58,7 @@ describe("the companion's voice carries only her own model output", () => {
       "src/server/session-manager.ts": 1, // turnSM flush of her model tokens
       "src/server/companion-response-runner.ts": 1, // runDirectCompanionTurnForSession
       "src/server/game-event-handler.ts": 1, // narrateGameStimulus: the NARRATOR voice
-      "src/server/routes.ts": 3, // call: model delta, model tool follow-up, OPEN audit: empty-reply fallback line
+      "src/server/routes.ts": 2, // call: model delta, model tool follow-up (an empty reply stays silent)
     });
   });
 

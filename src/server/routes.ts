@@ -3138,11 +3138,6 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           rawText: text,
           companionCommandCount: companionCommands.length + activityRequests.length,
         });
-        if (spokenText && spokenText !== text.trim()) {
-          // Fallback line was synthesized (no text, no commands); speak it too.
-          speaker?.sendText(spokenText);
-        }
-
         const ttsFinishStartedAt = Date.now();
         if (spokenText && speaker) {
           await speaker.finish();

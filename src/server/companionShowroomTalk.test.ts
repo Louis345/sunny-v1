@@ -1212,7 +1212,7 @@ describe("companion showroom talk contract", () => {
     ).toBe("");
   });
 
-  it("rejects generic, incomplete, verdict-changing, and item-role-confused shopping speech", () => {
+  it("rejects incomplete, verdict-changing, and item-role-confused shopping speech", () => {
     const evaluateShoppingSpeech = (
       showroomTalkContract as typeof showroomTalkContract & {
         evaluateShoppingSpeech?: (input: {
@@ -1221,13 +1221,6 @@ describe("companion showroom talk contract", () => {
         }) => { accepted: boolean; reason: string | null };
       }
     ).evaluateShoppingSpeech;
-
-    expect(
-      evaluateShoppingSpeech?.({
-        text: "I'm here with you. Let's keep going.",
-        verdict: "like",
-      }),
-    ).toEqual({ accepted: false, reason: "generic_fallback" });
     expect(
       evaluateShoppingSpeech?.({ text: "I can feel this navy", verdict: "like" }),
     ).toEqual({ accepted: false, reason: "incomplete_response" });
@@ -1448,4 +1441,12 @@ it("tells the companion the child just made her wish come true", () => {
   expect(resolved.request.shoppingContext?.wishFulfilled).toEqual({ itemId: "star-halo", name: "Star Halo" });
   const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "aurora", personality: "warm", mode: "video_call", shoppingContext: resolved.request.shoppingContext });
   expect(prompt).toContain("The child just made your wish come true: Star Halo");
+});
+
+describe("empty companion reply (audit: no inserted line)", () => {
+  it("stays silent instead of inserting a canned line when the model returns nothing", () => {
+    expect(showroomTalkContract.resolveShowroomSpokenText({ rawText: "   ", companionCommandCount: 0 })).toBe("");
+    const source = readFileSync(resolve(process.cwd(), "src/server/companionShowroomTalk.ts"), "utf8");
+    expect(source).not.toMatch(/I'm here with you/);
+  });
 });
