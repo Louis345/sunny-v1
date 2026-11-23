@@ -46,3 +46,14 @@ describe("based_on names a real recorded problem", () => {
     expect(addProblem("p3-9")).toMatchObject({ ok: true });
   });
 });
+
+describe("the steps the Planner can name", () => {
+  it("keys each step by its node id and by the step id after the last colon", async () => {
+    const { stepProblemsOf } = await import("./learningCycleRuntime");
+    const node = (nodeId: string, items: string[]) => ({ nodeId, evidenceContract: { itemContracts: Object.fromEntries(items.map(id => [id, problem(id)])) } });
+    const map = stepProblemsOf({ nodes: [node("hw-math-21cc76a6:b12:hw-math-21cc76a6-r198-step-1", ["p3-9"]), node("hw-math-21cc76a6:b12:hw-math-21cc76a6-r198-step-3", [])] } as never);
+    expect(map["hw-math-21cc76a6-r198-step-1"]).toEqual(["p3-9"]);
+    expect(map["hw-math-21cc76a6:b12:hw-math-21cc76a6-r198-step-1"]).toEqual(["p3-9"]);
+    expect(map["hw-math-21cc76a6-r198-step-3"]).toBeUndefined();
+  });
+});

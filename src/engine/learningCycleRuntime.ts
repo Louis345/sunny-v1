@@ -104,6 +104,18 @@ const milliseconds = (value: unknown) => Number.isFinite(value) && Number(value)
  * under its stop's goal sentence, so one assignment had 26 construct ids and no skill accumulated across boards.
  * Untagged problems keep the old id; saved answers keep the id they were saved with.
  */
+/** Each board step and the recorded problems it showed, under its node id and the step id the Planner reads after the
+ * last ":" (Ila board 13, 2026-11-23: it wrote hw-math-21cc76a6-r198-step-1 for hw-math-21cc76a6:b12:hw-math-21cc76a6-r198-step-1). */
+export function stepProblemsOf(cycle:Pick<LearningCycleRecordV2,"nodes">):Record<string,string[]>{
+  const map:Record<string,string[]>={};
+  for(const node of cycle.nodes){
+    const ids=Object.keys(node.evidenceContract.itemContracts??{});
+    if(!ids.length)continue;
+    for(const key of new Set([node.nodeId,node.nodeId.split(":").at(-1)!]))map[key]=[...new Set([...(map[key]??[]),...ids])];
+  }
+  return map;
+}
+
 export function plannerSkillConstructId(cycle: Pick<LearningCycleRecordV2, "domain" | "decisionHistory">, itemId: string | undefined): string | undefined {
   if (cycle.domain !== "math" || !itemId) return undefined;
   let concept: string | undefined;
@@ -1098,7 +1110,7 @@ ${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game
       const facts:SuccessorFacts={builtIns:[],
         // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
         ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
-        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,...readBackFacts,aimedGames:true,problems,answeredProblemIds,stepProblems:Object.fromEntries(cycle.nodes.map(node=>[node.nodeId,Object.keys(node.evidenceContract.itemContracts??{})]).filter(([,ids])=>ids.length)),writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),...libraryFacts,rerunnable:()=>false};
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,...readBackFacts,aimedGames:true,problems,answeredProblemIds,stepProblems:stepProblemsOf(cycle),writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),...libraryFacts,rerunnable:()=>false};
       const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: first read_back: your theory going into this board, graded against what she did and said, citing the bracketed ids below; your one belief about how she thinks and a competing explanation. Then one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
