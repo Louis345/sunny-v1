@@ -161,11 +161,8 @@ import {
   setCreatorDiagSessionForReadingTest,
 } from "./creatorDiagControls";
 import {
-  detectUrgentLearningRoute,
   activeLearningSuppressionReason,
-  recordUrgentLearningEvidenceForOrganicTurn,
   recordPronunciationReadingStruggleSignal,
-  runSessionLearningSignalAudit,
   shouldSuppressTranscriptDuringActiveLearningGame,
 } from "./urgentLearningRuntime";
 import {
@@ -1479,14 +1476,6 @@ export class SessionManager {
 
     const ts = new Date().toISOString();
     console.log(`  🏁 [${ts}] Ending session for ${this.childName}`);
-    await runSessionLearningSignalAudit({
-      childId: endChildId,
-      sessionId: this.sessionId,
-      conversationHistory: this.conversationHistory,
-      recentActivityState: this.currentActivityState,
-      hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
-      hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
-    });
 
     if (this.clearSessionTimer) {
       this.clearSessionTimer();
@@ -1812,26 +1801,16 @@ export class SessionManager {
     if (this.companionPresence === "collapsed" && presenceRoute.action === "summon_and_respond") {
       this.setCompanionPresence("summoned", "voice");
     }
-    const urgentRoute = !opts?.fromReadingComplete
-      && (this.companionPresence === "summoned" || presenceRoute.action === "summon_and_respond")
-      ? detectUrgentLearningRoute({
-          transcript,
-          childName: this.childName,
-          companionName: this.companion.name,
-          currentActivityState: this.currentActivityState,
-          currentCanvasState: this.currentCanvasState,
-        })
-      : null; if (urgentRoute?.intent.type === "help_request") { grantSpellingHelpOnRequest(this.spellingAssessment, this.currentBoardSnapshot); this.voiceFloor?.companionClaimed(); } // contract 54
     const companionConversationOpen = this.companionPresence === "summoned"
       && this.companionInteractionMode === "conversation";
-    if ((presenceRoute.action === "dismiss" || (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen)) && handleCompanionPresenceTranscript({
+    if ((presenceRoute.action === "dismiss" || !companionConversationOpen) && handleCompanionPresenceTranscript({
       enabled: !opts?.fromReadingComplete &&
         (presenceRoute.action === "dismiss" || this.companionPresence === "collapsed" || generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
       presence: this.companionPresence,
       companionWakeNames: COMPANION_WAKE_NAMES,
       speechCaptureArmed,
-      nodeId: this.currentBoardSnapshot?.nodeId, reportBug: (text) => void this.hostRecordProductIssue({ issueType: "bug_report", severity: "medium", childUtterance: text, evidenceText: `child said a bug phrase while the companion was minimized: "${text}"`, confidence: 0.7, source: "child_utterance", ...(this.currentBoardSnapshot?.nodeId ? { nodeId: this.currentBoardSnapshot.nodeId } : {}) }).catch((error: unknown) => console.error(" 🎮 [product-issue] [heard-while-minimized] [failed]", error)),
+      nodeId: this.currentBoardSnapshot?.nodeId,
       sendFinal: (text) => this.send(/^[a-z]$/i.test(text.trim()) ? "interim" : "final", { text }),
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
       recordEvent: (component, action, fields) =>
@@ -1849,77 +1828,8 @@ export class SessionManager {
       console.log(` 🎮 [companion] [stopped] [by-child] reason=bare_stop state=${state}`);
       return void this.voiceLatency?.discardLatest("ignored");
     }
-    if (urgentRoute && !checkUserGoodbye(transcript)) {
-      if (
-        state === "PROCESSING" ||
-        state === "SPEAKING" ||
-        state === "CANVAS_PENDING"
-      ) {
-        this.bargeIn();
-        state = this.turnSM.getState();
-      }
-      if (isReplay) {
-        this.debugRecorder.recordEvent("transcript", "urgent_replayed", { intent: urgentRoute.intent.type });
-        console.log(` 🎮 [transcript] [urgent-replayed] intent=${urgentRoute.intent.type}`);
-      } else {
-        void recordUrgentLearningEvidenceForOrganicTurn({
-          transcript,
-          stateBefore: state,
-          auditRound,
-          auditChild,
-          tts,
-          context: urgentRoute.context,
-          intent: urgentRoute.intent,
-          sessionId: this.sessionId,
-          debugRecorder: this.debugRecorder,
-          hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
-          hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
-        }).catch((err: unknown) => {
-          console.error("  🔴 [urgent-learning] organic evidence failed:", err);
-        });
-      }
-      if (
-        urgentRoute.context.activityId === "pronunciation" &&
-        (urgentRoute.intent.type === "help_request" ||
-          urgentRoute.intent.type === "frustration")
-      ) {
-        const cue = pronunciationCueFor(urgentRoute.context.currentWord);
-        const currentWord = urgentRoute.context.currentWord ?? "this word";
-        // Audit 2026-11-22: facts for her model turn; she helps in her own words (no scripted help line).
-        const supportFacts = [
-          `[System event: the child asked for help saying a word (${urgentRoute.intent.type})]`,
-          `She said: "${transcript}"`,
-          `Current word: "${currentWord}"`,
-          cue ? `Syllable cue shown on screen: ${cue}` : "No syllable cue is available for this word.",
-          "Help her with this word now, briefly, in your own words.",
-        ].join("\n");
-        this.turnSM.clearPendingTranscript("urgent_pronunciation_support");
-        this.debugRecorder.recordTranscript("user", transcript);
-        this.debugRecorder.recordEvent("urgent_learning", "pronunciation_support", {
-          intent: urgentRoute.intent.type,
-          currentWord: urgentRoute.context.currentWord,
-          cue,
-        });
-        this.send("game_message", {
-          forward: {
-            type: "pronunciation_support",
-            currentWord: urgentRoute.context.currentWord,
-            cue,
-            source: "companion",
-            timestamp: Date.now(),
-          },
-        });
-        console.log(
-          `  🎮 [urgent-learning] [pronunciation_support] word=${currentWord} cue=${cue ?? "none"}`,
-        );
-        await this.runCompanionResponse(supportFacts, "system");
-        return;
-      }
-    }
-
     if (
       !opts?.fromReadingComplete &&
-      !urgentRoute?.intent.shouldInterrupt &&
       state === "IDLE" &&
       this.shouldSuppressTranscriptDuringKaraoke(transcript)
     ) {
@@ -2103,6 +2013,7 @@ export class SessionManager {
     const replayTools = createReplayWordTools({ speechRate: () => this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)) ?? 1, snapshot: () => this.currentBoardSnapshot,
       playbackBusy: () => Boolean(this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback),
       assessmentItemId: () => this.spellingAssessment?.itemId,
+      grantHelp: () => { const granted = grantSpellingHelpOnRequest(this.spellingAssessment, this.currentBoardSnapshot); if (granted) this.voiceFloor?.companionClaimed(); return granted; },
       requestNarration: payload => this.handleGameEvent({ type: "narration_request", payload }) });
     const screenshotTools = {
       takeGameScreenshot: createTakeGameScreenshotTool(this),

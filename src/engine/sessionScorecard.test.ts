@@ -44,11 +44,10 @@ describe("session scorecard with retries", () => {
       const cycle = getLearningCycle("lab-child", "hw-math", { rootDir })!;
       expect(scorecardSection(cycle, { rootDir })).toMatch(/minutes: learning games [\d.]+ min, play \(Mystery\/arcade\) 0 min/);
       expect(timeRecord(cycle, { rootDir })).toEqual({ sessions: [{ sessionId: "s1", startedAt, minutes: card.minutes }], days: [expect.objectContaining({ sessions: 1, minutes: card.minutes })] });
-      // Measurement audit 2026-11-13 (f), AI-caught: "help asked" counted every turn with the word help. It counts
-      // only what the live help-request detection hears as a request ([companion-presence] [help-request]).
+      // Owner 2026-11-24: no keyword count of "help asked"; help on the record is what was actually given (with help).
       fs.writeFileSync(path.join(sessionDir, "transcript.md"), ["the help button is blue", "Help is a funny word", "I don't get it"]
         .map((text, index) => `### ${at(2 + index)}\n\n**user:** ${text}\n`).join("\n"));
-      expect(writeSessionScorecard({ childId: "lab-child", homeworkId: "hw-math", sessionDir }, { rootDir })!.helpRequests).toBe(1);
+      expect(writeSessionScorecard({ childId: "lab-child", homeworkId: "hw-math", sessionDir }, { rootDir }) as unknown as Record<string, unknown>).not.toHaveProperty("helpRequests");
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 });

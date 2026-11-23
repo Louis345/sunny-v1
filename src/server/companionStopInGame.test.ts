@@ -17,7 +17,7 @@ describe("a bare stop ends her companion's turn in a game too, and is never answ
 
   it("the in-game turn path stops on a bare stop before any companion turn starts", () => {
     const session = fs.readFileSync(path.join(process.cwd(), "src/server/session-manager.ts"), "utf8");
-    const stop = session.indexOf("isOnlyStopWords(transcript)"), urgent = session.indexOf("if (urgentRoute && !checkUserGoodbye(transcript))");
+    const stop = session.indexOf("isOnlyStopWords(transcript)"), urgent = session.indexOf("state === \"IDLE\" &&\n      this.shouldSuppressTranscriptDuringKaraoke(transcript)");
     expect(stop).toBeGreaterThan(0);
     expect(stop).toBeLessThan(urgent);
     expect(session.slice(stop, stop + 900)).toMatch(/this\.bargeIn\("child_speech"\)[\s\S]*\[companion\] \[stopped\] \[by-child\][\s\S]*return/);

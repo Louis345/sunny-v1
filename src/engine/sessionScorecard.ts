@@ -6,7 +6,6 @@ import { boardDeliveries, currentBoardInstance } from "./learningBoardInstances"
 import { listChildProductIssues } from "./productIssues";
 import { isFirstTryOnHerOwn, sessionGames, type SessionGame, isRetry } from "./sessionTimeline";
 import { raiseParentAlert } from "./sunnyHealth";
-import { isChildHelpRequest } from "./helpRequest";
 import { scorePlannerCalls } from "./plannerIntrospection";
 import { minutesByDay, minutesLine, sessionMinutes, type SessionMinutes } from "./sessionTime";
 
@@ -20,7 +19,7 @@ export type SessionScorecard = {
   /** firstTries/retries: each try on an item is saved (2026-11-10); the first try is the measure, retries are practice. Absent on older cards. */
   answers: { total: number; right: number; onHerOwn: number; onHerOwnRight: number; withHelp: number; helpNotRecorded: number; given: number; firstTries?: number; firstTryRight?: number; retries?: number };
   games: Array<Pick<SessionGame, "title" | "answers" | "right" | "finished"> & { minutesToFirstAnswer: number | null }>;
-  helpRequests: number; bugsReported: number;
+  bugsReported: number;
   predictions: { checked: number; inRange: number };
   /** Where the session's minutes went, from its own records (owner, 2026-11-10). Absent on older cards. */
   minutes?: SessionMinutes;
@@ -48,8 +47,6 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     const retry = (row: (typeof rows)[number]) => isRetry(row);
     // On her own means her first try without help; a retry is practice (owner, 2026-11-10).
     const own = rows.filter(isFirstTryOnHerOwn);
-    const transcriptFile = path.join(input.sessionDir, "transcript.md");
-    const childTurns = fs.existsSync(transcriptFile) ? fs.readFileSync(transcriptFile, "utf8").split(/\n### /).flatMap(block => block.includes("**user:**") ? [block.split("**user:**")[1].split("**assistant:**")[0]] : []) : [];
     const card: SessionScorecard = {
       sessionId: metadata.sessionId ?? path.basename(input.sessionDir), startedAt: metadata.startedAt, homeworkId: cycle.homeworkId,
       answers: { total: known.length, right: known.filter(row => row.result.correct).length, onHerOwn: own.length, onHerOwnRight: own.filter(row => row.result.correct).length,
@@ -58,7 +55,6 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
         firstTries: rows.filter(row => !retry(row)).length, firstTryRight: rows.filter(row => !retry(row) && row.result.correct).length, retries: rows.filter(retry).length },
       games: sessionGames(input.sessionDir, cycle).map(game => ({ title: game.title, answers: game.answers, right: game.right, finished: game.finished,
         minutesToFirstAnswer: game.firstAnswerMin === null ? null : round1(game.firstAnswerMin - game.openedMin) })),
-      helpRequests: childTurns.filter(isChildHelpRequest).length,
       bugsReported: listChildProductIssues(input.childId, { rootDir: opts.rootDir, limit: 200 }).filter(row => Date.parse(row.createdAt) >= from).length,
       // The Planner's calls answered in this session, checked by code (2026-11-10).
       predictions: (() => {
@@ -77,7 +73,7 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     // The current board's stops as planned, playable now, and kept from her by a system failure (owner, 2026-11-11).
     const board = cycle.boards ? boardDeliveries(cycle).find(row => row.boardId === currentBoardInstance(cycle).boardId) : undefined;
     const delivery = board ? `planned=${board.planned} delivered=${board.delivered} system_blocked=${board.systemBlocked}` : "planned=unknown delivered=unknown system_blocked=unknown";
-    console.log(` 🎮 [scorecard] [written] child=${input.childId} homework=${cycle.homeworkId} ${delivery} answers=${rows.length} helpKnown=${card.answers.total} helpUnknown=${card.answers.helpNotRecorded} right=${rows.filter(row => row.result.correct).length} own=${card.answers.onHerOwnRight}/${card.answers.onHerOwn} help=${card.helpRequests} learningMin=${card.minutes?.learning ?? "unknown"} playMin=${card.minutes?.play ?? "unknown"} callMin=${card.minutes?.call ?? "unknown"}`);
+    console.log(` 🎮 [scorecard] [written] child=${input.childId} homework=${cycle.homeworkId} ${delivery} answers=${rows.length} helpKnown=${card.answers.total} helpUnknown=${card.answers.helpNotRecorded} right=${rows.filter(row => row.result.correct).length} own=${card.answers.onHerOwnRight}/${card.answers.onHerOwn} learningMin=${card.minutes?.learning ?? "unknown"} playMin=${card.minutes?.play ?? "unknown"} callMin=${card.minutes?.call ?? "unknown"}`);
     return card;
   } catch (error) {
     console.error(` 🎮 [scorecard] [failed] child=${input.childId} reason=${error instanceof Error ? error.message : String(error)}`);
@@ -101,6 +97,6 @@ export function scorecardSection(cycle: LearningCycleRecordV2, opts: LearningCyc
   const header = "Her session scorecards (counted by code after each session, oldest first):";
   const cards = readScorecards(cycle, opts).slice(-limit);
   if (!cards.length) return `${header}\n- No scorecard yet.`;
-  return [header, ...cards.map(card => `- ${card.startedAt.slice(0, 16).replace("T", " ")}: on her own ${card.answers.onHerOwnRight} of ${card.answers.onHerOwn} right${card.answers.retries ? `; ${card.answers.retries} retries after a first try` : ""}; with help ${card.answers.withHelp}; help asked ${card.helpRequests} times; bugs she reported ${card.bugsReported}; games: ${
+  return [header, ...cards.map(card => `- ${card.startedAt.slice(0, 16).replace("T", " ")}: on her own ${card.answers.onHerOwnRight} of ${card.answers.onHerOwn} right${card.answers.retries ? `; ${card.answers.retries} retries after a first try` : ""}; with help ${card.answers.withHelp}; bugs she reported ${card.bugsReported}; games: ${
     card.games.map(game => `${game.title} first answer after ${game.minutesToFirstAnswer === null ? "none" : `${game.minutesToFirstAnswer.toFixed(1)} min`}${game.finished ? "" : " (not finished)"}`).join(", ") || "none"}; the Planner's calls checked ${card.predictions.checked}, right ${card.predictions.inRange}${card.minutes ? `; minutes: ${minutesLine(card.minutes)}` : ""}`)].join("\n");
 }

@@ -411,7 +411,7 @@ it("counts a scorecard after each session and shows the recent ones to the next-
   recordProductIssue({ childId, activityId: "word-radar", issueType: "bug_report", severity: "medium", source: "child_utterance", confidence: 0.9,
     childUtterance: "that's a bug", evidenceText: "Bug.", createdAt: at(5) }, f.opts);
   const card = writeSessionScorecard({ childId, homeworkId, sessionDir }, f.opts)!;
-  expect(card).toMatchObject({ sessionId: "s2", answers: { total: 2, right: 1, onHerOwn: 2, onHerOwnRight: 1, withHelp: 0, given: 1 }, helpRequests: 2, bugsReported: 1 });
+  expect(card).toMatchObject({ sessionId: "s2", answers: { total: 2, right: 1, onHerOwn: 2, onHerOwnRight: 1, withHelp: 0, given: 1 }, bugsReported: 1 });
   expect(card.games).toEqual([expect.objectContaining({ title: "Radar Run", minutesToFirstAnswer: 2, finished: true })]);
   await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
   // 2026-11-10: Reina's games logged 37 answers while 0 were saved, and nothing compared them. Now the scorecard does.
@@ -422,5 +422,5 @@ it("counts a scorecard after each session and shows the recent ones to the next-
   const prompt = promptOf(f.requests.at(-1));
   expect(prompt).toContain("Her session scorecards (counted by code after each session, oldest first):");
   // The fixture played Radar Run before this session, so these answers are replays: retries, not new first tries (BUGS.md S11).
-  expect(prompt).toMatch(/on her own 1 of 2 right; 2 retries after a first try; with help 0; help asked 2 times; bugs she reported 1; games: Radar Run first answer after 2\.0 min/);
+  expect(prompt).toMatch(/on her own 1 of 2 right; 2 retries after a first try; with help 0; bugs she reported 1; games: Radar Run first answer after 2\.0 min/);
 }, 120000);
