@@ -1091,16 +1091,16 @@ export function useSession(options?: UseSessionOptions) {
       }
 
       case "audio_start": {
-        const tappedToHear = activityNarrationPendingRef.current;
         cancelPlayback();
         playbackCanceledRef.current = false;
         activePlaybackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
         playbackRequestIdRef.current = activePlaybackRequestIdRef.current;
         playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
         playbackRequiresAudioRef.current = msg.requiresAudio === true;
-        // S10: only a word she tapped to hear (narration_request) or a test word gets past the quiet button; game
-        // narration in the companion's voice is the companion talking, so mute silences it.
-        activityNarrationPendingRef.current = tappedToHear || msg.requiresAudio === true;
+        // S10 + 11/23: only a test word (one she tapped to hear, or an assessment word) gets past the quiet button. Every
+        // game line arrives as a narration_request, so a request is not a tap: the server marks the test word.
+        activityNarrationPendingRef.current = msg.testWord === true || msg.requiresAudio === true;
+        if (companionSpeechMutedRef.current) console.log(` 🎮 [session-audio] [mute] [${activityNarrationPendingRef.current ? "test-word-plays" : "silenced"}] source=${String(msg.source ?? "")}`);
         if (activePlaybackRequestIdRef.current) playbackWatchdogRef.current.arm(activePlaybackRequestIdRef.current);
         break;
       }

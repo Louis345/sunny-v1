@@ -108,7 +108,8 @@ export async function requestGameNarrationForSession(session: {
   const route = (session.gameNarration ??= new GameNarrationRouter()).route(text, metadata, [session.childName, session.sessionTtsLabel]);
   session.recordDebugEvent?.("game_narration", "routed", { to: route.to, text, reason: metadata.reason, itemId: metadata.itemId });
   if (route.to === "skip") return;
-  if (route.to === "narrator") await session.speakGameNarration(route.text, metadata);
+  // The kind rides on the playback: only a test word plays through the quiet button (11/23, mute let the narrator talk).
+  if (route.to === "narrator") await session.speakGameNarration(route.text, { ...metadata, narration: route.kind });
   if (route.to === "narrator" && route.kind === "test_word") return; // she already holds the word as private context
   try {
     session.noteExternalEvent({ source: route.to === "narrator" ? "narrator" : "game", summary: route.fact });

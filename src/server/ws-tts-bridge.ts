@@ -64,7 +64,7 @@ export class WsTtsBridge {
   /** Game speech (activity playback) is read in this voice; her replies keep the companion's own voice. */
   useNarratorVoice(voiceId: string): void { this.narratorVoiceId = voiceId; }
 
-  beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false, launchToken?: string): void {
+  beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false, launchToken?: string, testWord = false): void {
     const voice = activity && this.narratorVoiceId ? this.narratorVoiceId : this.companionVoiceId;
     if (voice !== this.voiceId) {
       // A socket is bound to one voice: the narrator never speaks through a socket warmed in her voice, or back.
@@ -87,7 +87,8 @@ export class WsTtsBridge {
     if (this.elevenWs) this.trackTerminal(this.elevenWs).atomicWord = requiresAudio;
     this.playbackOwner = { requestId, ...(itemId ? { itemId } : {}), ...(launchToken ? { launchToken } : {}) };
     if (this.browserWs.readyState === WebSocket.OPEN) {
-      this.browserWs.send(JSON.stringify({ type: "audio_start", ...this.playbackOwner, requiresAudio, source: activity ? "activity" : "companion" }));
+      // testWord: the one narrator line that plays while she has the companion muted (the browser owns the quiet button).
+      this.browserWs.send(JSON.stringify({ type: "audio_start", ...this.playbackOwner, requiresAudio, testWord, source: activity ? "activity" : "companion" }));
     }
     console.log(` 🎮 [session-audio] [owner] [started] request=${requestId}`);
   }

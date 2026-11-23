@@ -1161,7 +1161,7 @@ export class SessionManager {
     this.activeGameNarrationRequestId = requestId;
     const assessment = metadata.assessmentMode === true ? this.spellingAssessment : undefined;
     let spoken = false;
-    this.ttsBridge?.beginPlayback(requestId, String(metadata.itemId ?? assessment?.itemId ?? ""), Boolean(assessment), true, typeof metadata.launchToken === "string" ? metadata.launchToken : this.currentBoardSnapshot?.launchToken ?? this.spellingLaunch?.launchToken);
+    this.ttsBridge?.beginPlayback(requestId, String(metadata.itemId ?? assessment?.itemId ?? ""), Boolean(assessment), true, typeof metadata.launchToken === "string" ? metadata.launchToken : this.currentBoardSnapshot?.launchToken ?? this.spellingLaunch?.launchToken, Boolean(assessment) || metadata.narration === "test_word");
     try {
       spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
         bridge: this.ttsBridge, assessment,

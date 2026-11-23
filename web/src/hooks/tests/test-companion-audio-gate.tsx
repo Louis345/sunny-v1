@@ -296,10 +296,28 @@ describe("useSession companion audio gate", () => {
     // She taps "hear the word": the request reaches Sunny, so its answer plays even while Elli is quiet.
     act(()=>result.current.sendMessage("game_event",{event:{type:"narration_request"}}));
     await act(async()=>{
-      deliverJson(ws,{type:"audio_start",requestId:"practice",source:"activity",requiresAudio:false});
+      deliverJson(ws,{type:"audio_start",requestId:"practice",source:"activity",requiresAudio:false,testWord:true});
       deliverJson(ws,{type:"audio",requestId:"practice",data:ONE_SAMPLE_PCM_BASE64});
     });
     expect(createBufferSourceCallCount).toBe(1);
+  });
+
+  // Human-caught 11/23 (owner: "when I mute, she still talks"). Saori's session events, 01:58:05 UTC: the narrator read
+  // "What number comes next after 42?" (reason=question) 85 s after companion_speech_mute=on. Every game line arrives as
+  // a narration_request, so the browser took each one for a tap and let it past the quiet button. Logs showed the line
+  // spoken but no client-side mute decision; the lab only tested a tapped word. Only a test word passes mute now.
+  it("mute silences the narrator reading screen text, even though the game asked for it", async () => {
+    const {result}=renderHook(()=>useSession());
+    await act(async()=>{result.current.startSession("ila");await Promise.resolve();});
+    act(()=>result.current.toggleCompanionSpeechMute());
+    const ws=wsInstances[0]!;
+    await act(async()=>{await Promise.resolve();});
+    act(()=>result.current.sendMessage("game_event",{event:{type:"narration_request"}}));
+    await act(async()=>{
+      deliverJson(ws,{type:"audio_start",requestId:"screen",source:"activity",requiresAudio:false});
+      deliverJson(ws,{type:"audio",requestId:"screen",data:ONE_SAMPLE_PCM_BASE64});
+    });
+    expect(createBufferSourceCallCount).toBe(0);
   });
 
   it("plays first audio immediately even while loading curtain is active", async () => {

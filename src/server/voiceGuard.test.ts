@@ -97,4 +97,20 @@ describe("the narrator reads only on-screen game text or test words", () => {
     await requestGameNarrationForSession(session, "carnivore.", { word: "carnivore", assessmentMode: true });
     expect(spoken).toEqual(["Which number is bigger?", "48 or 84", "carnivore."]);
   });
+
+  it("the narrator's playback says whether it is a test word, the only line that plays through mute (11/23)", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const kinds: unknown[] = [];
+    const session = {
+      gameNarration: new GameNarrationRouter(), childName: "Ila", sessionTtsLabel: "EYE-lah",
+      noteExternalEvent: () => {},
+      speakGameNarration: async (_text: string, metadata: Record<string, unknown>) => { kinds.push(metadata.narration); },
+    };
+    session.gameNarration.noteScreen({ launchToken: "l1", currentChallenge: "What number comes next after 42?" });
+    await requestGameNarrationForSession(session, "What number comes next after 42?", { launchToken: "l1", reason: "question" });
+    await requestGameNarrationForSession(session, "carnivore.", { word: "carnivore", assessmentMode: true });
+    expect(kinds).toEqual(["screen_text", "test_word"]);
+    expect(read("src/server/session-manager.ts")).toMatch(/beginPlayback\([^;]*metadata\.narration === "test_word"/);
+    expect(read("src/server/ws-tts-bridge.ts")).toMatch(/type: "audio_start",[^}]*testWord/);
+  });
 });
