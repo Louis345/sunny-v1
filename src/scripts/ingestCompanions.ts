@@ -25,14 +25,6 @@ type PromptCompanionConfig = {
   introOnly?: unknown;
 };
 
-type ShowroomScripts = Record<
-  string,
-  {
-    intro?: unknown;
-    plead?: unknown;
-  }
->;
-
 type ShowroomConfig = {
   modelName?: unknown;
   sourceUrl?: unknown;
@@ -49,7 +41,6 @@ type ShowroomConfig = {
   signatureMove?: unknown;
   gestureProfile?: unknown;
   voices?: unknown;
-  scripts?: unknown;
 };
 
 type ShowroomSignatureMove = {
@@ -101,16 +92,6 @@ type CompanionManifestEntry = {
       intro: string[];
       plead: string[];
       specialDance: string;
-    };
-    scripts: {
-      en: {
-        intro: string;
-        plead: string;
-      };
-      ja?: {
-        intro?: string;
-        plead?: string;
-      };
     };
   };
 };
@@ -279,27 +260,6 @@ function normalizeVrmPath(value: unknown): string | null {
   return fs.existsSync(publicPath) ? `/companions/${file}` : null;
 }
 
-function resolveScripts(
-  companionName: string,
-  showroom: ShowroomConfig | null,
-): CompanionManifestShowroom["scripts"] {
-  const scripts = showroom?.scripts as ShowroomScripts | undefined;
-  const en = scripts?.en ?? {};
-  const intro =
-    asString(en.intro) ??
-    `Hi! I'm ${companionName}. I'm so excited to meet you.`;
-  const plead =
-    asString(en.plead) ??
-    `Please pick me! I think we could have so much fun learning together.`;
-  const ja = scripts?.ja;
-  const jaIntro = ja ? asString(ja.intro) : undefined;
-  const jaPlead = ja ? asString(ja.plead) : undefined;
-  return {
-    en: { intro, plead },
-    ...(jaIntro || jaPlead ? { ja: { intro: jaIntro, plead: jaPlead } } : {}),
-  };
-}
-
 function buildShowroom(
   companionName: string,
   showroom: ShowroomConfig | null,
@@ -322,7 +282,6 @@ function buildShowroom(
     outfitChangeEffect: asString(showroom?.outfitChangeEffect),
     signatureMove: asSignatureMove(showroom?.signatureMove),
     gestureProfile: asGestureProfile(showroom?.gestureProfile),
-    scripts: resolveScripts(companionName, showroom),
   };
 }
 
@@ -386,16 +345,6 @@ export type CompanionManifestEntry = {
       intro: string[];
       plead: string[];
       specialDance: string;
-    };
-    scripts: {
-      en: {
-        intro: string;
-        plead: string;
-      };
-      ja?: {
-        intro?: string;
-        plead?: string;
-      };
     };
   };
 };

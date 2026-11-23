@@ -44,9 +44,8 @@ describe("Hikari, the angel companion", () => {
   it("offers Hikari's chosen voice as her default FaceTime voice", () => {
     const showroom = JSON.parse(
       fs.readFileSync(path.join(process.cwd(), "src/prompts/companions/hikari/showroom.json"), "utf8"),
-    ) as { voices: { id: string; default?: boolean }[]; scripts: { en: { intro: string } } };
+    ) as { voices: { id: string; default?: boolean }[] };
     expect(showroom.voices.filter(v => v.default).map(v => v.id)).toEqual([HIKARI_VOICE]);
-    expect(showroom.scripts.en.intro).toMatch(/^Hi! I'm Hikari/);
   });
 
   it("introduces herself as Hikari in a FaceTime talk turn, never as Matilda", () => {

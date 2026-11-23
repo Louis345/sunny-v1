@@ -99,6 +99,21 @@ describe("POST /api/companions/:companionId/call-moment", () => {
     expect(sentPrompt()).toMatch(/hanging up/i);
   });
 
+  // Audit 2026-11-22: the showroom's "Say Hi" / "Why pick me?" played scripted lines ("Hi! I'm Elli…", "Please pick
+  // me!"). She writes them from her own persona, like the call opening.
+  it("writes her showroom intro and her answer to 'why pick me' from her persona, in showroom mode", async () => {
+    anthropicState.reply = "I keep a jar of riddles by my bed. Want the worst one?";
+    const intro = await post({ childId: "ila", moment: "showroom_intro" });
+    expect(intro.body).toMatchObject({ ok: true, moment: "showroom_intro", text: "I keep a jar of riddles by my bed. Want the worst one?" });
+    expect(sentPrompt()).toContain("You are Elli");
+    expect(sentPrompt()).toMatch(/showroom/i);
+    expect(sentPrompt()).not.toMatch(/Please pick me|Hi! I'm Elli/);
+    anthropicState.createCalls.length = 0;
+    const plead = await post({ childId: "ila", moment: "showroom_plead" });
+    expect(plead.body).toMatchObject({ ok: true, moment: "showroom_plead" });
+    expect(sentPrompt()).toMatch(/why she should pick you/i);
+  });
+
   it("rejects an unknown moment", async () => {
     const result = await post({ childId: "ila", moment: "pitch" });
     expect(result.status).toBe(400);

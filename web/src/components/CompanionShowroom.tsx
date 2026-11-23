@@ -75,7 +75,7 @@ import { type ServerWallet } from "../lib/wardrobeWallet";
 import { callCompanionLook, createSelfLookGuard, noteTryOn, portraitSnapshot, type PortraitSnapshot } from "../lib/callSelfLook";
 import { fittedCallLook, loadCallStartLook } from "../lib/callStartLook";
 import { callCompanionIndex, callPortraitLook } from "../utils/callCompanion";
-import { createCallOpeningCache, writeCallMoment } from "../utils/callMoment";
+import { createCallOpeningCache, writeCallMoment, type WrittenCallLine } from "../utils/callMoment";
 import {
   WardrobeStoreLab,
   type WardrobeShoppingContext,
@@ -298,15 +298,6 @@ export type CompanionShowroomProps = {
    * The parent handles navigation / persistence.
    */
   onSelect: (companionId: string) => void;
-
-  /**
-   * Returns the intro speech text for a given companion.
-   * Currently powers the on-screen subtitle; designed so ElevenLabs TTS
-   * (and later Claude streaming) can drop in as the text source without
-   * changing this component.
-   * Signature is intentionally synchronous — caller pre-fetches if async.
-   */
-  getText: (companionId: string) => string;
 
   /**
    * Optional bonus-point values per companion.
@@ -3310,6 +3301,7 @@ function CompanionInfoCard({
             >
               {entry.name}
             </h2>
+            {introText ? (
             <p
               style={{
                 margin: "6px 0 0",
@@ -3322,8 +3314,10 @@ function CompanionInfoCard({
             >
               {introText.slice(0, 48)}…
             </p>
+            ) : null}
           </div>
 
+          {introText ? (
           <p
             style={{
               margin: 0,
@@ -3338,6 +3332,7 @@ function CompanionInfoCard({
           >
             {introText}
           </p>
+          ) : null}
 
           <div style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
 
@@ -3618,7 +3613,6 @@ function CompanionInfoCard({
 
 export function CompanionShowroom({
   onSelect,
-  getText,
   bonusPoints,
   childName,
   useGeneratedBackground = false,
@@ -4017,7 +4011,9 @@ export function CompanionShowroom({
     dressableFailed: Boolean(wardrobeStoreEntry && failedPortraitModels.includes(wardrobeStoreEntry.companionConfig?.vrmUrl ?? wardrobeStoreEntry.vrmUrl)),
     outfitId: effectiveWardrobeOutfitId, accessoryId: effectiveWardrobeAccessoryId, materialVariant: effectiveWardrobeOutfitMaterialVariant });
   callLookRef.current = callLook;
-  const introText = current ? getText(current.id) : "";
+  // Her intro is written by her from her persona while she is on screen (audit 2026-11-22: no scripted intro).
+  const [writtenIntros, setWrittenIntros] = useState<Record<string, string>>({});
+  const introText = current ? (writtenIntros[current.id] ?? "") : "";
   const showroomVideoTraceLink = useMemo(
     () =>
       showroomVideoCallTraceId
@@ -6920,6 +6916,32 @@ export function CompanionShowroom({
     stopSpeech,
   ]);
 
+  // Audit 2026-11-22: "Say Hi" and "Why pick me?" are hers, written from her persona (no scripts). Her intro is
+  // written while she is on screen, so the tap plays at once; "why pick me" is written on tap. Nothing written is
+  // silence, never a stock line.
+  const showroomIntroCacheRef = useRef(createCallOpeningCache({
+    write: (key) => writeCallMoment({ ...key, moment: "showroom_intro", ...callMomentContextRef.current }),
+  }));
+  const showroomIntroRef = useRef(new Map<string, Promise<WrittenCallLine>>());
+  const introKeyOf = (companionId: string, voiceId: string) => `${companionId}|${voiceId}`;
+  const prefetchShowroomIntro = useCallback((companionId: string, voiceId: string) => {
+    const key = introKeyOf(companionId, voiceId);
+    if (showroomIntroRef.current.has(key)) return;
+    const line = showroomIntroCacheRef.current.take({ companionId, voiceId }).then((written) => {
+      if (written.text) setWrittenIntros((prev) => ({ ...prev, [companionId]: written.text }));
+      return written;
+    });
+    showroomIntroRef.current.set(key, line);
+  }, []);
+  useEffect(() => {
+    if (!current || current.voices.length === 0) return;
+    const voiceId = voiceSelections[current.id] ?? current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
+    if (!voiceId) return;
+    // Written once she lingers on a companion, not for every one she scrolls past.
+    const timer = window.setTimeout(() => prefetchShowroomIntro(current.id, voiceId), 900);
+    return () => window.clearTimeout(timer);
+  }, [current, prefetchShowroomIntro, voiceSelections]);
+
   const speakCurrent = useCallback(
     async (line: SpeakingLine) => {
       const currentDefaultVoice =
@@ -6931,21 +6953,23 @@ export function CompanionShowroom({
       setSpeakingLine(line);
       startSpeechGestures(line);
       try {
-        const response = await fetch(
-          `/api/companions/${encodeURIComponent(current.id)}/speak`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ line, language: "en", voiceId: selectedVoiceId }),
-          },
-        );
-        if (!response.ok) {
-          const err = (await response.json().catch(() => null)) as
-            | { error?: string }
-            | null;
-          throw new Error(err?.error ?? `speech_${response.status}`);
+        let written: WrittenCallLine;
+        if (line === "intro") {
+          const key = introKeyOf(current.id, selectedVoiceId);
+          prefetchShowroomIntro(current.id, selectedVoiceId);
+          written = await showroomIntroRef.current.get(key)!;
+          showroomIntroRef.current.delete(key); // each intro is heard once; the next is written fresh
+        } else {
+          written = await writeCallMoment({ companionId: current.id, voiceId: selectedVoiceId, moment: "showroom_plead", ...callMomentContextRef.current });
         }
-        const blob = await response.blob();
+        if (!written.audio) {
+          console.log(` 🎮 [showroom-speak] [${line}] [silent] companion=${current.id} reason=${written.text ? "voice_unavailable" : "nothing_written"}`);
+          stopSpeech();
+          playCurrentCompanionAnimation("idle", { loop: true });
+          return;
+        }
+        if (line === "plead" && written.text) setWrittenIntros((prev) => ({ ...prev, [current.id]: written.text }));
+        const blob = written.audio;
         const url = URL.createObjectURL(blob);
         speechUrlRef.current = url;
         const audio = new Audio(url);
@@ -6981,6 +7005,7 @@ export function CompanionShowroom({
     [
       current,
       playCurrentCompanionAnimation,
+      prefetchShowroomIntro,
       speakingLine,
       startSpeechGestures,
       stopSpeech,

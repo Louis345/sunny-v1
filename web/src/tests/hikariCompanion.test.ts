@@ -30,7 +30,6 @@ describe("Hikari in the FaceTime picker", () => {
     expect(hikari?.vrmUrl).toBe(ANGEL_MODEL);
     expect(hikari?.voices.filter(v => v.default).map(v => v.id)).toEqual([HIKARI_VOICE]);
     expect(hikari?.defaultFor).toBeUndefined();
-    expect(hikari?.showroom?.scripts.en.intro).toMatch(/^Hi! I'm Hikari/);
   });
 
   it("keeps Matilda's entry as Reina's Matilda", () => {

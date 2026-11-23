@@ -272,7 +272,7 @@ import {
   shouldSynthesizeShowroomSpeech,
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
-import { buildCallMomentTurn, resolveCallMoment, resolveRecentCallLines } from "./companionCallMoment";
+import { buildCallMomentTurn, isShowroomMoment, resolveCallMoment, resolveRecentCallLines } from "./companionCallMoment";
 
 export type ShowroomTalkRouteFailure = {
   status: 503;
@@ -501,11 +501,12 @@ function pickDiagSpellingWord(childId: string): string {
   return nw;
 }
 
-type ShowroomLine = "intro" | "plead";
 const SHOWROOM_BANTER_SPEECH_SOURCE = "video_game_banter";
 const SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE = "video_call_greeting";
 /** Her goodbye, written by her from the call (companionCallMoment). */
 const SHOWROOM_VIDEO_CALL_FAREWELL_SPEECH_SOURCE = "video_call_farewell";
+/** Her showroom intro or "why pick me", written by her from her persona (companionCallMoment). */
+const SHOWROOM_WRITTEN_LINE_SPEECH_SOURCE = "showroom_written_line";
 const SHOWROOM_BANTER_SPEECH_MAX_CHARS = 180;
 
 export function normalizeShowroomBanterSpeechText(raw: unknown): string {
@@ -520,7 +521,8 @@ export function shouldUseShowroomBanterSpeech(input: {
   return (
     (input.source === SHOWROOM_BANTER_SPEECH_SOURCE ||
       input.source === SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE ||
-      input.source === SHOWROOM_VIDEO_CALL_FAREWELL_SPEECH_SOURCE) &&
+      input.source === SHOWROOM_VIDEO_CALL_FAREWELL_SPEECH_SOURCE ||
+      input.source === SHOWROOM_WRITTEN_LINE_SPEECH_SOURCE) &&
     normalizeShowroomBanterSpeechText(input.text).length > 0
   );
 }
@@ -532,7 +534,6 @@ type ShowroomJson = {
   catchphrases?: unknown;
   specialSkills?: unknown;
   role?: unknown;
-  scripts?: Record<string, Partial<Record<ShowroomLine, unknown>>>;
 };
 
 function readShowroomStringList(value: unknown, limit: number): string[] {
@@ -584,34 +585,6 @@ async function audioLikeToBuffer(audio: unknown): Promise<Buffer> {
     return Buffer.concat(chunks);
   }
   throw new Error("Unsupported ElevenLabs audio response");
-}
-
-function readShowroomScript(
-  companionId: string,
-  companionName: string,
-  line: ShowroomLine,
-  language: string,
-): string {
-  const showroomPath = path.join(
-    process.cwd(),
-    "src",
-    "prompts",
-    "companions",
-    companionId,
-    "showroom.json",
-  );
-  const raw = fs.existsSync(showroomPath)
-    ? (JSON.parse(fs.readFileSync(showroomPath, "utf8")) as ShowroomJson)
-    : null;
-  const requested = raw?.scripts?.[language]?.[line];
-  const fallback = raw?.scripts?.en?.[line];
-  const text =
-    (typeof requested === "string" && requested.trim()) ||
-    (typeof fallback === "string" && fallback.trim()) ||
-    (line === "intro"
-      ? `Hi! I'm ${companionName}. I'm so excited to meet you.`
-      : `Please pick me! I think we could have so much fun learning together.`);
-  return text.trim();
 }
 
 function readShowroomVoiceOptions(
@@ -2046,19 +2019,19 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       typeof req.params.companionId === "string"
         ? req.params.companionId.trim()
         : "";
-    const lineRaw = typeof req.body?.line === "string" ? req.body.line.trim() : "";
-    const line: ShowroomLine = lineRaw === "plead" ? "plead" : "intro";
     const banterText = shouldUseShowroomBanterSpeech({
       source: req.body?.source,
       text: req.body?.text,
     })
       ? normalizeShowroomBanterSpeechText(req.body?.text)
       : "";
-    const languageRaw =
-      typeof req.body?.language === "string" ? req.body.language.trim().toLowerCase() : "en";
-    const language = languageRaw || "en";
     if (!companionId) {
       return res.status(400).json({ ok: false, error: "companionId_required" });
+    }
+    // Audit 2026-11-22: this route voices only words she wrote (sent as text); there is no scripted intro or plead.
+    if (!banterText) {
+      console.log(` 🎮 [showroom-speak] [rejected] companion=${companionId} reason=text_required`);
+      return res.status(400).json({ ok: false, error: "text_required" });
     }
 
     let companion: {
@@ -2099,10 +2072,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
 
     try {
-      const text = banterText || readShowroomScript(companion.id, companion.name, line, language);
-      console.log(
-        ` 🎮 [showroom-speak] [tts] companion=${companion.id} source=${banterText ? String(req.body?.source) : line}`,
-      );
+      const text = banterText;
+      console.log(` 🎮 [showroom-speak] [tts] companion=${companion.id} source=${String(req.body?.source)}`);
       const client = new ElevenLabsClient({ apiKey });
       const locators = getPronunciationLocators();
       // Her name the way her profile spells it for the voice (Ila 11/22: "they're saying my name wrong").
@@ -2197,15 +2168,16 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const callSource = typeof req.body?.callSource === "string" ? req.body.callSource : undefined;
     const startedAt = Date.now();
     try {
+      const talkMode = isShowroomMoment(moment) ? "showroom" : "video_call";
       const system = buildShowroomTalkSystemPrompt({
         companionId: companion.id,
         companionName: companion.name,
         showroomTheme: typeof req.body?.showroomTheme === "string" ? req.body.showroomTheme : "crystal",
-        personality: companionTalkPersonality(companion, "video_call"),
-        mode: "video_call",
+        personality: companionTalkPersonality(companion, talkMode),
+        mode: talkMode,
         callSource: callSource as CompanionCallSource | undefined,
         relationshipState: req.body?.relationshipState as CompanionRelationshipState | undefined,
-        companionMemory: buildCompanionCallContext({ childId, companionId: companion.id, mode: "video_call", callSource }),
+        companionMemory: buildCompanionCallContext({ childId, companionId: companion.id, mode: talkMode, callSource }),
       });
       const message = await new Anthropic().messages.create({
         model: COMPANION_TALK_SONNET_MODEL,

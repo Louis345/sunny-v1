@@ -282,7 +282,9 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("call_greeting_audio_start");
     expect(source).toContain("call_greeting_audio_ended");
     expect(source).toContain("call_greeting_skipped");
-    expect(source).toContain("/speak");
+    // Her written lines are voiced by writeCallMoment (utils/callMoment.ts → /speak); the showroom holds no scripts.
+    expect(source).toContain("writeCallMoment(");
+    expect(source).toContain('moment: "showroom_plead"');
     expect(source).not.toContain("new WebSocket");
   });
 

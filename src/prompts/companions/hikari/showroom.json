@@ -32,11 +32,5 @@
       "label": "Candy - Young and Sweet",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "Hi! I'm Hikari. My name means light, and I floated down from the clouds to be your friend.",
-      "plead": "Pick me and I'll make every call glow, play silly sky games, and cheer for you super loud."
-    }
-  }
+  ]
 }

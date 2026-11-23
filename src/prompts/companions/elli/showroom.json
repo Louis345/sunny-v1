@@ -32,11 +32,5 @@
       "label": "Candy - Young and Sweet",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "Hi! I'm Elli. I love riddles, silly ideas, and cheering for every tiny win.",
-      "plead": "Please pick me! I promise I'll make learning feel like hanging out with a friend who is always on your side."
-    }
-  }
+  ]
 }

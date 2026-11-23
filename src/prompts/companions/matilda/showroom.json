@@ -32,11 +32,5 @@
       "label": "Candy - Young and Sweet",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "Hi! I'm Matilda. I love books, patterns, and challenges that make your brain feel powerful.",
-      "plead": "Pick me and I'll keep things exciting, tricky, and always fun. We'll solve the hard stuff together."
-    }
-  }
+  ]
 }

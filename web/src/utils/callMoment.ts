@@ -51,7 +51,7 @@ export function createCallOpeningCache(input: {
 export async function writeCallMoment(input: {
   companionId: string;
   voiceId: string;
-  moment: "opening" | "goodbye";
+  moment: "opening" | "goodbye" | "showroom_intro" | "showroom_plead";
   childId: string;
   callSource?: string;
   relationshipState?: string;
@@ -81,10 +81,8 @@ export async function writeCallMoment(input: {
     headers: { "Content-Type": "application/json" },
     signal: input.signal,
     body: JSON.stringify({
-      line: "intro",
-      language: "en",
       voiceId: input.voiceId,
-      source: input.moment === "opening" ? "video_call_greeting" : "video_call_farewell",
+      source: input.moment === "opening" ? "video_call_greeting" : input.moment === "goodbye" ? "video_call_farewell" : "showroom_written_line",
       text,
     }),
   });
