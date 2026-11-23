@@ -3,6 +3,7 @@ import { childPaceFacts, itemAttemptFacts } from "./itemAttemptFacts";
 import { sunnyHealthFacts } from "../engine/sunnyHealth";
 import { noteCompanionHelpOnItem } from "./companionItemHelp";
 import { gamePaceFacts, noteGamePace } from "./gamePace";
+import { unnamedPetFacts } from "./creatureCare";
 import { isChildHelpRequest, normalizeSpeechText } from "../engine/helpRequest";
 import { getChildChart } from "../profiles/childChart";
 import type { SpellingAssessmentState } from "./game-event-handler";
@@ -300,7 +301,9 @@ export function buildActivityCompanionContext(input: {
   // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
   const health = sunnyHealthFacts(input.childId);
   const recent = recentRepliesFact(input.childId);
-  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; stays for every next problem in this game; another game or a check starts at normal pace).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  // A pet she caught and has not named yet (Ila 11/22): a fact each turn, gone once she names it.
+  const unnamedPets = unnamedPetFacts(input.childId);
+  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, unnamedPets, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; stays for every next problem in this game; another game or a check starts at normal pace).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;

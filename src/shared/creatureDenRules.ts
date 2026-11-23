@@ -15,6 +15,8 @@ export interface DenCreature {
   /** 0..MAX_BOND: grows with care. */
   bond: number;
   caughtAt: string;
+  /** She gave it a name herself (Den or by voice); until then it carries its kind's default name. */
+  named?: boolean;
 }
 
 export interface DenState {
@@ -135,6 +137,6 @@ export function renameDenCreature(state: DenState, creatureId: string, name: str
   console.log(` 🎮 [creature-den] [rename] [done] creature=${creatureId}`);
   return {
     ...state,
-    creatures: state.creatures.map((entry) => (entry.creatureId === creatureId ? { ...entry, nickname } : entry)),
+    creatures: state.creatures.map((entry) => (entry.creatureId === creatureId ? { ...entry, nickname, named: true } : entry)),
   };
 }

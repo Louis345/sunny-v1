@@ -1,6 +1,7 @@
 import { liveItemNode } from "./liveItemBinding";
 import { canonicalJourneyLaunchable } from '../engine/learningCycleRepository';
 import { reactToRewardDrop } from "./bossDropAward";
+import { unnamedPetFacts } from "./creatureCare";
 import {presentOriginalSpellingItem,withOriginalSpellingChart,recordPresentedEngagement} from '../chart/spelling/originalResponses';
 import fs from "fs";
 import path from "path";
@@ -900,6 +901,17 @@ export class SessionManager {
     console.log(` 🎮 [journey] [choice-addressed] [${choiceId}] request=${requestId}`);
     if (this.turnSM.getState()!=='IDLE' || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
     await this.runCompanionResponse('[System event: displayed path choice opened] Available options are in the live board snapshot. No option has been selected.', 'system');
+  }
+
+  /** She just caught a pet (Ila 11/22: "I didn't get to name her"): the companion hears the facts, asks in its own words. */
+  public async reactToCaughtPet(): Promise<void> {
+    const facts = unnamedPetFacts(this.chartChildId);
+    if (!facts) return;
+    // Summoned, like a path choice: the name she says next is heard without a wake phrase (11/22 log: ambient-ignored).
+    this.setCompanionPresence("summoned", "client");
+    this.resetCompanionDispositionAfterSpeech();
+    if (this.turnSM.getState() !== "IDLE" || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
+    await this.runCompanionResponse(`[System event: she just caught a pet]\n${facts}`, "system");
   }
 
   /** A chest she opened held a bonus: the companion reacts to what the server saved (bossDropAward.ts). */

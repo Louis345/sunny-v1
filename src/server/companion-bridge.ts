@@ -156,7 +156,7 @@ export class ServerCompanionBridge {
     }
     // Her pet by voice (2026-11-22): the den's rules decide; the kiosk shows it only when it really came out or went home.
     if (cmd.type === "pet") {
-      const result = creatureCare.summonPetForChild(childId, cmd.payload as { action: "bring" | "dismiss"; name?: string });
+      const result = creatureCare.summonPetForChild(childId, cmd.payload as { action: "bring" | "dismiss" | "name"; name?: string; newName?: string });
       if (result.ok) deliver(cmd);
       return { type: cmd.type, ...result };
     }

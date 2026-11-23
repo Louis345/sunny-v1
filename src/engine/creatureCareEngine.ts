@@ -58,6 +58,7 @@ export function normalizeCreatureState(raw: unknown): CreaturePlanState | undefi
           nickname: String(entry.nickname ?? ""),
           bond: Math.max(0, Math.min(MAX_BOND, Math.round(Number(entry.bond) || 0))),
           caughtAt: String(entry.caughtAt ?? ""),
+          ...(entry.named === true ? { named: true } : {}),
         })),
       sidekickId: typeof den.sidekickId === "string" ? den.sidekickId : null,
       ...(typeof den.lastVisitAt === "string" ? { lastVisitAt: den.lastVisitAt } : {}),

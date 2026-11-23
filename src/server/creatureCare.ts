@@ -22,6 +22,7 @@ import { canRecall, denRoster, type DenFoodId } from "../shared/creatureDenRules
 import type { CreatureScene } from "../shared/creatureEncounters";
 import { kioskSkyClockInput, seasonOf, skyMoodForTime } from "../shared/skyClock";
 import { familyDay } from "../utils/familyCalendar";
+import { getActiveVoiceSessionManagerForChild } from "./voice-session-registry";
 
 /**
  * Her creatures on the server (owner, 2026-11-08). The companion plan is the one place they are saved;
@@ -170,8 +171,8 @@ export function countBoardForCreatures(cycle: LearningCycleRecordV2, nodeId: str
  * Her pet by voice (owner 2026-11-22): the companion's `pet` tool. Finds the pet she named by nickname or kind, then
  * uses the den's own recall/dismiss rules. The result is what the companion tells her.
  */
-export function summonPetForChild(childId: string, input: { action: "bring" | "dismiss"; name?: string }):
-  { ok: boolean; pet?: string; reason?: string; pets: string[] } {
+export function summonPetForChild(childId: string, input: { action: "bring" | "dismiss" | "name"; name?: string; newName?: string }):
+  { ok: boolean; pet?: string; reason?: string; pets: string[]; renamedFrom?: string } {
   const plan = getChildChart(childId).companionCare.plan;
   const roster = denRoster(denStateOf(plan));
   const pets = roster.map((row) => row.creature.nickname || row.species.defaultNickname);
@@ -190,6 +191,7 @@ export function summonPetForChild(childId: string, input: { action: "bring" | "d
   const match = !asked && roster.length === 1 ? roster[0]
     : roster.find((row) => [row.creature.nickname, row.species.defaultNickname, row.species.speciesName].some((name) => name && key(name) === asked))
       ?? roster.find((row) => asked && [row.creature.nickname, row.species.speciesName].some((name) => name && (key(name).includes(asked) || asked.includes(key(name)))));
+  if (input.action === "name") return namePet(childId, roster, input, match, asked, pets);
   if (!match) {
     console.log(` 🎮 [pet] [bring] [unknown] child=${childId} asked=${JSON.stringify(input.name ?? "")} pets=${pets.join(",")}`);
     return { ok: false, reason: asked ? "no_pet_by_that_name" : "which_pet", pets };
@@ -202,6 +204,45 @@ export function summonPetForChild(childId: string, input: { action: "bring" | "d
   save(childId, (before) => recallPlanSidekick(before, match.species.id));
   console.log(` 🎮 [pet] [bring] [done] child=${childId} pet=${pet}`);
   return { ok: true, pet, pets };
+}
+
+type DenRosterRow = ReturnType<typeof denRoster>[number];
+const unnamedOf = (roster: DenRosterRow[]) => roster
+  .filter((row) => !row.creature.named && (!row.creature.nickname || row.creature.nickname === row.species.defaultNickname))
+  .sort((a, b) => b.creature.caughtAt.localeCompare(a.creature.caughtAt));
+
+/** The pet tool's name action (Ila 11/22: "I didn't get to name her"): the name she said, saved as its nickname. */
+function namePet(childId: string, roster: DenRosterRow[], input: { newName?: string }, match: DenRosterRow | undefined, asked: string, pets: string[]):
+  { ok: boolean; pet?: string; reason?: string; pets: string[]; renamedFrom?: string } {
+  const target = asked ? match : unnamedOf(roster)[0] ?? (roster.length === 1 ? roster[0] : undefined);
+  const newName = (input.newName ?? "").trim();
+  if (!target) {
+    console.log(` 🎮 [pet] [name] [which-pet] child=${childId} asked=${JSON.stringify(asked)} pets=${pets.join(",")}`);
+    return { ok: false, reason: asked ? "no_pet_by_that_name" : "which_pet", pets };
+  }
+  const before = target.creature.nickname || target.species.defaultNickname;
+  if (!newName) return { ok: false, pet: before, reason: "no_new_name", pets };
+  const plan = save(childId, (current) => renamePlanCreature(current, target.species.id, newName));
+  const pet = denStateOf(plan).creatures.find((row) => row.creatureId === target.species.id)?.nickname ?? newName;
+  console.log(` 🎮 [pet] [name] [saved] child=${childId} creature=${target.species.id} from=${JSON.stringify(before)} to=${JSON.stringify(pet)}`);
+  return { ok: true, pet, renamedFrom: before, pets: denRoster(denStateOf(plan)).map((row) => row.creature.nickname || row.species.defaultNickname) };
+}
+
+/**
+ * A pet she caught and has not named yet, as a fact for her companion each turn (Ila 11/22). No line to say: the
+ * companion decides whether and when to ask, and saves her answer with the pet tool. Empty when every pet has her name.
+ */
+export function unnamedPetFacts(childId: string): string {
+  try {
+    const unnamed = unnamedOf(denRoster(denStateOf(getChildChart(childId).companionCare.plan)));
+    if (!unnamed.length) return "";
+    return ["[Her pets she has not named yet]",
+      ...unnamed.map((row) => `- A ${row.species.speciesName} she caught${row.creature.caughtAt ? ` on ${familyDay(new Date(row.creature.caughtAt))}` : ""}; it is called "${row.species.defaultNickname}" only because that is its kind's starting name.`),
+      "She has not chosen its name. When she says a name for it, save it with your pet tool: action name, newName = her name for it."].join("\n");
+  } catch (error) {
+    console.warn(` 🎮 [pet] [unnamed-facts] [unavailable] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`);
+    return "";
+  }
 }
 
 export function creatureSnapshotForChild(childId: string) {
@@ -234,6 +275,12 @@ export function registerCreatureRoutes(app: Express): void {
       return resolved.duplicate || resolved.missing ? null : resolved.plan;
     });
     if (result.missing) return res.status(404).json({ ok: false, error: "creature_encounter_missing" });
+    // Ila 11/22: "I didn't get to name her." Her companion hears the new pet's facts now and asks in its own words.
+    if (outcome === "caught" && !result.duplicate) {
+      const session = getActiveVoiceSessionManagerForChild(childId);
+      console.log(` 🎮 [pet] [caught] [${session?.reactToCaughtPet ? "companion-told" : "no-live-session"}] child=${childId}`);
+      void Promise.resolve(session?.reactToCaughtPet?.()).catch((error: unknown) => console.error(` 🎮 [pet] [caught] [companion-failed] child=${childId}`, error));
+    }
     return res.json({ ok: true, duplicate: result.duplicate });
   });
 

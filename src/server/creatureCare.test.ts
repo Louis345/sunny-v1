@@ -17,7 +17,7 @@ vi.mock("../profiles/companionCarePlan", () => ({
   mirrorCompanionCareToLearningProfile: vi.fn(),
   loadCompanionCarePlanForChart: vi.fn(),
 }));
-import { awardBirthdayGiftOnCompletion, awardCreatureEncounterOnCompletion, countBoardForCreatures, summonPetForChild } from "./creatureCare";
+import { awardBirthdayGiftOnCompletion, awardCreatureEncounterOnCompletion, countBoardForCreatures, summonPetForChild, unnamedPetFacts } from "./creatureCare";
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { setupRoutes } from "./routes";
 
@@ -249,5 +249,50 @@ describe("the call companion is not offered a pet it cannot show", () => {
     const tool = getShowroomCompanionActTools()[0] as { input_schema: { properties: { type: { enum: string[] } } } };
     expect(tool.input_schema.properties.type.enum).not.toContain("pet");
     expect(COMPANION_CAPABILITIES.has("pet")).toBe(true);
+  });
+});
+
+// Ila 11/22: "When I got my pet, I didn't get to name her." Catching had no naming step; only the Den's typed rename.
+// She is dyslexic, so naming by voice through her companion is the main path; the companion asks from a fact, no script.
+describe("she names a pet she just caught, by voice", () => {
+  async function caught() {
+    const encounter = awardCreatureEncounterOnCompletion(cycle(true), "hw:n1")!;
+    await call("POST", "/api/creatures/encounter", { childId: "demo-pashley", encounterId: encounter.encounterId, outcome: "caught" });
+  }
+
+  it("her companion knows a newly caught pet has no name from her yet", async () => {
+    await caught();
+    expect(unnamedPetFacts("demo-pashley")).toMatch(/not named yet/i);
+    expect(unnamedPetFacts("demo-pashley")).toMatch(/Lumipuff/);
+  });
+
+  it("the pet tool saves the name she says; the fact goes away once named", async () => {
+    await caught();
+    expect(summonPetForChild("demo-pashley", { action: "name", newName: "Sparkle Bean" })).toMatchObject({ ok: true, pet: "Sparkle Bean" });
+    expect(denStateOf(saved.at(-1)!).creatures[0]).toMatchObject({ creatureId: "lumipuff", nickname: "Sparkle Bean" });
+    expect(unnamedPetFacts("demo-pashley")).toBe("");
+    // She can rename it later by voice too, by its current name; at most 16 letters are kept (the Den's rule).
+    expect(summonPetForChild("demo-pashley", { action: "name", name: "sparkle bean", newName: "Princess Sparkle Moonbeam" })).toMatchObject({ ok: true, pet: "Princess Sparkle" });
+  });
+
+  it("the capability accepts a name action", () => {
+    expect(COMPANION_CAPABILITIES.get("pet")?.payloadSchema.safeParse({ action: "name", newName: "Bubbles" }).success).toBe(true);
+  });
+
+  it("a name action with no name says so", async () => {
+    await caught();
+    expect(summonPetForChild("demo-pashley", { action: "name" })).toMatchObject({ ok: false, reason: "no_new_name" });
+  });
+});
+
+describe("right after the catch, her companion hears about the new unnamed pet", () => {
+  it("asks the live session's companion to react once on a catch, never on letting it go", async () => {
+    const registry = await import("./voice-session-registry");
+    const reactToCaughtPet = vi.fn(async () => undefined);
+    vi.spyOn(registry, "getActiveVoiceSessionManagerForChild").mockReturnValue({ reactToCaughtPet } as never);
+    const encounter = awardCreatureEncounterOnCompletion(cycle(true), "hw:n1")!;
+    await call("POST", "/api/creatures/encounter", { childId: "demo-pashley", encounterId: encounter.encounterId, outcome: "caught" });
+    await call("POST", "/api/creatures/encounter", { childId: "demo-pashley", encounterId: encounter.encounterId, outcome: "caught" });
+    expect(reactToCaughtPet).toHaveBeenCalledTimes(1);
   });
 });
