@@ -172,7 +172,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           chance: z.number().describe("The chance, 0 to 1, that she gets this concept right alone on paper now."), why: text("Why, from her answers on her own."),
           proof: text("The paper work that would show it, for example the Lesson 1.2 sheet."),
           items: z.array(z.string().min(1).describe(`One of her ${problems ? "recorded problem ids" : "word ids"}.`)).optional()
-            .describe(`Her ${problems ? "problems" : "words"} that belong to this concept, by id. Code locks a plain arithmetic guess from her first tries on her own on them, scored beside yours.`) }).strict()).optional()
+            .describe(`Her ${problems ? "problems" : "words"} that belong to this concept, by id. Code locks a plain arithmetic guess from her first tries on her own on them, scored beside yours.${problems ? " Her later answers to these problems are filed under this concept as her skill." : ""}`) }).strict()).optional()
           .describe("Your call, concept by concept: could she show it alone on paper now? A parent tags each item of her next paper with its concept; code scores your chance against what she does alone and checks across your calls whether a higher chance goes with a better result. A chance of 0.8 or more tells her parent to give her the paper. Give it every decision.") } : {}),
       }).strict(),
       run: (state, input) => {

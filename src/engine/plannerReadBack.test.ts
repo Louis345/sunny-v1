@@ -8,6 +8,8 @@ import { runItemsIntake } from "../scripts/itemsIntake";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { getLearningCycle } from "./learningCycleRepository";
 import { boardWording } from "./boardWording";
+import * as canvas from "./adventureBoardCanvas";
+import { prepareSuccessorBoard } from "./canonicalProgressionGenerator";
 import { FROZEN_RECORD_SECTIONS, LIVE_RECORD_SECTIONS } from "../profiles/childEvidence";
 import * as runtime from "./learningCycleRuntime";
 import type { ToolLoopRequest } from "./plannerToolLoop";
@@ -160,6 +162,26 @@ describe("the Planner reads its last theory back before each board", () => {
     expect(wording.stops.map((stop: any) => stop.title)).toEqual(["Fuji Check", "Stay or Roll"]);
     expect(wording.stops[0].game_text).toContain("All answered.");
     expect(boardWording(getLearningCycle(childId, f.homeworkId, f.opts)!, 9, f.opts)).toMatchObject({ error: expect.stringContaining("boards 1 to") });
+  });
+
+  it("C2: a math answer is filed under the skill the Planner named for its problem, not under the board's goal sentence", async () => {
+    // Seen 11/22 in Ila's math cycle: 26 construct ids for one assignment, each a board goal ("math.check.on.her.own.with.new
+    // .problems…"), so no skill accumulated across boards. The Planner already names each problem's concept in ready_on_paper.
+    const f = await ilaShapedRounding();
+    const before = getLearningCycle(childId, f.homeworkId, f.opts)!;
+    expect(before.observations.find(row => row.itemId === "r1")!.constructLinks[0]!.constructId).not.toBe("math.rounding.to.hundreds");
+    const planner = robot(request => ({ ...baseDecision(request), ready_on_paper: [{ concept: "Rounding to hundreds", chance: 0.2, why: "all missed", proof: "the worksheet", items: ["r1", "r2", "r3"] }] }));
+    await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: planner.client, draw: plainDraw }, f.opts);
+    vi.spyOn(canvas, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
+    const built = await prepareSuccessorBoard({ childId, homeworkId: f.homeworkId, spellingGameClient: builder }, f.opts);
+    const twoHouses = built.nodes.find(node => node.title === "Two Houses")!;
+    expect(twoHouses.academicTarget.skill).toBe("Tell her two explanations apart.");
+    runtime.recordCanonicalNodeCompletion({ childId, homeworkId: f.homeworkId, sessionId: "kiosk-2", nodeId: twoHouses.nodeId, result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "r3", correct: true, attemptedValue: "100" }] as never } }, f.opts);
+    const after = getLearningCycle(childId, f.homeworkId, f.opts)!;
+    expect(after.observations.filter(row => row.sourceId.includes("kiosk-2")).map(row => row.constructLinks[0]!.constructId)).toEqual(["math.rounding.to.hundreds"]);
+    // Older answers keep the id they were saved with.
+    expect(after.observations.find(row => row.itemId === "r1")!.constructLinks[0]!.constructId).toBe(before.observations.find(row => row.itemId === "r1")!.constructLinks[0]!.constructId);
   });
 
   it("B2 degrades, never blocks: no read-back, or a grade citing nothing real, is saved as unclear and the board still builds", async () => {

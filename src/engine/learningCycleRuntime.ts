@@ -98,6 +98,19 @@ export type PageTime = { words: Array<{ word: string; shownMs: number; chunkTaps
 
 const milliseconds = (value: unknown) => Number.isFinite(value) && Number(value) >= 0 ? Math.round(Number(value)) : undefined;
 /** The kiosk reports this, so only well-formed, bounded facts reach the cycle. */
+/**
+ * A math problem's skill, as the Planner named it in ready_on_paper (its latest call naming the problem wins), for
+ * example "Rounding to hundreds" -> math.rounding.to.hundreds. Before this (seen 11/22) a successor answer was filed
+ * under its stop's goal sentence, so one assignment had 26 construct ids and no skill accumulated across boards.
+ * Untagged problems keep the old id; saved answers keep the id they were saved with.
+ */
+export function plannerSkillConstructId(cycle: Pick<LearningCycleRecordV2, "domain" | "decisionHistory">, itemId: string | undefined): string | undefined {
+  if (cycle.domain !== "math" || !itemId) return undefined;
+  let concept: string | undefined;
+  for (const decision of cycle.decisionHistory ?? []) for (const call of decision.readyOnPaper ?? []) if (call.items?.includes(itemId)) concept = call.concept;
+  return concept?.trim() ? `math.${slug(concept)}` : undefined;
+}
+
 export function pageTimeFromKiosk(value: unknown): PageTime | undefined {
   const given = value as { words?: unknown; questionMs?: unknown; afterQuestionMs?: unknown } | null | undefined;
   if (!given || !Array.isArray(given.words)) return undefined;
@@ -161,6 +174,7 @@ export function baselineQuestEvidenceEligibility(
     if (!node || (node.role !== "baseline" && node.role !== "evaluation")) return false;
     const constructs = new Set([
       cycle.academicPredictions.find(p => p.predictionId === node.predictionId)?.constructId ?? `${cycle.domain}.${slug(node.academicTarget.skill)}`,
+      ...Object.keys(node.evidenceContract?.itemContracts ?? {}).flatMap(id => plannerSkillConstructId(cycle, id) ?? []),
       ...Object.values(node.evidenceContract?.spellingItems ?? {}).map(item => item.constructId),
     ]);
     return observation.constructLinks.some(link => link.role === "primary" && link.confidence > 0 && constructs.has(link.constructId))
@@ -434,7 +448,7 @@ function observationsForCompletion(input: {
       sourceId: `activity:${input.sessionId}:${input.nodeId}`,
       itemId: row.target || `${input.nodeId}:item:${index + 1}`,
       ...(!assistedInstruction && row.attemptedValue ? { childResponse: row.attemptedValue } : {}),
-      constructLinks: [{ constructId: spellingItem?.constructId ?? constructId, role: "primary", confidence: 1 }],
+      constructLinks: [{ constructId: spellingItem?.constructId ?? plannerSkillConstructId(input.cycle, row.target) ?? constructId, role: "primary", confidence: 1 }],
       result,
       assistance: {
         status: scaffolded ? "assisted" : input.cycle.domain === "spelling" || hintsUnknown ? "unknown" : "unassisted",
