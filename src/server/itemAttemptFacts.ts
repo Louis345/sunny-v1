@@ -42,6 +42,11 @@ export function noteItemAnswer(childId: string, nodeId: string, itemId: string, 
 }
 
 
+/** She has already answered this problem right in this game: its answer is no longer private. */
+export function itemAnsweredRight(childId: string, nodeId: string, itemId: string): boolean {
+  return Boolean(items.get(gameKey(childId, nodeId))?.get(itemId)?.answers.some(answer => answer.correct === true));
+}
+
 /** The game showed her a hint on this problem: every later try on it is helped (BUGS.md 2026-11-08, owner 2026-11-13). */
 export function noteItemHint(childId: string, nodeId: string, itemId: string, at = Date.now()): void {
   const state = stateFor(childId, nodeId, itemId, at);

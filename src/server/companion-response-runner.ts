@@ -23,6 +23,7 @@ import {
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 import { COMPANION_EXPRESSION_PROMPT, createExpressionTagFilter } from "./companionExpressionTags";
+import { answerGateForSession, filterAnswerReveal } from "./answerRevealGate";
 import { COMPANION_SPOKEN_TURN_PROMPT } from "./companionTurnTaking";
 
 /** Project remembered text too: a previous teaching turn must not reveal this check's stimulus. */
@@ -248,6 +249,8 @@ export async function runCompanionResponseForSession(
           console.error(" 🎮 [companion] [expression] [failed]", error),
         );
       });
+      // The open problem's answer: one gate before both text and voice (11/23, "try typing 49"; muted text showed it too).
+      const answerGate = answerGateForSession(session);
       const speakChunk = (chunk: string) => {
         if (chunk.trim()) startAudio();
         fullResponse += chunk;
@@ -274,7 +277,7 @@ export async function runCompanionResponseForSession(
             session.voiceLatency?.mark("model_first_token");
             console.log("  🎮 [companion] model_response_received");
           }
-          const spoken = expressionTags.push(chunk);
+          const spoken = answerGate.push(expressionTags.push(chunk));
           if (spoken) speakChunk(spoken);
         },
         signal: abortController.signal,
@@ -661,7 +664,7 @@ export async function runCompanionResponseForSession(
       });
 
       if (rejectStaleOutput("completion")) return;
-      const trailing = expressionTags.flush();
+      const trailing = answerGate.push(expressionTags.flush()) + answerGate.flush();
       if (trailing) speakChunk(trailing);
 
       session.turnSM.onAgentComplete();
@@ -782,6 +785,8 @@ export async function runCompanionResponseForSession(
 
 export async function runDirectCompanionTurnForSession(session: any, text: string): Promise<void> {
     if (session.activeGameNarrationRequestId || session.pendingGameNarrationPlayback) session.bargeIn();
+    text = filterAnswerReveal(session, text);
+    if (!text.trim()) return; // the whole line stated an open check's answer: nothing is said or shown
     const turn = claimCompanionResponseTurn(session);
     session.turnSM.onEndOfTurn();
     // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
