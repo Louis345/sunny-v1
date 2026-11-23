@@ -1856,9 +1856,14 @@ export class SessionManager {
       ) {
         const cue = pronunciationCueFor(urgentRoute.context.currentWord);
         const currentWord = urgentRoute.context.currentWord ?? "this word";
-        const supportText = cue
-          ? `I can help. Try breaking ${currentWord} into ${cue}, then say it slowly once.`
-          : "I can help. Say it slowly once, then try it again.";
+        // Audit 2026-11-22: facts for her model turn; she helps in her own words (no scripted help line).
+        const supportFacts = [
+          `[System event: the child asked for help saying a word (${urgentRoute.intent.type})]`,
+          `She said: "${transcript}"`,
+          `Current word: "${currentWord}"`,
+          cue ? `Syllable cue shown on screen: ${cue}` : "No syllable cue is available for this word.",
+          "Help her with this word now, briefly, in your own words.",
+        ].join("\n");
         this.turnSM.clearPendingTranscript("urgent_pronunciation_support");
         this.debugRecorder.recordTranscript("user", transcript);
         this.debugRecorder.recordEvent("urgent_learning", "pronunciation_support", {
@@ -1878,7 +1883,7 @@ export class SessionManager {
         console.log(
           `  🎮 [urgent-learning] [pronunciation_support] word=${currentWord} cue=${cue ?? "none"}`,
         );
-        await this.handleCompanionTurn(supportText);
+        await this.runCompanionResponse(supportFacts, "system");
         return;
       }
     }

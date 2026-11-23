@@ -47,10 +47,10 @@ describe("the companion's voice carries only her own model output", () => {
       "src/server/session-manager.ts": 1, // handleCompanionTurn
     });
     const session = read("src/server/session-manager.ts");
-    expect(count(session, /\.handleCompanionTurn\s*(\?\.)?\(/)).toBe(3);
+    expect(count(session, /\.handleCompanionTurn\s*(\?\.)?\(/)).toBe(2);
     expect(session).toMatch(/speakCompanionWords\(text: string\): Promise<void> \{ return this\.handleCompanionTurn\(text\); \}/); // her own check-in words
     expect(session).toMatch(/replayWorksheetQuestion: \(question\) => this\.handleCompanionTurn\(question\)/); // OPEN audit: worksheet replay
-    expect(session).toMatch(/await this\.handleCompanionTurn\(supportText\)/); // OPEN audit: pronunciation help lines
+    expect(session).not.toMatch(/I can help\. Try breaking/); // pronunciation help goes to her model turn as facts
   });
 
   it("raw text into a TTS stream comes only from these reviewed doors", () => {

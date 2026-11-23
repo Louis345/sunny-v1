@@ -46,6 +46,9 @@ describe("urgent learning support routing", () => {
         "handleCompanionTurn",
       )
       .mockResolvedValue(undefined);
+    const respond = vi
+      .spyOn(session as unknown as { runCompanionResponse: (text: string, source?: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
 
     session.injectGameContext({
       game: "pronunciation",
@@ -61,9 +64,14 @@ describe("urgent learning support routing", () => {
 
     session.injectTranscript("Can you help me, Ellie?");
 
+    // Audit 2026-11-22: she helps in her own words. The help intent, word and cue go to a model turn as facts;
+    // no scripted "I can help. Try breaking…" line is spoken for her.
     await vi.waitFor(() => {
-      expect(handleCompanionTurn).toHaveBeenCalledWith(expect.stringContaining("a-ble"));
+      expect(respond).toHaveBeenCalledWith(expect.stringContaining("a-ble"), "system");
     });
+    expect(respond.mock.calls[0]?.[0]).toContain('"able"');
+    expect(respond.mock.calls[0]?.[0]).not.toMatch(/I can help/);
+    expect(handleCompanionTurn).not.toHaveBeenCalled();
     expect(peekPending(turnSM)).toBeNull();
     expect(turnSM.getState()).toBe("IDLE");
     expect(ws.send).toHaveBeenCalledWith(
