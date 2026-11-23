@@ -58,10 +58,10 @@ describe("the concept signal: how she thinks, apart from right and wrong counts"
       { id: "ci-3", childId: "lab-child", callSource: "game_reward", questionText: "I get it now, it goes to the big house!", createdAt: "2026-11-22T23:40:00.000Z" },
     ]);
     const { text, evidenceIds } = conceptSignalSection(ilaShapedCycle(), { rootDir });
-    // Her words about understanding, verbatim, dated, citable; other chat and earlier weeks are not this section.
+    // All her words on this assignment, verbatim, dated, citable: no keyword list picks which ones the Planner sees.
     expect(text).toContain(`[said:ci-1] 2026-11-22 23:23: "I don't understand the concept."`);
+    expect(text).toContain(`[said:ci-2] 2026-11-22 23:25: "Can you help me? Forty five, forty six."`);
     expect(text).toContain(`[said:ci-3] 2026-11-22 23:40: "I get it now, it goes to the big house!"`);
-    expect(text).not.toContain("Forty five");
     expect(text).not.toContain("[said:old]");
     // Right only after help: 865 was right only once Elli helped.
     expect(text).toMatch(/Right only with help[^\n]*\n- "Round 865 to the nearest hundred\." \(Rounding to hundreds\): right with help 1 time; on her own she wrote "800"/);
@@ -71,13 +71,13 @@ describe("the concept signal: how she thinks, apart from right and wrong counts"
     expect(text).toMatch(/- Problems you have not tagged to a concept: "61, 58, 55, 52, \? \(rule -3\)" → "52" \(with help\)/);
     // No misconception is named by code: what the answers mean is the Planner's.
     expect(text).not.toMatch(/misconception|truncat|peak|place value/i);
-    expect(evidenceIds).toEqual(expect.arrayContaining(["said:ci-1", "said:ci-3", observationEvidenceId("obs-1"), observationEvidenceId("obs-6")]));
+    expect(evidenceIds).toEqual(expect.arrayContaining(["said:ci-1", "said:ci-2", "said:ci-3", observationEvidenceId("obs-1"), observationEvidenceId("obs-6")]));
   });
 
   it("says plainly when there is nothing yet, and never throws on a missing or unreadable folder", () => {
     const empty = { ...ilaShapedCycle() as object, observations: [] } as never;
     const { text, evidenceIds } = conceptSignalSection(empty, { rootDir: path.join(os.tmpdir(), "sunny-concept-missing") });
-    expect(text).toContain("- Nothing she said about understanding is recorded on this assignment yet.");
+    expect(text).toContain("- Nothing she said is recorded on this assignment yet.");
     expect(text).toContain("- No wrong answers recorded yet.");
     expect(evidenceIds).toEqual([]);
   });

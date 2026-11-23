@@ -1,7 +1,7 @@
 /**
  * The concept signal (docs/specs/child-knowledge-store.md, stage 1; owner + Saori 2026-11-22): how she thinks, kept
  * apart from right/wrong counts. Code lays out three kinds of fact, each with an id the Planner can cite:
- *   - her own words about understanding ("I don't understand the concept"), verbatim and dated;
+ *   - everything she said to her companions on this assignment, verbatim and dated (no keyword list picks which);
  *   - problems or words right only with help (help-dependence);
  *   - her wrong answers exactly as she gave them, grouped by the Planner's own concept tags (ready_on_paper items).
  * Code names no misconception and ranks nothing: what the pattern means is the Planner's to infer.
@@ -13,9 +13,7 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 import type { LearningCycleRecordV2, LearningCycleRepositoryOptions, LearningObservation } from "./learningCycleRepository";
 
 const SYNTHETIC = /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i;
-/** Statements about understanding, either way ("I don't get it", "now I get it", "that makes sense", "I'm confused"). */
-const ABOUT_UNDERSTANDING = /\b(understand|understood|get it|got it|don'?t get|confus|makes? (no )?sense|know how|what does .{1,40} mean|i don'?t know why)/i;
-const MAX_WORDS = 12, MAX_ITEMS_PER_CONCEPT = 10, MAX_ANSWERS_PER_ITEM = 6;
+const MAX_WORDS = 60, MAX_ITEMS_PER_CONCEPT = 10, MAX_ANSWERS_PER_ITEM = 6;
 const clip = (text: string, max = 160) => { const flat = text.replace(/\s+/g, " ").trim(); return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat; };
 const minute = (iso: string) => iso.slice(0, 16).replace("T", " ");
 
@@ -25,7 +23,7 @@ export const observationEvidenceId = (observationId: string): string => `ans-${c
 type Said = { id: string; at: string; words: string; source?: string };
 
 /** Her words to her companions since this assignment began (companion_interactions, one file per day). */
-function herWordsAboutUnderstanding(cycle: Pick<LearningCycleRecordV2, "childId" | "createdAt">, opts: LearningCycleRepositoryOptions): Said[] {
+function herWords(cycle: Pick<LearningCycleRecordV2, "childId" | "createdAt">, opts: LearningCycleRepositoryOptions): Said[] {
   const dir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "companion_interactions");
   const since = cycle.createdAt.slice(0, 10);
   let files: string[] = [];
@@ -40,7 +38,7 @@ function herWordsAboutUnderstanding(cycle: Pick<LearningCycleRecordV2, "childId"
       try {
         const row = JSON.parse(line) as { id?: unknown; questionText?: unknown; createdAt?: unknown; callSource?: unknown };
         if (typeof row.id !== "string" || typeof row.questionText !== "string" || typeof row.createdAt !== "string") continue;
-        if (row.createdAt < cycle.createdAt || !ABOUT_UNDERSTANDING.test(row.questionText)) continue;
+        if (row.createdAt < cycle.createdAt) continue;
         said.push({ id: row.id, at: row.createdAt, words: row.questionText, ...(typeof row.callSource === "string" ? { source: row.callSource } : {}) });
       } catch { /* one unreadable line never hides the rest */ }
     }
@@ -69,7 +67,7 @@ const helpLabel = (row: LearningObservation) => row.assistance.status === "unass
 
 export function conceptSignalSection(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions = {}): { text: string; evidenceIds: string[] } {
   const evidenceIds: string[] = [];
-  const said = herWordsAboutUnderstanding(cycle, opts);
+  const said = herWords(cycle, opts);
   evidenceIds.push(...said.map(row => `said:${row.id}`));
 
   const texts = itemTexts(cycle), concepts = conceptOfItem(cycle);
@@ -106,8 +104,8 @@ export function conceptSignalSection(cycle: LearningCycleRecordV2, opts: Learnin
   console.log(` 🎮 [concept-signal] [built] homework=${cycle.homeworkId} her_words=${said.length} help_only=${helpOnly.length} wrong_groups=${groups.size}`);
   const text = [
     "How she thinks, kept apart from right/wrong counts (facts laid out by code; what they mean is yours to infer). Cite the ids in brackets.",
-    "Her own words about understanding, to her companions on this assignment (verbatim from speech-to-text, newest last):",
-    ...(said.length ? said.map(row => `- [said:${row.id}] ${minute(row.at)}: "${clip(row.words)}"`) : ["- Nothing she said about understanding is recorded on this assignment yet."]),
+    "Everything she said to her companions on this assignment (verbatim from speech-to-text, newest last; read_record her_talk has the full talk with replies):",
+    ...(said.length ? said.map(row => `- [said:${row.id}] ${minute(row.at)}: "${clip(row.words)}"`) : ["- Nothing she said is recorded on this assignment yet."]),
     "Right only with help (right with help, not yet right on her own):",
     ...(helpOnly.length ? helpOnly : ["- None."]),
     "Her wrong answers, exactly as she gave them, grouped by your own concept tags from ready_on_paper:",
