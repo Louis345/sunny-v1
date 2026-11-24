@@ -101,7 +101,7 @@ How the game must work:
 Reply with only the HTML document.`;
 }
 
-/** The ask for a math game: her chart, the stop, and how Sunny's contract works; the problems never carry answers. */
+/** The ask for a math game: her chart, the stop, and how Sunny's contract works; each problem with its answer, as a spelling game knows her words. */
 export function buildMathGameAsk(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; rootDir: string }): string {
   const { node } = input;
   const lines = gameItemLines(node);
@@ -111,7 +111,7 @@ export function buildMathGameAsk(input: { cycle: LearningCycleRecordV2; node: Le
 About her, from her chart (what she does counts more than what she says, and what she says clearly more than what she is unsure about):
 ${JSON.stringify(childFacts(input.cycle, input.rootDir), null, 2)}
 
-Her ${lines.length} problems for this game (id: problem, how she answers):
+Her ${lines.length} problems for this game (id: problem, how she answers, the answer):
 ${lines.join("\n")}
 This stop on her map, as her tutor wrote it:
 - Title: ${node.title}
@@ -143,13 +143,16 @@ export function extractHtml(text: string): string {
   return start >= 0 && end > start ? text.slice(start, end + 7) : "";
 }
 
-/** Each math problem as the builder sees it: its id, its text and how she answers, never the answer. */
+/** Each math problem as the builder sees it: its id, its text, how she answers, and the answer (2026-11-23: so the game can tell her). */
 export function gameItemLines(node: LearningCycleNodeContract): string[] {
   return Object.values(node.evidenceContract.itemContracts ?? {}).map(item => {
     const answers = item.response.mode === "selection"
       ? `she picks one: ${item.response.options.map(option => `${option.label} [${option.id}]`).join(", ")}`
       : item.response.mode === "numeric" ? `she gives a number${item.response.unit ? ` in ${item.response.unit}` : ""}` : `she ${item.response.mode === "construction" ? "builds it" : "explains it"}`;
-    return `- ${item.id}: ${item.prompt} (${answers})`;
+    const answer = item.response.mode === "selection" ? item.response.options.filter(option => option.correct).map(option => `${option.label} [${option.id}]`).join(" or ")
+      : item.response.mode === "numeric" ? `${item.response.expected}${item.response.unit ? ` ${item.response.unit}` : ""}`
+      : item.response.mode === "construction" ? item.response.successDescription : "";
+    return `- ${item.id}: ${item.prompt} (${answers}${answer ? `; answer: ${answer}` : ""})`;
   });
 }
 

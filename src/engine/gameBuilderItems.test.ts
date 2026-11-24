@@ -3,7 +3,11 @@ import type { LearningCycleNodeContract } from "./learningCycleRepository";
 import { gameItemLines, gameProblems } from "./spellingGameBuilder";
 
 // One pipeline for every subject (owner, 2026-11-08): the builder that makes "Her Game" builds math games too.
-// It sees each problem and how she answers it, never the answer; code scores her answers.
+// Human-caught 2026-11-23 (Ila's board 15 Quest): math games were never given the answers (74d1d79e), so the Quest lit
+// a lantern for 64→70 and 428→500 and she believed she was right. Spelling games always knew her words and could
+// react. Why logs did not catch it: the record was scored correctly. Why the lab missed it: tests checked the answer
+// was hidden from the game, never what she sees after answering. Now math games know the answer, as spelling games
+// do; code still scores her answers from the answer recorded at intake.
 const mathNode = {
   nodeId: "scout-check",
   evidenceContract: {
@@ -17,14 +21,15 @@ const mathNode = {
 } as unknown as LearningCycleNodeContract;
 
 describe("the shared game builder", () => {
-  it("lists each math problem and how she answers it, never the answer", () => {
+  it("lists each math problem, how she answers it, and its answer, so the game can tell her", () => {
     const lines = gameItemLines(mathNode).join("\n");
     expect(lines).toContain("m1: 7 + 6. Is the sum even or odd?");
     expect(lines).toContain("Even [even]");
     expect(lines).toContain("Odd [odd]");
     expect(lines).toContain("m2: 15 - 8 =");
     expect(lines).toMatch(/m2[^\n]*number/);
-    expect(lines).not.toMatch(/correct|\b7\b(?! \+)/);
+    expect(lines).toMatch(/m1[^\n]*answer: Odd \[odd\]/);
+    expect(lines).toMatch(/m2[^\n]*answer: 7/);
   });
 
   it("needs a math game to open each problem through openItem so her answers bind", () => {
