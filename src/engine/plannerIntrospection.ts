@@ -131,68 +131,84 @@ export function mathAnswersSection(cycle: LearningCycleRecordV2): string {
     ...(rows.length ? rows : ["- No answers recorded yet."])].join("\n");
 }
 
-/** Your journal: each earlier decision in your words, the board it built, and her results on its words before and after. */
-/** Each of the Planner's calls with her next answer on her own after it, if any (2026-11-10: code checks the tutor). */
-export function scorePlannerCalls(cycle: LearningCycleRecordV2): Array<{ decision: LearningCycleDecision; itemId: string; label: string; onHerOwn: boolean; answer?: LearningObservation; hit?: boolean }> {
+/** Each of the Planner's calls with her first try on her own on the board that decision built, if any (2026-11-10:
+ * code checks the tutor; owner 2026-11-24: a bet belongs to its experiment's board, never to a later board's answer). */
+export function scorePlannerCalls(cycle: LearningCycleRecordV2): Array<{ decision: LearningCycleDecision; itemId: string; label: string; onHerOwn: boolean; board?: number; answer?: LearningObservation; hit?: boolean }> {
   const wordIdOf = new Map<string, { wordId: string; word: string }>();
   for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) wordIdOf.set(item.id, { wordId: item.wordId, word: item.word });
+  const boards = listBoardInstances(cycle);
   const own = (cycle.observations ?? []).filter(row => isFirstTryOnHerOwn(row) && typeof row.result?.correct === "boolean" && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
     .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
-  return (cycle.decisionHistory ?? []).filter(row => row.eventType === "theory_decided" && row.expectations?.length).flatMap(decision => decision.expectations!.map(call => {
-    const matches = (row: LearningObservation) => (wordIdOf.get(row.itemId)?.wordId ?? row.itemId) === call.itemId;
-    const answer = own.find(row => Date.parse(row.observedAt) > Date.parse(decision.createdAt) && matches(row));
-    const label = [...wordIdOf.values()].find(row => row.wordId === call.itemId)?.word ?? call.itemId;
-    return { decision, itemId: call.itemId, label, onHerOwn: call.onHerOwn, ...(answer ? { answer, hit: answer.result.correct === call.onHerOwn } : {}) };
-  }));
+  return (cycle.decisionHistory ?? []).filter(row => row.eventType === "theory_decided" && row.expectations?.length).flatMap(decision => {
+    const index = boards.findIndex(board => board.plannerDecisionId === decision.decisionId);
+    const stops = new Set(index >= 0 ? boards[index].nodeIds : []);
+    return decision.expectations!.map(call => {
+      const matches = (row: LearningObservation) => (wordIdOf.get(row.itemId)?.wordId ?? row.itemId) === call.itemId && stops.has(observationNode(cycle, row)?.nodeId ?? "");
+      const answer = own.find(matches);
+      const label = [...wordIdOf.values()].find(row => row.wordId === call.itemId)?.word ?? call.itemId;
+      return { decision, itemId: call.itemId, label, onHerOwn: call.onHerOwn, ...(index >= 0 ? { board: index + 1 } : {}), ...(answer ? { answer, hit: answer.result.correct === call.onHerOwn } : {}) };
+    });
+  });
 }
 
-/** The Planner's calls, checked by code, decision by decision: the tutor's own score, shown back to it. Its item calls
- * against her next answer in Sunny, then its ready-on-paper calls against her next paper done alone (2026-11-16). */
-export function plannerCallsSection(cycle: LearningCycleRecordV2): string {
-  return `${itemCallsSection(cycle)}\n\n${readyOnPaperSection(cycle)}`;
-}
+/** How many experiments the ledger shows in full; older ones are only in the tally (owner 2026-11-24: capped cost). */
+export const LEDGER_EXPERIMENTS = 5;
 
-function itemCallsSection(cycle: LearningCycleRecordV2): string {
-  const header = "Your calls, checked by code against her next answer on her own:";
-  const calls = scorePlannerCalls(cycle);
-  if (!calls.length) return `${header}\n- No calls yet. With decide, you may call for each ${cycle.domain === "spelling" ? "word" : "problem"} whether her next answer on her own will be right.`;
-  const byDecision = new Map<string, typeof calls>();
-  for (const call of calls) byDecision.set(call.decision.decisionId, [...(byDecision.get(call.decision.decisionId) ?? []), call]);
-  return [header, ...[...byDecision.values()].map(rows => {
-    const checked = rows.filter(row => row.answer), right = checked.filter(row => row.hit).length;
-    return `- Decision of ${familyClock(rows[0].decision.createdAt)}: ${right} of ${checked.length} calls right${rows.length > checked.length ? `; ${rows.length - checked.length} not answered on her own yet` : ""}. ${
-      rows.map(row => `${row.label}: you expected ${row.onHerOwn ? "right" : "not yet"}; ${!row.answer ? "no answer on her own yet" : row.answer.result.correct ? "she was right" : `she wrote "${row.answer.childResponse ?? "?"}"`}`).join(". ")}.`;
-  })].join("\n");
-}
-
-export function plannerJournalSection(cycle: LearningCycleRecordV2): string {
-  const header = "Your journal: what you tried on earlier boards and what happened (your words from each decision; her answers counted by code):";
-  const decisions = cycle.decisionHistory.filter(row => row.eventType === "theory_decided");
-  if (!decisions.length) return `${header}\n- No earlier decisions on this list yet.`;
-  const boards = listBoardInstances(cycle), all = answers(cycle);
+/**
+ * The experiment ledger (owner 2026-11-24, design v4): each experiment in the tutor's words, the bets code scored on
+ * the board it built, a running tally, and how far she is from the goal. Reality grades; nothing here judges.
+ */
+export function experimentLedgerSection(cycle: LearningCycleRecordV2, schoolTest: string): string {
+  const header = "Your experiments, and what reality said (bets scored by code only on the board each experiment built):";
+  const decisions = cycle.decisionHistory.filter(row => row.eventType === "theory_decided" && (row.experiment || row.expectations?.length));
+  const calls = scorePlannerCalls(cycle), boards = listBoardInstances(cycle);
   const nodes = new Map(cycle.nodes.map(node => [node.nodeId, node]));
-  const quoted = (list: string[] | undefined) => (list ?? []).map(text => `"${clip(text)}"`).join(" | ") || "(nothing listed)";
-  return [header, ...decisions.flatMap((decision, index) => {
-    const at = Date.parse(decision.createdAt), until = decisions[index + 1] ? Date.parse(decisions[index + 1].createdAt) : Infinity;
-    const playedBefore = boards.map((board, i) => ({ board, number: i + 1 })).filter(row => row.board.publishedAt && Date.parse(row.board.publishedAt) <= at && row.board.plannerDecisionId !== decision.decisionId).at(-1);
-    const builtIndex = boards.findIndex(board => board.plannerDecisionId === decision.decisionId);
-    const stops = builtIndex >= 0 ? boards[builtIndex].nodeIds.map(id => nodes.get(id)).filter((node): node is LearningCycleNodeContract => Boolean(node)) : [];
-    const targeted = [...new Set(stops.flatMap(targetsOf))];
-    const own = (word: string, from: number, to: number) => all.filter(row => row.word === word && row.row.assistance.status === "unassisted" && Date.parse(row.row.observedAt) >= from && Date.parse(row.row.observedAt) < to);
-    const result = (list: Answer[]) => { if (!list.length) return "not answered on her own"; const { right, wrote } = tally(list); return `${right}${wrote ? ` (wrote ${wrote})` : ""}`; };
-    const review = decision.selfReview?.whatIChangeNow;
+  const bet = (call: (typeof calls)[number]) => `${call.label} ${call.onHerOwn ? "right" : "not yet"} -> ${!call.answer ? "not enough evidence (not on this board on her own)"
+    : `${call.hit ? "came true" : "missed"}${call.answer.result.correct ? "" : ` ("${clip(call.answer.childResponse ?? "?", 40)}")`}`}`;
+  const shown = decisions.slice(-LEDGER_EXPERIMENTS);
+  const entries = shown.flatMap(decision => {
+    const index = boards.findIndex(board => board.plannerDecisionId === decision.decisionId);
+    const stops = index >= 0 ? boards[index].nodeIds.map(id => nodes.get(id)).filter((node): node is LearningCycleNodeContract => Boolean(node)) : [];
+    const mine = calls.filter(call => call.decision.decisionId === decision.decisionId);
+    const experiment = decision.experiment;
     return [
-      `- Decision ${index + 1} (${decision.createdAt.slice(0, 10)}${playedBefore ? `, after board ${playedBefore.number}` : ""}; ${decision.nextAction ?? "no action"}; theory ${decision.status ?? "unstated"})`,
-      `  Your reason: "${clip(decision.reason)}"`,
-      `  You said you would change: ${quoted(decision.change)}`,
-      `  You said you would test next: ${quoted(decision.testNext)}`,
-      ...(review ? [`  Your self-review then: "${clip(review)}"`] : []),
-      ...(decision.readBack && !decision.readBack.missing ? [`  Your read-back then: ${decision.readBack.grade}; how she thinks: "${clip(decision.readBack.howSheThinks)}"`] : []),
-      builtIndex >= 0 ? `  You built board ${builtIndex + 1}: ${stops.map(node => `${activityOf(node)} "${clip(node.title, 40)}" (${targetsOf(node).join(", ")}${node.focus ? `; aimed at: ${clip(node.focus, 80)}` : ""})`).join("; ")}` : "  No board was built from this decision.",
-      ...(targeted.length ? [`  Her answers on those ${cycle.domain === "spelling" ? "words" : "problems"}, on her own, before this decision -> after it (until your next decision):`,
-        ...targeted.map(word => `    - ${word}: before ${result(own(word, -Infinity, at))} -> after ${result(own(word, at, until))}`)] : []),
+      `- ${index >= 0 ? `Board ${index + 1}` : "No board built"} (decided ${decision.createdAt.slice(0, 10)}): ${experiment ? `trying "${clip(experiment.trying)}"; why "${clip(experiment.why)}"` : `no experiment written; reason "${clip(decision.reason)}"`}`,
+      ...(experiment?.conclusionOnLast ? [`  Your conclusion on the one before: "${clip(experiment.conclusionOnLast)}"`] : []),
+      ...(stops.length ? [`  Stops: ${stops.map(node => `${activityOf(node)} "${clip(node.title, 40)}"${node.focus ? ` (aimed at: ${clip(node.focus, 80)})` : ""}`).join("; ")}`] : []),
+      `  Bets: ${mine.length ? mine.map(bet).join("; ") : "none made"}`,
     ];
-  })].join("\n");
+  });
+  const scored = calls.filter(call => call.answer);
+  const tally = `- All experiments: ${scored.filter(call => call.hit).length} of ${scored.length} scored bets came true; ${calls.length - scored.length} not enough evidence.`;
+  const older = decisions.length - shown.length;
+  return [header, ...(entries.length ? entries : ["- No experiments yet. decide's experiment and expect_on_her_own start the ledger."]),
+    ...(older ? [`- ${older} earlier experiment${older === 1 ? " is" : "s are"} counted in the tally; read_record decisions has each one.`] : []),
+    tally, "read_board_wording shows the exact words your last board said to her.", "", distanceToGoalSection(cycle, schoolTest)].join("\n");
+}
+
+/** How far she is from the goal, counted by code: spelling, each word's latest first try on her own; math, problems she
+ * had not seen, answered on her own, per concept the tutor named in its ready-on-paper calls. */
+function distanceToGoalSection(cycle: LearningCycleRecordV2, schoolTest: string): string {
+  const own = answers(cycle).filter(row => isFirstTryOnHerOwn(row.row) && !SCHOOL.has(String(row.row.provenance)));
+  const lines: string[] = [];
+  if (cycle.domain === "spelling") {
+    const latest = new Map<string, Answer>();
+    for (const row of own) latest.set(row.word, row);
+    const missed = [...latest.values()].filter(row => !row.row.result.correct).map(row => row.word);
+    lines.push(`- Her words: ${latest.size - missed.length} of ${latest.size} right on her latest try on her own${missed.length ? ` (missed: ${missed.join(", ")})` : ""}.`);
+  } else {
+    const unseen = own.filter(row => row.row.exposure === "unseen");
+    const concepts = [...cycle.decisionHistory].reverse().find(row => row.readyOnPaper?.some(call => call.items?.length))?.readyOnPaper ?? [];
+    const grouped = new Set<string>();
+    for (const call of concepts.filter(row => row.items?.length)) {
+      const rows = unseen.filter(row => call.items!.includes(row.word));
+      call.items!.forEach(id => grouped.add(id));
+      lines.push(`- ${call.concept}: ${rows.filter(row => row.row.result.correct).length} of ${rows.length} right on problems she had not seen, on her own.`);
+    }
+    const rest = unseen.filter(row => !grouped.has(row.word));
+    if (rest.length || !grouped.size) lines.push(`- ${grouped.size ? "Other problems" : "All problems"}: ${rest.filter(row => row.row.result.correct).length} of ${rest.length} right on problems she had not seen, on her own.`);
+  }
+  return ["Distance to the goal (counted by code from her first tries on her own):", ...lines, ...(schoolTest ? [`- ${schoolTest}`] : [])].join("\n");
 }
 
 /** What she (or a parent) said about Sunny's games, one line each: when, where (the stop's title when known), her words.
@@ -244,6 +260,8 @@ export function writePlannerJournalEntry(cycle: LearningCycleRecordV2, decision:
       `- Built on: ${listBoardInstances(cycle).filter(board => board.publishedAt).at(-1)?.boardId ?? "none"}`,
       `- Action: ${decision.nextAction ?? "none"} (theory ${decision.status ?? "unstated"})`,
       `- Reason: ${decision.reason}`, "",
+      ...(decision.experiment ? ["### Experiment", "", `- Trying: ${decision.experiment.trying}`, `- Why: ${decision.experiment.why}`, `- Conclusion on the last: ${decision.experiment.conclusionOnLast}`,
+        `- Bets: ${(decision.expectations ?? []).map(call => `${call.itemId} ${call.onHerOwn ? "right" : "not yet"}`).join(", ") || "none"}`, ""] : []),
       "### Self-review", "",
       ...(review ? [`- What I tried: ${review.whatITried}`, `- What happened: ${review.whatHappened}`, `- Why: ${review.why}`, ...(review.whatIKeep ? [`- What I keep: ${review.whatIKeep}`] : []), `- What I change now: ${review.whatIChangeNow}`] : ["- No self-review was recorded with this decision."]), "",
       "### Read-back", "",
@@ -256,7 +274,7 @@ export function writePlannerJournalEntry(cycle: LearningCycleRecordV2, decision:
     fs.mkdirSync(dir, { recursive: true });
     if (!fs.existsSync(file)) fs.writeFileSync(file, `# Planner journal: ${cycle.homeworkId}\n\n`, "utf8");
     fs.appendFileSync(file, entry, "utf8");
-    console.log(` 🎮 [planner-journal] [review] [saved] homework=${cycle.homeworkId} board=${decision.decisionId} self_review=${review ? "yes" : "none"}`);
+    console.log(` 🎮 [planner-journal] [review] [saved] homework=${cycle.homeworkId} board=${decision.decisionId} self_review=${review ? "yes" : "none"} experiment=${decision.experiment ? "yes" : "none"}`);
   } catch (error) {
     console.error(` 🎮 [planner-journal] [review] [write-failed] homework=${cycle.homeworkId} board=${decision.decisionId} reason=${error instanceof Error ? error.message : String(error)}`);
   }

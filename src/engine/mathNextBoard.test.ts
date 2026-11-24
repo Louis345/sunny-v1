@@ -79,7 +79,7 @@ function nextBoardRobot(options: { raftFromPlayedGame?: boolean } = {}) {
       if (turn === 0) return message(`next-${requests.length}`, request.model, [
         { name: "decide", input: { status: "revised", reason: "She missed the parity check on her own.", progression_action: "generate_support", preserve: ["Lantern story"], change: ["Aim a game at odd plus even."], test_next: ["p1 on her own"], next_evidence_required: ["p1 on her own"],
           prediction_evaluation_ids: evaluations.slice(0, 1), revised_hypothesis: "",
-          self_review: { what_i_tried: "A first check on p1 and p2.", what_happened: "She wrote even for 7 + 6.", why: "She adds, then guesses parity.", what_i_keep: "She liked the river game.", what_i_change_now: "A game aimed at odd plus even." } } },
+          experiment: { trying: "A game aimed at odd plus even.", why: "She wrote even for 7 + 6.", conclusion_on_last: "First experiment." } } },
         { name: "add_step", input: { built_in: "generated-game", problems: ["p1", "p3"], title: "Parity Raft", purpose: "Practice odd plus even.", story: "A raft that floats only on odd sums.", picture: "A raft on a river", check_first: false, focus: "odd plus even is odd", ...none, ...raftFrom } },
         { name: "add_reward", input: { title: "Treasure Break", story: "A chest glows at the river bend.", picture: "A glowing chest" } },
         { name: "add_step", input: { built_in: "generated-game", problems: ["p1"], title: "Lantern Check", purpose: "Check p1 on her own.", story: "The last lantern.", picture: "A lantern", check_first: true, ...none } },
@@ -143,12 +143,12 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(prompt).toContain("tutor. You've taught for twenty years");
     expect(prompt).toContain("School test: Monday 2026-11-09");
     expect(prompt).toMatch(/Every answer she gave on this assignment[^\n]*\n- \d{4}-\d{2}-\d{2} p1 "7 \+ 6\. Is the sum even or odd\?": "even" missed, on her own/);
-    expect(prompt).toContain("Your journal:");
-    // The decision carries its self-review, and her folder keeps it in the planner journal.
+    expect(prompt).toContain("Your experiments, and what reality said");
+    // The decision carries its experiment, and her folder keeps it in the planner journal.
     const decision = latest.decisionHistory.at(-1)!;
-    expect(decision.selfReview?.whatIChangeNow).toBe("A game aimed at odd plus even.");
+    expect(decision.experiment?.trying).toBe("A game aimed at odd plus even.");
     const journal = path.join(resolveChildContextDir(childId, f.opts), "homework", "planner-journal", `${f.homeworkId}.md`);
-    expect(fs.readFileSync(journal, "utf8")).toContain("What I change now: A game aimed at odd plus even.");
+    expect(fs.readFileSync(journal, "utf8")).toContain("- Trying: A game aimed at odd plus even.");
 
     // The next board: one built game per step from her recorded problems (never re-authored), and the reward break.
     vi.spyOn(canvas, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);

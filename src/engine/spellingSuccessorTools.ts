@@ -10,7 +10,7 @@ import { VALID_VALUES } from "./plannerTransport";
 import { deriveNativeActivity } from "./assignmentPlanner";
 import { explainerPageTool } from "./spellingTeachingTools";
 import { rewardBreakTool } from "./plannerMenu";
-import type { LearningCycleMathItem, PlannerReadBack } from "./learningCycleRepository";
+import type { LearningCycleMathItem, PlannerExperiment, PlannerReadBack } from "./learningCycleRepository";
 import { LIVE_RECORD_SECTIONS, readChildEvidenceSection, type LiveRecordSection } from "../profiles/childEvidence";
 import { boardWording } from "./boardWording";
 import { getLearningCycle } from "./learningCycleRepository";
@@ -36,6 +36,9 @@ export type SuccessorFacts = {
   creatureEncounters?: boolean;
   /** Contract 56: the decision carries the Planner's self-review. Older frozen questions lack it and replay as asked. */
   selfReview?: boolean;
+  /** Owner 2026-11-24: the decision carries the tutor's experiment, ungraded; its bets are scored by code. Replaces
+   * selfReview and readBack on new questions; older frozen questions keep theirs and replay as asked. */
+  experiment?: boolean;
   /** The ids a read-back may cite (her words, answers, prediction evaluations, parent notes); offered means read_back is asked. */
   readBack?: { evidenceIds: string[] };
   /** Her files, read on demand as of this question (read_record live sections, read_board_wording); never frozen in full. */
@@ -70,7 +73,7 @@ type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
 type Encounter = "quest" | "boss";
 type Step = { buildFrom?: string; id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; reward?: true; problemIds?: string[]; checkFirst?: boolean; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string; focus?: string; libraryGame?: string };
 type SelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
-type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview; readBack?: PlannerReadBack };
+type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview; readBack?: PlannerReadBack; experiment?: PlannerExperiment };
 type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
 export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: Finished; draft?: Finished; selfChecks?: number;
   /** Problems the Planner wrote on this board (2026-11-10), by id. */
@@ -107,7 +110,10 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
     return { ok: true, value: { buildFrom: from } };
   };
   const allWordIds = [...new Set(facts.builtIns.flatMap(row => row.wordIds))];
-  const readBackIds = new Set(facts.readBack?.evidenceIds ?? []);
+  // A new question asks for the experiment instead of a self-review or read-back; both offer the calls code scores.
+  const readBack = facts.experiment ? undefined : facts.readBack;
+  const readBackIds = new Set(readBack?.evidenceIds ?? []);
+  const calls = Boolean(facts.selfReview || facts.experiment);
   const strings = z.array(z.string().min(1));
   // Quest and Boss are offered only when the decision may authorize them, so older frozen questions keep their exact tools.
   const encounters = (["quest", "boss"] as const).filter(name => facts.allowedActions.includes(`generate_${name}`));
@@ -164,7 +170,12 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           what_i_keep: text("What worked for her, from her answers and her session retros (what she understood, enjoyed or got right), that you keep."),
           what_i_change_now: text("What you change now, and why that is a better try than the last."),
         }).strict().optional().describe(`Your review of your own track record: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side. Saved in your journal.`) } : {}),
-        ...(facts.readBack ? { read_back: z.object({
+        ...(facts.experiment ? { experiment: z.object({
+          trying: text("What you are trying on this board, and what it should change in her answers on her own."),
+          why: text("Why this is the next thing to try, from her answers and her words."),
+          conclusion_on_last: text("What reality said about your last experiment, from the ledger: its bets as code scored them. On a first experiment, say so."),
+        }).strict().optional().describe("Your experiment for this board. Code scores your bets (expect_on_her_own) only on the board it builds, and shows you the result next time.") } : {}),
+        ...(readBack ? { read_back: z.object({
           previous_theory: text("Your theory going into this board, read back as written above."),
           grade: z.enum(READ_BACK_GRADES).describe("That theory against the new evidence: supported, revised, falsified, or unclear."),
           why: text("Why, from what she did and said since."),
@@ -176,17 +187,17 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         ...(played.length ? { game_notes: z.array(z.object({ game: pickFrom(played.map(row => row.nodeId), "none", "the games Sunny built for her that she played", "A game she played: its nodeId from that list in the question."), verdict: z.enum(["keep", "fix", "retire"]),
           why: text("Why, from how she played it: her answers, her time to a first answer, what she said.") }).strict()).optional()
           .describe("Your note on games she played: keep (bring it back, with new content via build_from), fix (what to change), or retire (do not build from it again). The builder reads your latest note.") } : {}),
-        ...(facts.selfReview ? { expect_on_her_own: z.array(z.object({ item: pickFrom(problems ? [...problems.keys()] : allWordIds, "none", `her ${problems ? "recorded problems" : "words"}`, `One of her ${problems ? "problems" : "words"} this board works on, by id.`),
+        ...(calls ? { expect_on_her_own: z.array(z.object({ item: pickFrom(problems ? [...problems.keys()] : allWordIds, "none", `her ${problems ? "recorded problems" : "words"}`, `One of her ${problems ? "problems" : "words"} this board works on, by id.`),
           right: z.boolean().describe("true if you expect her next answer on her own to be right; false if not yet.") }).strict()).optional()
           .describe(`Your calls, ${problems ? "problem" : "word"} by ${problems ? "problem" : "word"}: will she get it right on her own next time? Code checks each call against her next answer on her own and shows you the tally.`) } : {}),
-        ...(facts.selfReview ? (problems
+        ...(calls ? (problems
           ? { school_test_forecast: z.object({ min: z.number().describe("Lowest share of her school test she gets right, 0 to 1."), max: z.number().describe("Highest share, 0 to 1."),
               why: text("Why, from her answers on her own so far.") }).strict().optional()
               .describe("Your forecast of her graded school test on this assignment, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back.") }
           : { school_test_forecast: z.array(z.object({ word: z.string().min(1).describe("A word id from her list."), chance: z.number().describe("The chance, 0 to 1, that she spells it right on the school test."),
               why: text("Why, from her answers on this word.") }).strict()).optional()
               .describe("Your forecast for her graded school test, word by word, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back.") }) : {}),
-        ...(facts.selfReview ? { ready_on_paper: z.array(z.object({ concept: text("One concept this assignment teaches, in a parent's words (for example Rounding to tens)."),
+        ...(calls ? { ready_on_paper: z.array(z.object({ concept: text("One concept this assignment teaches, in a parent's words (for example Rounding to tens)."),
           chance: z.number().describe("The chance, 0 to 1, that she gets this concept right alone on paper now."), why: text("Why, from her answers on her own."),
           proof: text("The paper work that would show it, for example the Lesson 1.2 sheet."),
           items: z.array(z.string().min(1).describe(`One of her ${problems ? "recorded problem ids" : "word ids"}.`)).optional()
@@ -195,7 +206,8 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
       }).strict(),
       run: (state, input) => {
         const review = (input as { self_review?: Record<"what_i_tried" | "what_happened" | "why" | "what_i_keep" | "what_i_change_now", string> }).self_review;
-        const calls = (input as { expect_on_her_own?: Array<{ item: string; right: boolean }> }).expect_on_her_own;
+        const bets = (input as { expect_on_her_own?: Array<{ item: string; right: boolean }> }).expect_on_her_own;
+        const experiment = (input as { experiment?: { trying: string; why: string; conclusion_on_last: string } }).experiment;
         const notes = (input as { game_notes?: Array<{ game: string; verdict: "keep" | "fix" | "retire"; why: string }> }).game_notes;
         // The school-test forecast is checked by code: every word, chances 0 to 1, a score range in order (2026-11-13).
         const forecast = (input as { school_test_forecast?: unknown }).school_test_forecast;
@@ -220,17 +232,18 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (unknownItem) return { ok: false, error: `ready_on_paper: ${unknownItem} is not one of her ${problems ? "problems" : "words"}; valid: ${validItems.join(", ")}` };
         state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve ?? [], change: input.change ?? [], testNext: input.test_next ?? [],
           nextEvidenceRequired: input.next_evidence_required ?? [], predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids ?? [])], revisedHypothesis: input.revised_hypothesis ?? "",
-          ...(facts.readBack ? { readBack: settleReadBack((input as { read_back?: ReadBackInput }).read_back, readBackIds) } : {}),
+          ...(readBack ? { readBack: settleReadBack((input as { read_back?: ReadBackInput }).read_back, readBackIds) } : {}),
           ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}),
-          ...(calls?.length ? { expectations: calls.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}),
+          ...(experiment ? { experiment: { trying: experiment.trying, why: experiment.why, conclusionOnLast: experiment.conclusion_on_last } } : {}),
+          ...(bets?.length ? { expectations: bets.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}),
           ...(notes?.length ? { gameNotes: notes.map(row => ({ nodeId: row.game, verdict: row.verdict, why: row.why })) } : {}),
           ...(schoolForecast ? { schoolForecast } : {}),
           ...(ready?.length ? { readyOnPaper: ready.map(row => ({ concept: row.concept.trim(), chance: row.chance, why: row.why, proof: row.proof, ...(row.items?.length ? { items: [...new Set(row.items)] } : {}) })) } : {}) };
         state.result = undefined;
-        const readBack = state.decision.readBack;
+        const graded = state.decision.readBack;
         // Said inside the same conversation (never a veto): a grade on nothing real is saved as unclear.
-        const readBackNote = !facts.readBack || !readBack ? {} : readBack.missing ? {}
-          : readBack.claimedGrade || readBack.unknownEvidenceIds?.length ? { read_back: `saved as ${readBack.grade}${readBack.unknownEvidenceIds?.length ? `; not offered ids: ${readBack.unknownEvidenceIds.join(", ")}` : ""}${readBack.claimedGrade ? `; your grade ${readBack.claimedGrade} cited no offered id` : ""}. Call decide again to fix.` } : {};
+        const readBackNote = !readBack || !graded ? {} : graded.missing ? {}
+          : graded.claimedGrade || graded.unknownEvidenceIds?.length ? { read_back: `saved as ${graded.grade}${graded.unknownEvidenceIds?.length ? `; not offered ids: ${graded.unknownEvidenceIds.join(", ")}` : ""}${graded.claimedGrade ? `; your grade ${graded.claimedGrade} cited no offered id` : ""}. Call decide again to fix.` } : {};
         return { ok: true, result: { action: input.progression_action, ...readBackNote } };
       } }),
     problems ? tool({ name: "add_step", description: "Add one step: a game on the menu, built for her from her chart and this step's story, with any of her recorded problems. Returns its step_id.",

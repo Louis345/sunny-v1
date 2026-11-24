@@ -15,20 +15,6 @@ export type ReadBackInput = { previous_theory: string; grade: ReadBackGrade; why
 
 const clip = (text: string, max = 400) => { const flat = text.replace(/\s+/g, " ").trim(); return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat; };
 
-/** What the Planner reads back: its current theory, its last belief about her thinking and what it said it would test. */
-export function theoryReadBackSection(cycle: Pick<LearningCycleRecordV2, "academicTheory" | "decisionHistory">): string {
-  const last = [...(cycle.decisionHistory ?? [])].reverse().find(row => row.eventType === "theory_decided");
-  const belief = [...(cycle.decisionHistory ?? [])].reverse().find(row => row.eventType === "theory_decided" && row.readBack?.howSheThinks && !row.readBack.missing);
-  return [
-    "Your theory going into this board (decide's read_back grades it, if you want to):",
-    `- Theory (revision ${cycle.academicTheory?.revision ?? 0}): "${clip(cycle.academicTheory?.hypothesis ?? "none recorded")}"`,
-    belief?.readBack ? `- Your last belief about how she thinks (${belief.createdAt.slice(0, 10)}): "${clip(belief.readBack.howSheThinks)}"; competing explanation then: "${clip(belief.readBack.competingExplanation, 240)}"; the board was to tell them apart by: "${clip(belief.readBack.boardTellsApart, 240)}"`
-      : "- Your last belief about how she thinks: none recorded yet.",
-    `- What you said you would test next: ${(last?.testNext ?? []).map(line => `"${clip(line, 200)}"`).join(" | ") || "(nothing listed)"}`,
-    "read_board_wording shows the exact words your last board said to her.",
-  ].join("\n");
-}
-
 /** Code's part: keep only evidence ids that were offered; a grade with none of them is "unclear". */
 export function settleReadBack(input: ReadBackInput | undefined, offered: ReadonlySet<string>): PlannerReadBack {
   if (!input) return missingReadBack();

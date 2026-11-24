@@ -95,10 +95,10 @@ function robot(decideInput: (request: any) => Record<string, unknown>) {
 
 const baseDecision = (request: any) => ({ status: "revised", reason: "Every rounding answer missed.", progression_action: "generate_support", preserve: [], change: ["Meaning first."], test_next: ["r2 on her own"], next_evidence_required: ["r2 on her own"],
   prediction_evaluation_ids: (offeredValues(request.tools.find((tool: any) => tool.name === "decide").input_schema.properties.prediction_evaluation_ids.items) ?? []).slice(0, 1), revised_hypothesis: "",
-  self_review: { what_i_tried: "A first check.", what_happened: "60, 300, 200.", why: "Unknown yet.", what_i_keep: "Fuji.", what_i_change_now: "Two houses." } });
+  experiment: { trying: "Two houses: is 247 nearer 200 or 300, before any digits.", why: "60, 300, 200 on her own.", conclusion_on_last: "First experiment." } });
 const promptOf = (request: any): string => { const content = request.messages[0].content; return typeof content === "string" ? content : content.map((block: any) => block.text ?? "").join(""); };
 
-describe("the Planner reads its last theory back before each board", () => {
+describe("the Planner sees her evidence and writes its experiment before each board", () => {
   it("B1: her words, help-dependence and her actual wrong answers reach the next-board question, with ids to cite", async () => {
     const f = await ilaShapedRounding();
     const planner = robot(baseDecision);
@@ -110,41 +110,33 @@ describe("the Planner reads its last theory back before each board", () => {
     expect(prompt).toContain(`"Round 247 to the nearest hundred." → "300" (on her own)`);
   });
 
-  it("B2: the question asks for a graded read-back of the last theory, and a cited grade is saved with the decision", async () => {
+  it("B2: the question asks for the experiment, never a self-graded read-back, and saves it with the decision (owner 2026-11-24)", async () => {
     const f = await ilaShapedRounding();
-    const planner = robot(request => ({ ...baseDecision(request), read_back: {
-      previous_theory: "She rounds by the peek digit when reminded.", grade: "falsified",
-      why: "On her own she wrote 60 for 652 and 300 for 247; she said she does not understand the concept.",
-      evidence_ids: ["said:ci-concept", "not-an-id"],
-      how_she_thinks: "She changes the digit she looks at instead of choosing the nearer whole hundred.",
-      competing_explanation: "She knows which hundred is nearer but misreads which digit to round.",
-      board_tells_apart: "Ask 'is 247 nearer 200 or 300?' before any digits: meaning right, digits wrong favours the second.",
-    } }));
+    const planner = robot(baseDecision);
     await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: planner.client, draw: plainDraw }, f.opts);
     const prompt = promptOf(planner.requests[0]);
-    expect(prompt).toContain("Your theory going into this board");
-    expect(prompt).toContain("She rounds by the peek digit when reminded.");
-    const readBack = planner.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema.properties.read_back;
-    expect(Object.keys(readBack.properties)).toEqual(["previous_theory", "grade", "why", "evidence_ids", "how_she_thinks", "competing_explanation", "board_tells_apart"]);
-    expect(readBack.properties.grade.enum).toEqual(["supported", "revised", "falsified", "unclear"]);
+    expect(prompt).toContain("Your experiments, and what reality said");
+    expect(prompt).not.toContain("Your theory going into this board");
+    const decide = planner.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema.properties;
+    expect(decide.read_back).toBeUndefined();
+    expect(decide.self_review).toBeUndefined();
+    expect(Object.keys(decide.experiment.properties)).toEqual(["trying", "why", "conclusion_on_last"]);
     const decision = getLearningCycle(childId, f.homeworkId, f.opts)!.decisionHistory.at(-1)!;
-    expect(decision.readBack).toMatchObject({ grade: "falsified", evidenceIds: ["said:ci-concept"], unknownEvidenceIds: ["not-an-id"],
-      howSheThinks: "She changes the digit she looks at instead of choosing the nearer whole hundred." });
+    expect(decision.experiment).toEqual({ trying: "Two houses: is 247 nearer 200 or 300, before any digits.", why: "60, 300, 200 on her own.", conclusionOnLast: "First experiment." });
+    expect(decision.readBack).toBeUndefined();
     const journal = fs.readFileSync(path.join(resolveChildContextDir(childId, f.opts), "homework", "planner-journal", `${f.homeworkId}.md`), "utf8");
-    expect(journal).toContain("Read-back: falsified");
-    expect(journal).toContain("How she thinks: She changes the digit she looks at");
+    expect(journal).toContain("- Trying: Two houses: is 247 nearer 200 or 300, before any digits.");
   });
 
-  it("B3: a parent's teaching note is shown ahead of her answers, and the read-back may cite it", async () => {
+  it("B3: a parent's teaching note is shown ahead of her answers", async () => {
     const f = await ilaShapedRounding();
     fs.writeFileSync(path.join(resolveChildContextDir(childId, f.opts), "teaching_notes.md"), "## 2026-11-22 Parent\nMeaning first worked: about 10 or about 20?\n");
-    const planner = robot(request => ({ ...baseDecision(request), read_back: { previous_theory: "x", grade: "revised", why: "y", evidence_ids: ["note:2026-11-22:1"], how_she_thinks: "z", competing_explanation: "w", board_tells_apart: "v" } }));
+    const planner = robot(baseDecision);
     await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: planner.client, draw: plainDraw }, f.opts);
     const prompt = promptOf(planner.requests[0]);
     expect(prompt).toContain("[note:2026-11-22:1] 2026-11-22, Parent:");
     expect(prompt.indexOf("Every answer she gave on this assignment")).toBeGreaterThan(-1);
     expect(prompt.indexOf("Teaching notes from outside Sunny")).toBeLessThan(prompt.indexOf("Every answer she gave on this assignment"));
-    expect(getLearningCycle(childId, f.homeworkId, f.opts)!.decisionHistory.at(-1)!.readBack).toMatchObject({ grade: "revised", evidenceIds: ["note:2026-11-22:1"] });
   });
 
   it("the whole record is reachable on demand, and the Planner can reread the exact words its board showed her", async () => {
@@ -185,19 +177,14 @@ describe("the Planner reads its last theory back before each board", () => {
     expect(after.observations.find(row => row.itemId === "r1")!.constructLinks[0]!.constructId).toBe(before.observations.find(row => row.itemId === "r1")!.constructLinks[0]!.constructId);
   });
 
-  it("B2 degrades, never blocks: no read-back, or a grade citing nothing real, is saved as unclear and the board still builds", async () => {
-    const log = vi.spyOn(console, "log");
+  it("degrades, never blocks: a decision with no experiment still builds the board, and nothing is invented for it", async () => {
     const f = await ilaShapedRounding();
-    const planner = robot(baseDecision);
+    const { experiment: _none, ...bare } = baseDecision({ tools: [{ name: "decide", input_schema: { properties: { prediction_evaluation_ids: { items: {} } } } }] });
+    const planner = robot(request => ({ ...bare, prediction_evaluation_ids: baseDecision(request).prediction_evaluation_ids }));
     await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: planner.client, draw: plainDraw }, f.opts);
     const cycle = getLearningCycle(childId, f.homeworkId, f.opts)!;
     expect(cycle.lifecycle).toBe("baseline_generating");
-    expect(cycle.decisionHistory.at(-1)!.readBack).toMatchObject({ grade: "unclear", missing: true });
-    expect(log.mock.calls.flat().join("\n")).toMatch(/🎮 \[planner-read-back\] \[missing\] \[recorded-unclear\] homework=/);
-
-    const g = await ilaShapedRounding();
-    const uncited = robot(request => ({ ...baseDecision(request), read_back: { previous_theory: "x", grade: "supported", why: "y", evidence_ids: ["made-up"], how_she_thinks: "z", competing_explanation: "w", board_tells_apart: "v" } }));
-    await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: g.homeworkId, client: uncited.client, draw: plainDraw }, g.opts);
-    expect(getLearningCycle(childId, g.homeworkId, g.opts)!.decisionHistory.at(-1)!.readBack).toMatchObject({ grade: "unclear", claimedGrade: "supported", evidenceIds: [], unknownEvidenceIds: ["made-up"] });
+    expect(cycle.decisionHistory.at(-1)!.experiment).toBeUndefined();
+    expect(cycle.decisionHistory.at(-1)!.readBack).toBeUndefined();
   });
 });

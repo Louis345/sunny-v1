@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { boardDeliveries, boardDeliveryLines, listBoardInstances, type BoardDelivery } from "./learningBoardInstances";
-import type { LearningCycleNodeContract, LearningCycleRecordV2, PlannerSelfReview } from "./learningCycleRepository";
+import type { LearningCycleNodeContract, LearningCycleRecordV2, PlannerExperiment, PlannerSelfReview } from "./learningCycleRepository";
 import { readCanonicalCycles, returnedWorkCalibrationId, returnedWorkHelpLabel } from "./longitudinalLearning";
 import { activityOf, answers, plannerJournalFile, scorePlannerCalls, targetsOf } from "./plannerIntrospection";
 import { toolFor, type PlannerTool } from "./plannerToolLoop";
@@ -30,7 +30,7 @@ type Help = "on her own" | "with help" | "help not recorded";
 export type PastWeekAnswer = { target: string; at: string; board?: number; stop?: string; wrote?: string; right: boolean; help: Help; retry: boolean; school: boolean; homeCheck?: true; homeHelp?: string };
 export type PastWeekStop = { title: string; game: string; targets: string[]; focus?: string };
 export type PastWeekDecision = { number: number; at: string; afterBoard?: number; action: string; status: string; reason: string; change: string[]; testNext: string[];
-  selfReview?: PlannerSelfReview; builtBoard?: number; stops: PastWeekStop[]; targets: string[]; before: Count; after: Count };
+  selfReview?: PlannerSelfReview; experiment?: PlannerExperiment; builtBoard?: number; stops: PastWeekStop[]; targets: string[]; before: Count; after: Count };
 export type PastWeek = {
   homeworkId: string; domain: string; title: string; lifecycle: string; started: string; lastAnswer?: string; testDate: string | null;
   /** Her words (id = the word) or problems (id = the problem id, text = its prompt), in the order first planned. */
@@ -105,7 +105,7 @@ export function pastWeekOf(cycle: LearningCycleRecordV2, opts: { rootDir?: strin
     const own = (from: number, to: number) => count(rows.filter(row => firstTry(row) && aimed.has(row.target) && Date.parse(row.at) >= from && Date.parse(row.at) < to));
     return { number: index + 1, at: decision.createdAt, ...(after ? { afterBoard: after.number } : {}), action: decision.nextAction ?? "none", status: decision.status ?? "unstated",
       reason: decision.reason, change: [...(decision.change ?? [])], testNext: [...(decision.testNext ?? [])], ...(decision.selfReview ? { selfReview: structuredClone(decision.selfReview) } : {}),
-      ...(built ? { builtBoard: built.number } : {}), stops, targets: [...aimed], before: own(-Infinity, at), after: own(at, until) };
+      ...(decision.experiment ? { experiment: structuredClone(decision.experiment) } : {}), ...(built ? { builtBoard: built.number } : {}), stops, targets: [...aimed], before: own(-Infinity, at), after: own(at, until) };
   });
   const evaluated = cycle.predictionEvaluations ?? [];
   const sessions = (() => { try { return timeRecord(cycle, { rootDir: opts.rootDir }).sessions; } catch { return []; } })();
@@ -220,7 +220,8 @@ export function pastWeekLines(week: PastWeek): string[] {
       `- Decision ${d.number} (${day(d.at)}${d.afterBoard ? `, after board ${d.afterBoard}` : ""}; ${d.action}; theory ${d.status}): "${d.reason}"`,
       ...d.change.map(line => `  You said you would change: "${line}"`), ...d.testNext.map(line => `  You said you would test next: "${line}"`),
       ...(d.selfReview ? [`  What I tried: ${d.selfReview.whatITried}`, `  What happened: ${d.selfReview.whatHappened}`, `  Why: ${d.selfReview.why}`,
-        ...(d.selfReview.whatIKeep ? [`  What I keep: ${d.selfReview.whatIKeep}`] : []), `  What I change now: ${d.selfReview.whatIChangeNow}`] : ["  No self-review was recorded with this decision."]),
+        ...(d.selfReview.whatIKeep ? [`  What I keep: ${d.selfReview.whatIKeep}`] : []), `  What I change now: ${d.selfReview.whatIChangeNow}`]
+        : d.experiment ? [`  Experiment: trying ${d.experiment.trying}`, `  Why: ${d.experiment.why}`, `  Conclusion on the last: ${d.experiment.conclusionOnLast}`] : ["  No self-review or experiment was recorded with this decision."]),
       d.builtBoard ? `  Built board ${d.builtBoard}: ${d.stops.map(stopLabel).join("; ")}` : "  No board was built from this decision.",
       ...(d.targets.length ? [`  Her first tries on its ${noun(week)} on her own, counted by code: before ${ofTotal(d.before)} -> after (until the next decision) ${ofTotal(d.after)}: ${direction(d.before, d.after)}`] : []),
     ]) : ["- No decisions recorded."]),
@@ -254,7 +255,8 @@ export function searchPastWeeks(archive: PastWeeksArchive, query: string) {
     ...week.decisions.flatMap(d => {
       const review = d.selfReview;
       const fields: Array<[string, string | undefined]> = [["reason", d.reason], ...d.change.map(line => ["change", line] as [string, string]), ...d.testNext.map(line => ["test next", line] as [string, string]),
-        ["what I tried", review?.whatITried], ["what happened", review?.whatHappened], ["why", review?.why], ["what I keep", review?.whatIKeep], ["what I change now", review?.whatIChangeNow]];
+        ["what I tried", review?.whatITried], ["what happened", review?.whatHappened], ["why", review?.why], ["what I keep", review?.whatIKeep], ["what I change now", review?.whatIChangeNow],
+        ["trying", d.experiment?.trying], ["why", d.experiment?.why], ["conclusion on the last", d.experiment?.conclusionOnLast]];
       return fields.filter(([, text]) => hits(text)).map(([where, text]) => ({ week: week.homeworkId, date: day(d.at), where: `decision ${d.number} ${where}`, text: text! }));
     }),
   ]);
@@ -264,7 +266,7 @@ export function searchPastWeeks(archive: PastWeeksArchive, query: string) {
 /** Every self-review the Planner wrote, newest first, labelled by week and date, with her counted first tries after it. */
 export function pastConclusions(archive: PastWeeksArchive) {
   return archive.weeks.flatMap(week => week.decisions.map(d => ({ week: week.homeworkId, title: week.title, date: day(d.at), decision: d.number,
-    selfReview: d.selfReview ?? "no self-review recorded with this decision", change: d.change,
+    ...(d.experiment ? { experiment: d.experiment } : { selfReview: d.selfReview ?? "no self-review recorded with this decision" }), change: d.change,
     evidence: d.targets.length ? `her first tries on its ${noun(week)} on her own: before ${ofTotal(d.before)} -> after ${ofTotal(d.after)}: ${direction(d.before, d.after)}` : "no board was built from this decision" })))
     .sort((a, b) => b.date.localeCompare(a.date));
 }

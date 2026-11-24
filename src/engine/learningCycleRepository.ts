@@ -391,6 +391,8 @@ export type LearningCycleDecision = {
   selfReview?: PlannerSelfReview;
   /** Its graded read-back of the last theory and its belief about how she thinks (owner 2026-11-22). Older decisions have none. */
   readBack?: PlannerReadBack;
+  /** The experiment this board runs, in the Planner's words, with no grade (owner 2026-11-24): reality grades its bets. */
+  experiment?: PlannerExperiment;
   /** The Planner's calls, item by item: right on her own next time? Code checks them (2026-11-10). */
   expectations?: PlannerExpectation[];
   /** The Planner's keep / fix / retire notes on games she played (2026-11-10). */
@@ -405,6 +407,8 @@ export type LearningCycleDecision = {
 
 /** One call the Planner made: whether her next answer on her own for this word or problem will be right. */
 export type PlannerExpectation = { itemId: string; onHerOwn: boolean };
+/** What the tutor tries on this board, why, and its conclusion on the last experiment (owner 2026-11-24). */
+export type PlannerExperiment = { trying: string; why: string; conclusionOnLast: string };
 
 /** The Planner reviews itself (contract 56, owner 2026-11-08): its words, stored with the decision. */
 export type PlannerSelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
@@ -774,6 +778,7 @@ export type LearningCycleEvent =
         replayedResponse?: LearningCycleDecision['replayedResponse'];
         selfReview?: PlannerSelfReview;
         readBack?: PlannerReadBack;
+        experiment?: PlannerExperiment;
         expectations?: PlannerExpectation[];
         gameNotes?: LearningCycleDecision["gameNotes"];
         schoolForecast?: SchoolForecast;
@@ -2150,6 +2155,7 @@ export function transitionLearningCycle(
       ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
       ...(event.decision.selfReview ? { selfReview: structuredClone(event.decision.selfReview) } : {}),
       ...(event.decision.readBack ? { readBack: structuredClone(event.decision.readBack) } : {}),
+      ...(event.decision.experiment ? { experiment: structuredClone(event.decision.experiment) } : {}),
       ...(event.decision.expectations?.length ? { expectations: structuredClone(event.decision.expectations) } : {}),
       ...(event.decision.gameNotes?.length ? { gameNotes: structuredClone(event.decision.gameNotes) } : {}),
       // Arithmetic's guess is locked beside each call that names its items, from her first tries before this decision.

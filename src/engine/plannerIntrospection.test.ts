@@ -14,7 +14,7 @@ import { prepareSuccessorBoard } from "./canonicalProgressionGenerator";
 import { parseCanonicalProgressionDecision } from "./learningCycleRuntime";
 import * as runtime from "./learningCycleRuntime";
 import * as canvas from "./adventureBoardCanvas";
-import { plannerJournalSection, schoolTestSection, spellingTrackRecordSection, writePlannerJournalEntry } from "./plannerIntrospection";
+import { schoolTestSection, spellingTrackRecordSection, writePlannerJournalEntry } from "./plannerIntrospection";
 import { spellingSuccessorToolkit, type SuccessorFacts } from "./spellingSuccessorTools";
 import { recordProductIssue } from "./productIssues";
 
@@ -34,20 +34,6 @@ it("lays out her track record per word: right on her own and with help, what she
   expect(section).toContain(`- import: on her own 0 of 4 right, wrote "inport" x3, "impot" x1; with help 2 of 2 right; help not recorded 0 of 1 right, wrote "inport" x1; practiced in: word-radar on boards 1, 2, 3, 4 ("Word Check", "Radar Warm-up", "Radar Run", "Radar Rematch"), visual-explainer on boards 2, 3 ("Sound Detectives", "Picture Clues"); latest on her own: "inport" (missed, board 4)`);
   expect(section).toContain(`- pardon: on her own 2 of 3 right, wrote "parden" x1;`);
   expect(section).toContain("- Right every time she answered on her own: charge (1 of 1), carnivore (1 of 1)");
-  expect(noDoNot(section)).toEqual([]);
-});
-
-it("keeps the Planner's journal: what each earlier decision said it would change, what it built, and her results before and after", () => {
-  const section = plannerJournalSection(ilaLikeIntrospectionCycle());
-  expect(section.split("\n")[0]).toBe("Your journal: what you tried on earlier boards and what happened (your words from each decision; her answers counted by code):");
-  expect(section).toContain("- Decision 1 (2026-11-03, after board 2; generate_support; theory revised)");
-  expect(section).toContain(`  You said you would change: "Show the m before p in import with a picture explainer." | "Radar practice on import, dormant and pardon."`);
-  expect(section).toContain(`  You said you would test next: "import on her own"`);
-  expect(section).toContain(`  You built board 3: visual-explainer "Picture Clues" (import, dormant); word-radar "Radar Run" (import, pardon, dormant)`);
-  expect(section).toContain(`    - import: before 0 of 1 right (wrote "inport" x1) -> after 0 of 1 right (wrote "inport" x1)`);
-  expect(section).toContain(`    - dormant: before 0 of 1 right (wrote "dorment" x1) -> after 1 of 1 right`);
-  expect(section).toContain("- Decision 2 (2026-11-05, after board 3; generate_support; theory revised)");
-  expect(section).toContain(`    - import: before 0 of 2 right (wrote "inport" x2) -> after 0 of 2 right (wrote "impot" x1, "inport" x1)`);
   expect(noDoNot(section)).toEqual([]);
 });
 
@@ -88,27 +74,27 @@ function liveFixture() {
 }
 const promptOf = (request: any): string => { const first = request.messages[0].content; return typeof first === "string" ? first : first.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n"); };
 
-it("shows the next-board Planner her track record and its journal, offers a self-review, and writes the journal file", async () => {
+it("shows the next-board Planner her track record and its experiment ledger, offers the experiment, and writes the journal file", async () => {
   const f = liveFixture();
   f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
   await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
   const first = promptOf(f.requests[0]);
   expect(first).toContain(`- import: on her own 0 of 1 right, wrote "inport" x1;`);
   expect(first).toContain(`word-radar on board 1 ("Radar Run")`);
-  expect(first).toContain("Your journal: what you tried on earlier boards and what happened");
-  expect(first).toContain("- No earlier decisions on this list yet.");
+  expect(first).toContain("Your experiments, and what reality said");
+  expect(first).toContain("- No experiments yet.");
   const decide = f.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema;
-  // Contract 63 (2026-11-23): only status, reason and progression_action are the decision; the self-review is offered.
+  // Contract 63 (2026-11-23): only status, reason and progression_action are the decision; the experiment is offered.
   expect(decide.required).toEqual(["status", "reason", "progression_action"]);
-  expect(Object.keys(decide.properties.self_review.properties)).toEqual(["what_i_tried", "what_happened", "why", "what_i_keep", "what_i_change_now"]);
-  // The self-review is stored with the decision, and readable in her folder.
+  expect(Object.keys(decide.properties.experiment.properties)).toEqual(["trying", "why", "conclusion_on_last"]);
+  expect(decide.properties.self_review).toBeUndefined();
+  // The experiment is stored with the decision, and readable in her folder.
   let cycle = getLearningCycle(childId, homeworkId, f.opts)!;
-  expect(cycle.decisionHistory.at(-1)).toMatchObject({ selfReview: { whatITried: "Radar practice on both words.", whatIChangeNow: "Aim at the m before p." } });
+  expect(cycle.decisionHistory.at(-1)).toMatchObject({ experiment: { trying: "Aim at the m before p.", why: "She hears n before p." } });
   const journalFile = path.join(f.rootDir, "src/context", childId, "homework/planner-journal", `${homeworkId}.md`);
   const journal = fs.readFileSync(journalFile, "utf8");
   expect(journal).toContain(cycle.decisionHistory.at(-1)!.decisionId);
-  expect(journal).toContain("What I tried: Radar practice on both words.");
-  expect(journal).toContain("What I change now: Aim at the m before p.");
+  expect(journal).toContain("- Trying: Aim at the m before p.");
   expect(journal).toContain("- Show the m before p in import with a picture.");
   // She plays the board it built, and gets import wrong again.
   cycle = await f.prepare();
@@ -119,10 +105,9 @@ it("shows the next-board Planner her track record and its journal, offers a self
   await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
   const second = promptOf(f.requests[asked]);
   expect(second).toContain(`- import: on her own 0 of 2 right, wrote "inport" x2;`);
-  expect(second).toContain(`You said you would change: "Show the m before p in import with a picture."`);
-  expect(second).toContain(`You built board 2: word-radar "Radar Again" (import, pardon)`);
-  expect(second).toContain(`    - import: before 0 of 1 right (wrote "inport" x1) -> after 0 of 1 right (wrote "inport" x1)`);
-  expect(second).toContain(`Your self-review then: "Aim at the m before p."`);
+  expect(second).toContain(`- Board 2 (decided `);
+  expect(second).toContain(`trying "Aim at the m before p."; why "She hears n before p."`);
+  expect(second).toContain(`  Stops: word-radar "Radar Again"`);
   expect(fs.readFileSync(journalFile, "utf8").match(/^## /gm)).toHaveLength(2);
   const instructions = second.split("\n").filter(line => !/^\s*[[{"]/.test(line) && line.length < 2000);
   expect(noDoNot(instructions.join("\n"))).toEqual([]);
@@ -261,7 +246,7 @@ it("keeps the raw record out of the Planner's question and lets it read any part
 // wrote its own verdict ("my main prediction for board 7 was met") and nothing but the Planner checked. Now it may
 // call, per word, whether she will get it right on her own next time; code checks each call against her next
 // unhelped answer and shows the tally back, so the tutor is scored on its own bets.
-it("scores the Planner's per-word calls against her next answer on her own, and shows the tally back", async () => {
+it("scores the Planner's per-word bets on the board its experiment built, and shows the ledger back", async () => {
   const f = liveFixture();
   f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
   const node = getLearningCycle(childId, homeworkId, f.opts)!.nodes[0];
@@ -275,9 +260,9 @@ it("scores the Planner's per-word calls against her next answer on her own, and 
   const asked = f.requests.length;
   await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
   const prompt = promptOf(f.requests[asked]);
-  expect(prompt).toContain("Your calls, checked by code against her next answer on her own:");
-  expect(prompt).toMatch(/1 of 2 calls right/);
-  expect(prompt).toContain(`import: you expected right; she wrote "inport"`);
+  expect(prompt).toContain("Your experiments, and what reality said (bets scored by code only on the board each experiment built):");
+  expect(prompt).toContain("- All experiments: 1 of 2 scored bets came true; 0 not enough evidence.");
+  expect(prompt).toContain(`import right -> missed ("inport")`);
 }, 120000);
 
 // 2026-11-16 (owner: "is the Planner set up to tell us when it feels confident she understands the concepts?"): it

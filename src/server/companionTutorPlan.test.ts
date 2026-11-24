@@ -32,5 +32,12 @@ it("tells Elli the Planner's current plan and what this stop is for, in the Plan
   expect(context).toContain(`This stop, "Type It Fast", is for: Typed production of her six stuck words. Aimed at: the n in carnivore.`);
   expect(context).not.toContain("Old plan.");
   const block = context.slice(context.indexOf("[Her tutor's plan"));
+  // Owner 2026-11-24: a new decision carries the tutor's experiment instead of a self-review; Elli hears what it is trying.
+  cycle.decisionHistory.push({ eventType: "theory_decided", decisionId: "d3", createdAt: "2026-11-24T20:00:00.000Z", reason: "rounding 2/6 without the hill",
+    experiment: { trying: "The hill picture first, then the same kind of problem without it.", why: "5/6 with it, 2/6 without.", conclusionOnLast: "The picture did the work." } } as never);
+  const next = buildActivityCompanionContext({ childId: "ila-lab", companionId: "Elli", presence: "summoned",
+    snapshot: { childId: "ila-lab", sessionId: "s", nodeId: "rush", game: "letter-rush", targetIsSpeakable: true, answerVisibility: "hidden", allowedActivities: [], updatedAt: "2026-11-24T20:05:00.000Z" } as never });
+  expect(next).toContain(`What the tutor is trying on this board: "The hill picture first, then the same kind of problem without it."`);
+  expect(next).not.toContain("Make her produce the words herself");
   expect(block.split("\n").filter(line => /\b(do not|don't|never|must not)\b/i.test(line))).toEqual([]);
 });

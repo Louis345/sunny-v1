@@ -36,6 +36,9 @@ export function successorToolReply(recorded: unknown, request: any): any {
     // Contract 56: a new question asks for the self-review; a recorded decision without one answers with its reason.
     ...(schema("decide").self_review ? { self_review: { what_i_tried: decision.selfReview?.whatITried ?? "Recorded decision.", what_happened: decision.selfReview?.whatHappened ?? decision.reason,
       why: decision.selfReview?.why ?? decision.reason, what_i_keep: decision.selfReview?.whatIKeep ?? "What she enjoyed.", what_i_change_now: decision.selfReview?.whatIChangeNow ?? (decision.change?.join(" ") || "The recorded board.") } } : {}),
+    // Owner 2026-11-24: a new question offers the experiment; a recorded decision's self-review answers it.
+    ...(schema("decide").experiment ? { experiment: { trying: decision.selfReview?.whatIChangeNow ?? (decision.change?.join(" ") || "The recorded board."), why: decision.selfReview?.why ?? decision.reason,
+      conclusion_on_last: decision.selfReview?.whatHappened ?? "First experiment." } } : {}),
     ...(schema("decide").expect_on_her_own && decision.expectations ? { expect_on_her_own: decision.expectations } : {}),
     ...(schema("decide").game_notes && decision.gameNotes ? { game_notes: decision.gameNotes } : {}),
     ...(schema("decide").ready_on_paper && decision.readyOnPaper ? { ready_on_paper: decision.readyOnPaper } : {}) } };
