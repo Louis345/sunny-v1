@@ -178,6 +178,7 @@ describe("the Planner sees her evidence and writes its experiment before each bo
   });
 
   it("degrades, never blocks: a decision with no experiment still builds the board, and nothing is invented for it", async () => {
+    const log = vi.spyOn(console, "log");
     const f = await ilaShapedRounding();
     const { experiment: _none, ...bare } = baseDecision({ tools: [{ name: "decide", input_schema: { properties: { prediction_evaluation_ids: { items: {} } } } }] });
     const planner = robot(request => ({ ...bare, prediction_evaluation_ids: baseDecision(request).prediction_evaluation_ids }));
@@ -186,5 +187,6 @@ describe("the Planner sees her evidence and writes its experiment before each bo
     expect(cycle.lifecycle).toBe("baseline_generating");
     expect(cycle.decisionHistory.at(-1)!.experiment).toBeUndefined();
     expect(cycle.decisionHistory.at(-1)!.readBack).toBeUndefined();
+    expect(log.mock.calls.flat().join("\n")).toMatch(/🎮 \[planner-experiment\] \[none-written\] \[saved-without\] homework=/);
   });
 });

@@ -1100,7 +1100,7 @@ ${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game
       decisions:cycle.decisionHistory.filter(row=>row.eventType==="theory_decided"),school_forecasts:cycle.schoolForecasts??[]});
     delete record.nodes; delete record.predictionEvaluations;
     const {learningHistory:_history,...chartInline}=childContext as Record<string,unknown>; delete chartInline.priorPlan;
-    // How she thinks, apart from counts (owner 2026-11-22), and the theory the Planner must read back and grade.
+    // How she thinks, apart from counts (owner 2026-11-22).
     const conceptSignal=conceptSignalSection(cycle,opts);
     const thinkingSection=conceptSignal.text;
     // A parent's or tutor's teaching notes come first, as outside knowledge (owner 2026-11-22).
@@ -1472,6 +1472,7 @@ async function decideOnce(
   // An older frozen question's read-back is kept as given (owner 2026-11-24: new questions write an experiment instead).
   const readBack = decision.readBack;
   if (decision.experiment) console.log(` 🎮 [planner-experiment] [written] [saved] homework=${cycle.homeworkId} bets=${decision.expectations?.length ?? 0}`);
+  else if (!readBack && !replay) console.log(` 🎮 [planner-experiment] [none-written] [saved-without] homework=${cycle.homeworkId} bets=${decision.expectations?.length ?? 0}`);
   if (decision.readBack) console.log(` 🎮 [planner-read-back] [graded] [${decision.readBack.grade}] homework=${cycle.homeworkId} cited=${decision.readBack.evidenceIds.length} unknown=${decision.readBack.unknownEvidenceIds?.length ?? 0}${decision.readBack.claimedGrade ? ` claimed=${decision.readBack.claimedGrade}` : ""}`);
   const saved = transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
     type: "theory_decided",

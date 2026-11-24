@@ -40,6 +40,35 @@ describe("bets are scored only on the board they were made for", () => {
     expect(of(2, "w-import")).toMatchObject({ board: 4, hit: false, answer: { childResponse: "impot" } });
     expect(of(2, "w-pardon")).toMatchObject({ board: 4, hit: true });
   });
+
+  it("never scores a bet by an answer with help, or by a retry after her first try", () => {
+    const cycle = bettingCycle();
+    // Board 3's import answer on her own becomes an answer with help; its retry would be right.
+    const own = cycle.observations.find(row => row.itemId === "b3-radar:import")!;
+    own.assistance = { status: "assisted", scaffolds: [] } as never;
+    cycle.observations.push({ ...structuredClone(own), observationId: "retry-1", assistance: { status: "unassisted", scaffolds: [] }, childResponse: "import", result: { correct: true }, confounds: ["retry"] } as never);
+    const call = scorePlannerCalls(cycle).find(row => row.decision.decisionId.endsWith("r20") && row.itemId === "w-import")!;
+    expect(call.answer).toBeUndefined();
+    // A retry right after a first try on her own that missed: the first try scores the bet.
+    const board4 = scorePlannerCalls(bettingCycle()).find(row => row.decision.decisionId.endsWith("r30") && row.itemId === "w-import")!;
+    expect(board4).toMatchObject({ hit: false, answer: { childResponse: "impot" } });
+  });
+
+  it("leaves a decision that built no board with no scored bets, and says so in the ledger", () => {
+    const cycle = bettingCycle();
+    cycle.boards = cycle.boards!.filter(board => board.plannerDecisionId !== cycle.decisionHistory[1].decisionId);
+    expect(scorePlannerCalls(cycle).filter(row => row.decision.decisionId.endsWith("r30")).every(row => !row.answer && row.board === undefined)).toBe(true);
+    expect(experimentLedgerSection(cycle, "")).toContain(`- No board built (decided 2026-11-05): trying "Another Radar round on import."`);
+  });
+
+  it("scores a math bet by the problem id on its board, as the runtime saves answers", () => {
+    const cycle = mathCycle();
+    cycle.decisionHistory[0].expectations = [{ itemId: "p2", onHerOwn: false }];
+    cycle.boards!.push({ ...structuredClone(cycle.boards![0]), boardId: "hw-math-lab:board:2", plannerDecisionId: cycle.decisionHistory[0].decisionId, nodeIds: ["b2"], publishedAt: "2026-11-20T18:00:00Z" } as never);
+    cycle.nodes.push({ ...structuredClone(cycle.nodes[0]), nodeId: "b2", title: "Hill Hop 2" });
+    cycle.observations.push({ ...structuredClone(cycle.observations[1]), observationId: "obs-9", sourceId: "activity:kiosk-2:b2", observedAt: "2026-11-20T19:00:00Z" });
+    expect(scorePlannerCalls(cycle)[0]).toMatchObject({ board: 2, hit: true, answer: { observationId: "obs-9" } });
+  });
 });
 
 describe("the experiment ledger opens every board", () => {
@@ -124,7 +153,7 @@ function mathCycle(): LearningCycleRecordV2 {
   const problem = (id: string) => ({ id, prompt: `Round ${id}`, lineage: { sourceEvidenceIds: [], exposure: "unseen", measurementRole: "fresh_checkpoint" }, response: { mode: "numeric", expected: 40 } });
   const node = { nodeId: "b1", role: "baseline", title: "Hill Hop", state: "completed", implementationType: "generated-game", mechanic: "generated-game",
     academicTarget: { domain: "math", skill: "rounding", targets: [] }, evidenceContract: { itemContracts: { p1: problem("p1"), p2: problem("p2"), p3: problem("p3") } }, evidenceIds: [] };
-  const answer = (itemId: string, correct: boolean, n: number) => ({ observationId: `obs-${n}`, sourceId: "activity:b1:answer", itemId, childResponse: correct ? "40" : "30", constructLinks: [],
+  const answer = (itemId: string, correct: boolean, n: number) => ({ observationId: `obs-${n}`, sourceId: "activity:kiosk-1:b1", itemId, childResponse: correct ? "40" : "30", constructLinks: [],
     result: { correct }, assistance: { status: "unassisted", scaffolds: [] }, exposure: "unseen", provenance: "independent_probe", observedAt: `2026-11-20T16:0${n}:00Z`, confounds: [] });
   return { schemaVersion: 2, revision: 5, childId: "lab-math", homeworkId, domain: "math", lifecycle: "baseline_evaluating",
     assignment: { title: "Rounding", contentFingerprint: "lab", capturedEvidenceIds: [], targets: [] }, nodes: [node],
