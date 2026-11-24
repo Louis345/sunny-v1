@@ -675,6 +675,28 @@ describe("repairing a Not ready activity in place", () => {
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 
+  // Ila, 2026-11-24 (board 16): the owner approved rebuilds after adding credit, and every rebuild was cut off because
+  // the kiosk's connection kept dropping (VPN). The one-approval rule then refused all three stops forever, though the
+  // network was fixed. Why logs did not help: they said not_eligible without the reason. Why the lab missed it: the
+  // test above approved once and stopped. A rebuild cut off by the connection may be approved once more; never a third.
+  it("lets the owner approve one more rebuild when the approved one was cut off by the connection, and never a third", async () => {
+    const rootDir = root();
+    try {
+      const created = createLearningCycle(baseInput(), { rootDir });
+      const questId = decideQuest(rootDir, created.revision).nodes.find(node => node.role === "quest")!.nodeId;
+      const failed = getLearningCycle("reina", "hw-progression", { rootDir })!;
+      const cutOff = (revision: number) => transitionLearningCycle("reina", "hw-progression", revision, { type: "not_ready_paid_retry_failed", nodeId: questId,
+        reason: "provider_outcome_uncertain:/lab/provider-receipts/" + "b".repeat(64) + ".json" }, { rootDir });
+      const refused = transitionLearningCycle("reina", "hw-progression", failed.revision, { type: "artifact_generation_attention_required", nodeId: questId,
+        reason: "successor_node_failed:provider_request_rejected:/lab/provider-receipts/" + "a".repeat(64) + ".json: 400 credit", notReady: true }, { rootDir });
+      const first = transitionLearningCycle("reina", "hw-progression", refused.revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "Owner: credit added" }, { rootDir });
+      const second = transitionLearningCycle("reina", "hw-progression", cutOff(first.revision).revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "Owner: VPN off" }, { rootDir });
+      expect(second.nodes.find(node => node.nodeId === questId)?.notReadyReason).toMatch(/^paid_retry_in_progress/);
+      expect(() => transitionLearningCycle("reina", "hw-progression", cutOff(second.revision).revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "third" }, { rootDir }))
+        .toThrow(/not_eligible:.*already_approved_twice/);
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+
   it("binds the first saved attempt that passes the text check, with no provider call and nothing else changed", async () => {
     const rootDir = root();
     try {

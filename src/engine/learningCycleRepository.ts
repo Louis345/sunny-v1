@@ -2070,13 +2070,14 @@ export function transitionLearningCycle(
     reason = `Not ready step ${node.nodeId} re-runs the tested built-in ${source.nodeId}.`;
   } else if (event.type === "not_ready_paid_retry_authorized") {
     // A person approves one paid rebuild of a stop whose build was cut off (owner, 2026-11-11). The approval is
-    // recorded before any purchase; the stop stays Not ready until the rebuild binds, and it can never be approved twice.
+    // recorded before any purchase; the stop stays Not ready until the rebuild binds. An approved rebuild that the
+    // connection cut off may be approved once more (Ila, 2026-11-24: a VPN dropped every rebuild); never a third.
     const node = nodeOrThrow(next, event.nodeId);
-    if (!(node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) || node.notReadyReason?.startsWith(LOST_BIND_STOP_REASON) || node.notReadyReason?.startsWith(REFUSED_STOP_REASON)) || node.artifactBinding || !next.boards
-      || !currentBoardInstance(next).nodeIds.includes(node.nodeId) || !event.reason.trim()
-      || current.decisionHistory.some(row => row.eventType === "not_ready_paid_retry_authorized" && row.reason.startsWith(paidRetryReasonPrefix(node.nodeId)))) {
-      throw new Error(`cut_off_stop_retry_not_eligible:${node.nodeId}`);
-    }
+    const approvals = current.decisionHistory.filter(row => row.eventType === "not_ready_paid_retry_authorized" && row.reason.startsWith(paidRetryReasonPrefix(node.nodeId))).length;
+    const refusal = !(node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) || node.notReadyReason?.startsWith(LOST_BIND_STOP_REASON) || node.notReadyReason?.startsWith(REFUSED_STOP_REASON)) ? `reason:${node.notReadyReason ?? "ready"}`
+      : node.artifactBinding ? "already_bound" : !next.boards || !currentBoardInstance(next).nodeIds.includes(node.nodeId) ? "not_on_current_board" : !event.reason.trim() ? "reason_required"
+      : approvals >= 2 ? "already_approved_twice" : approvals === 1 && !node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) ? "already_approved_and_not_cut_off" : "";
+    if (refusal) throw new Error(`cut_off_stop_retry_not_eligible:${node.nodeId}:${refusal}`);
     node.notReadyReason = `paid_retry_in_progress:r${current.revision + 1}`;
     reason = `${paidRetryReasonPrefix(node.nodeId)} ${event.reason.trim()}`;
   } else if (event.type === "not_ready_paid_retry_failed") {
