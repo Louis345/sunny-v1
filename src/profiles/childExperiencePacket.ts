@@ -2,8 +2,22 @@ import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
-import { isSpellingPracticeContinuation, presentedSpellingItems } from "../engine/learningCycleRepository";
+import { isSpellingPracticeContinuation, presentedSpellingItems, type LearningCycleNodeContract } from "../engine/learningCycleRepository";
 import { readChoiceEvents } from "../engine/choiceEvents";
+
+/**
+ * A math stop's problems as its game receives them at play time: what she sees, her choices, and the answer, so the
+ * game can tell her right or wrong and can come back later with new problems (owner 2026-11-24). Code scores her.
+ */
+export function mathItemBindings(node: LearningCycleNodeContract) {
+  return Object.values(node.evidenceContract?.itemContracts ?? {}).map(item => {
+    const response = item.response;
+    if (response.mode === "selection") return { itemId: item.id, display: item.prompt, options: response.options.map(option => ({ id: option.id, label: option.label })),
+      answer: response.options.filter(option => option.correct).map(option => option.id).join(" or ") };
+    if (response.mode === "numeric") return { itemId: item.id, display: item.prompt, answer: `${response.expected}${response.unit ? ` ${response.unit}` : ""}` };
+    return { itemId: item.id, display: item.prompt };
+  });
+}
 
 export type ChildExperiencePacket = {
   /** Stops left before this board ends and earns the FaceTime call (owner, 2026-11-07). Display only. */
@@ -17,7 +31,7 @@ export type ChildExperiencePacket = {
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
   spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
   /** Each built game's items to open through the contract's openItem, per stop (display = the item as she sees it). */
-  itemBindings?: Record<string, Array<{ itemId: string; display: string }>>;
+  itemBindings?: Record<string, ReturnType<typeof mathItemBindings>>;
   childChart: {
     childId: string;
     identity: ChildChart["identity"];
@@ -236,8 +250,8 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
     return [[node.nodeId, { assessment, items: items.filter(item => !assessment || node.state === "completed" || !captured.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) }]];
   })) : undefined;
   const itemBindings = chart.learningCycle && chart.learningCycle.domain !== "spelling" ? Object.fromEntries((chart.learningCycle.nodes ?? []).flatMap(node => {
-    const items = Object.values(node.evidenceContract?.itemContracts ?? {});
-    return node.implementationType === "generated-game" && items.length ? [[node.nodeId, items.map(item => ({ itemId: item.id, display: item.prompt }))]] : [];
+    const items = mathItemBindings(node);
+    return node.implementationType === "generated-game" && items.length ? [[node.nodeId, items]] : [];
   })) : undefined;
   const spellingEvaluationResults = chart.learningCycle?.domain === "spelling"
     && !["evaluation_ready", "evaluation_active"].includes(chart.learningCycle.lifecycle)

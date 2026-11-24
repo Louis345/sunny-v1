@@ -49,11 +49,13 @@ document.getElementById("box").onchange = event => { window.fireAttemptEvent({ t
   i += 1; if (i < items.length) open(); else { window.reportStep("done", "All answered."); window.sendNodeComplete({ completed: true }); } };
 function hint(id) { window.reportHint(id, "Count by twos"); } // a game that can report hints (2026-11-13), so help is known
 </script></body></html>`;
-function recordedBuilder(): { requests: any[]; client: SpellingGameClient } {
+function recordedBuilder(html = GOOD): { requests: any[]; client: SpellingGameClient } {
   const requests: any[] = [];
   return { requests, client: { messages: { stream: (request: any) => { requests.push(request);
-    return { finalMessage: async () => ({ content: [{ type: "text", text: GOOD }], usage: { input_tokens: 10, output_tokens: 10 }, stop_reason: "end_turn" }) as never }; } } } };
+    return { finalMessage: async () => ({ content: [{ type: "text", text: html }], usage: { input_tokens: 10, output_tokens: 10 }, stop_reason: "end_turn" }) as never }; } } } };
 }
+// A game with its problems written into its code: it can only ever play these problems.
+const BAKED = GOOD.replace("const items = window.GAME_PARAMS.itemBindings;", 'const items = [{ itemId: "p1", display: "7 + 6. Is the sum even or odd?" }, { itemId: "p2", display: "15 - 8 =" }, { itemId: "p3", display: "4 + 8. Is the sum even or odd?" }];');
 
 /** What the retired single form answered on Saori: a decision and steps, but no board. */
 const OLD_FORM_DECISION = { status: "revised", reason: "Parity on her own missed; drill sums.", progressionAction: "generate_support", preserve: [], change: ["More parity practice."], testNext: [], nextEvidenceRequired: ["Parity on her own"], predictionEvaluationIds: [],
@@ -61,7 +63,7 @@ const OLD_FORM_DECISION = { status: "revised", reason: "Parity on her own missed
     items: [{ id: "n1", prompt: "3 + 4. Even or odd?", lineage: { sourceEvidenceIds: ["lab"], exposure: "unseen", measurementRole: "practice" }, response: { mode: "selection", options: [{ id: "even", label: "Even", correct: false }, { id: "odd", label: "Odd", correct: true }] } }] }] };
 
 /** The next-board Planner, as a robot: the shared tools when offered, the old single form otherwise. */
-function nextBoardRobot() {
+function nextBoardRobot(options: { raftFromPlayedGame?: boolean } = {}) {
   const requests: any[] = [];
   const stream = vi.fn((request: any) => {
     requests.push(structuredClone(request));
@@ -72,11 +74,13 @@ function nextBoardRobot() {
       const evaluations: string[] = offeredValues(request.tools.find((tool: any) => tool.name === "decide").input_schema.properties.prediction_evaluation_ids.items) ?? [];
       // When Quest is offered, every step says whether it is the encounter.
       const none = request.tools.find((tool: any) => tool.name === "add_step").input_schema.properties.encounter ? { encounter: "none" } : {};
+      const playedGame = offeredValues(request.tools.find((tool: any) => tool.name === "add_step").input_schema.properties.build_from)?.[0];
+      const raftFrom = options.raftFromPlayedGame && playedGame ? { build_from: playedGame } : {};
       if (turn === 0) return message(`next-${requests.length}`, request.model, [
         { name: "decide", input: { status: "revised", reason: "She missed the parity check on her own.", progression_action: "generate_support", preserve: ["Lantern story"], change: ["Aim a game at odd plus even."], test_next: ["p1 on her own"], next_evidence_required: ["p1 on her own"],
           prediction_evaluation_ids: evaluations.slice(0, 1), revised_hypothesis: "",
           self_review: { what_i_tried: "A first check on p1 and p2.", what_happened: "She wrote even for 7 + 6.", why: "She adds, then guesses parity.", what_i_keep: "She liked the river game.", what_i_change_now: "A game aimed at odd plus even." } } },
-        { name: "add_step", input: { built_in: "generated-game", problems: ["p1", "p3"], title: "Parity Raft", purpose: "Practice odd plus even.", story: "A raft that floats only on odd sums.", picture: "A raft on a river", check_first: false, focus: "odd plus even is odd", ...none } },
+        { name: "add_step", input: { built_in: "generated-game", problems: ["p1", "p3"], title: "Parity Raft", purpose: "Practice odd plus even.", story: "A raft that floats only on odd sums.", picture: "A raft on a river", check_first: false, focus: "odd plus even is odd", ...none, ...raftFrom } },
         { name: "add_reward", input: { title: "Treasure Break", story: "A chest glows at the river bend.", picture: "A glowing chest" } },
         { name: "add_step", input: { built_in: "generated-game", problems: ["p1"], title: "Lantern Check", purpose: "Check p1 on her own.", story: "The last lantern.", picture: "A lantern", check_first: true, ...none } },
       ]);
@@ -94,7 +98,7 @@ function nextBoardRobot() {
 }
 
 /** A math cycle shaped like itemsIntake's output, its first board played to the end. */
-async function playedMathCycle() {
+async function playedMathCycle(gameHtml = GOOD) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-math-next-")); roots.push(rootDir);
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context"));
   vi.stubGlobal("fetch", () => { throw Error("lab_forbids_network"); });
@@ -102,7 +106,7 @@ async function playedMathCycle() {
   const sourceFile = path.join(rootDir, "even-odd.txt");
   fs.writeFileSync(sourceFile, "Even and odd sums\n1. 7 + 6. Is the sum even or odd?\n2. 15 - 8 = ___\n3. 4 + 8. Is the sum even or odd?\n");
   const opts = { rootDir };
-  const { homeworkId } = await runItemsIntake({ childId, sourceFile, rootDir, testDate: "2026-11-09" }, { send: intakeSend, draw: plainDraw, gameClient: recordedBuilder().client });
+  const { homeworkId } = await runItemsIntake({ childId, sourceFile, rootDir, testDate: "2026-11-09" }, { send: intakeSend, draw: plainDraw, gameClient: recordedBuilder(gameHtml).client });
   const [check, practice] = getLearningCycle(childId, homeworkId, opts)!.nodes;
   runtime.recordCanonicalNodeCompletion({ childId, homeworkId, sessionId: "kiosk-1", nodeId: check!.nodeId, result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
     targetResults: [{ target: "p1", correct: true, attemptedValue: "even", screenAtOpen: "Camp 1. 7 + 6" }, { target: "p2", correct: true, attemptedValue: "7", screenAtOpen: "Camp 2. 15 - 8" }] as never } }, opts);
@@ -231,6 +235,79 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     const decided = await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: robot.client, draw: plainDraw }, f.opts);
     expect(decided.decisionHistory.at(-1)?.eventType).toBe("theory_decided");
     expect(decided.lifecycle).toBe("baseline_generating");
+  });
+});
+
+// Owner 2026-11-24 ("it doesn't always have to be rebuilt new games"): on 11/09 and 11/21 we agreed a game she played
+// comes back with new problems inside, so the learning curve is paid once and reuse costs pennies. The owner found it
+// was never true: build_from asked Sonnet to rewrite the whole game, so 27 "reused" games in a week each cost a full
+// build (~$0.30-0.50), and the credits ran out on 11/23. Why logs did not show it: each build logged as a normal build.
+// Why the lab missed it: the build_from test checked the builder SAW the old game, never that no rebuild was bought.
+// Games already receive their problems at play time (GAME_PARAMS.itemBindings); one that reads them from there, not
+// from its code, is now bound again with this step's problems at no provider cost. A game with its problems written
+// into its code is still rebuilt, as before.
+describe("a game she played comes back with new problems (the library, step 1)", () => {
+  it("tells the builder her problems arrive at play time, with their answers, so the game can come back later", async () => {
+    const f = await playedMathCycle();
+    const robot = nextBoardRobot();
+    await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: robot.client, draw: plainDraw }, f.opts);
+    vi.spyOn(canvas, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
+    const builder = recordedBuilder();
+    await prepareSuccessorBoard({ childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, f.opts);
+    const ask: string = builder.requests[0].messages[0].content;
+    expect(ask).toMatch(/window\.GAME_PARAMS\.itemBindings[^\n]*answer/);
+    expect(ask).toMatch(/read (them|her problems) from (there|window\.GAME_PARAMS)/i);
+    expect(ask).toMatch(/new problems/i);
+  });
+
+  it("brings back a played game that reads its problems at play time, with this step's problems and no rebuild", async () => {
+    const f = await playedMathCycle();
+    const robot = nextBoardRobot({ raftFromPlayedGame: true });
+    const decided = await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: robot.client, draw: plainDraw }, f.opts);
+    const raftPlan = decided.nodes.find(node => node.title === "Parity Raft")!;
+    expect(raftPlan.buildFrom).toBeTruthy();
+    // The tutor sees what bringing it back costs, as a fact.
+    expect(JSON.stringify(robot.requests[0].messages[0].content)).toContain("no build cost");
+    vi.spyOn(canvas, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
+    const log = vi.spyOn(console, "log");
+    const builder = recordedBuilder();
+    const after = await prepareSuccessorBoard({ childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, f.opts);
+    // Only the new Lantern Check was bought; the raft is the game she already played.
+    expect(builder.requests).toHaveLength(1);
+    expect(builder.requests[0].messages[0].content).toContain("Lantern Check");
+    const raft = after.nodes.find(node => node.title === "Parity Raft")!;
+    expect(raft.artifactBinding?.validationStatus).toBe("passed");
+    const source = after.nodes.find(node => node.nodeId === raftPlan.buildFrom)!;
+    const contextDir = resolveChildContextDir(childId, f.opts);
+    const played = fs.readFileSync(path.join(contextDir, source.artifactBinding!.localArtifactPath), "utf8");
+    expect(fs.readFileSync(path.join(contextDir, raft.artifactBinding!.localArtifactPath), "utf8")).toBe(played);
+    // Its answers bind to this step's problems: the raft's own item contracts are what the game is served.
+    expect(Object.keys(raft.evidenceContract.itemContracts!)).toEqual(["p1", "p3"]);
+    expect(log.mock.calls.flat().join("\n")).toMatch(/\[library\] \[replay\] \[bound\][^\n]*provider_calls=0/);
+  });
+
+  it("still rebuilds a played game whose problems are written into its code", async () => {
+    const f = await playedMathCycle(BAKED);
+    const robot = nextBoardRobot({ raftFromPlayedGame: true });
+    await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: robot.client, draw: plainDraw }, f.opts);
+    expect(JSON.stringify(robot.requests[0].messages[0].content)).toContain("a full build");
+    vi.spyOn(canvas, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
+    const builder = recordedBuilder();
+    await prepareSuccessorBoard({ childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, f.opts);
+    expect(builder.requests).toHaveLength(2);
+    expect(builder.requests.some(request => String(request.messages[0].content).includes("a game she already played"))).toBe(true);
+  });
+
+  it("serves each problem's answer to the game at play time, as the builder already knows it", async () => {
+    const { mathItemBindings } = await import("../profiles/childExperiencePacket");
+    const node = { implementationType: "generated-game", evidenceContract: { itemContracts: {
+      m1: { id: "m1", prompt: "7 + 6. Even or odd?", response: { mode: "selection", options: [{ id: "even", label: "Even", correct: false }, { id: "odd", label: "Odd", correct: true }] } },
+      m2: { id: "m2", prompt: "Round 64 to the nearest ten.", response: { mode: "numeric", expected: 60 } },
+    } } } as never;
+    expect(mathItemBindings(node)).toEqual([
+      { itemId: "m1", display: "7 + 6. Even or odd?", options: [{ id: "even", label: "Even" }, { id: "odd", label: "Odd" }], answer: "odd" },
+      { itemId: "m2", display: "Round 64 to the nearest ten.", answer: "60" },
+    ]);
   });
 });
 

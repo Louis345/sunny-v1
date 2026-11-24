@@ -249,7 +249,7 @@ export interface NodeConfig {
   spellingAssessment?: boolean;
   spellingItemBindings?: Array<{ itemId: string; word: string }>;
   /** Any subject's items a built game opens with window.openItem. */
-  itemBindings?: Array<{ itemId: string; display: string }>;
+  itemBindings?: Array<{ itemId: string; display: string; options?: Array<{ id: string; label: string }>; answer?: string }>;
   wordRadarItems?: Array<{
     itemId?: string;
     display: string;

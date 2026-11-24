@@ -122,7 +122,7 @@ Make it something she will gasp at and want to play again, and that helps her so
 
 How Sunny's game contract works:
 - The game is one self-contained HTML document with inline CSS and JavaScript. The page has no internet, so pictures are CSS, SVG, canvas or emoji. It fills a frame about 900×650 pixels, with mouse or touch.
-- Sunny's contract is already loaded. window.GAME_PARAMS.itemBindings lists each problem as {itemId, display}.
+- Sunny's contract is already loaded. Her problems arrive at play time in window.GAME_PARAMS.itemBindings, each {itemId, display, answer}, with options [{id, label}] when she picks one. Read them from there, never write them into the game's code: the problems above are this time's, and Sunny can bring the game back later with new problems.
 - window.openItem("<itemId>", "<progress, like Camp 2 of 6>") opens a problem. Sunny keeps what is on screen at that moment; an answer already showing counts as help.
 - window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id shown in brackets above, like odd>"}) reports her answer. Report every answer she gives, retries too; Sunny scores each one.
 - Sunny has a narrator voice, separate from ${companion}, that can read text on screen aloud. Whether the game uses it, and for what, is your choice. To have on-screen text read, show it, report it with window.reportStep, then call parent.postMessage({type: "narration_request", text: "<the same on-screen text>", reason: "<why>"}, "*"). ${companion} is her companion; she sees each step and moment.
@@ -223,12 +223,33 @@ async function ask(client: SpellingGameClient, draftDir: string, stage: string, 
   return { text, html: extractHtml(text), inputTokens: message.usage?.input_tokens ?? 0, outputTokens: message.usage?.output_tokens ?? 0, stop: message.stop_reason };
 }
 
+/** A played math game that reads its problems at play time, with none of its old problems written into its code. */
+export function replayableGame(html: string, source: LearningCycleNodeContract): boolean {
+  const prompts = Object.values(source.evidenceContract.itemContracts ?? {}).map(item => item.prompt.trim()).filter(Boolean);
+  return /GAME_PARAMS\.itemBindings/.test(html) && prompts.length > 0 && !prompts.some(prompt => html.includes(prompt));
+}
+
+/** The played game this step names, when it can come back as it is: its file, or nothing. */
+function replaySource(cycle: LearningCycleRecordV2, node: LearningCycleNodeContract, rootDir: string): { from: string; html: string } | undefined {
+  const source = node.buildFrom && cycle.domain !== "spelling" ? cycle.nodes.find(row => row.nodeId === node.buildFrom) : undefined;
+  const local = source?.artifactBinding?.localArtifactPath;
+  const file = local ? path.join(resolveChildContextDir(cycle.childId, { rootDir }), local) : "";
+  const html = file && fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  return source && html && replayableGame(html, source) ? { from: source.nodeId, html } : undefined;
+}
+
 /** Builds, checks, repairs once, and binds her game to its node. Throws with the problems when it cannot. */
 export async function prepareGeneratedSpellingGame(input: {
   cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; draftDir: string; client?: SpellingGameClient;
 }, opts: LearningCycleRepositoryOptions = {}): Promise<LearningCycleRecordV2> {
   const rootDir = opts.rootDir ?? process.cwd();
   const { cycle, node } = input;
+  // Owner 2026-11-24: a game she played comes back with this step's problems inside, bought once, not rebuilt.
+  const replay = replaySource(cycle, node, rootDir);
+  if (replay) {
+    console.log(` 🎮 [library] [replay] [bound] node=${node.nodeId} from=${replay.from} provider_calls=0`);
+    return bindGameFile({ cycle, node, html: replay.html, creatorPromptHash: `replay:${replay.from}`, elapsedMs: 0, inputTokens: 0, outputTokens: 0 }, opts);
+  }
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
   const started = Date.now();
   const prompt = cycle.domain === "spelling" ? buildSpellingGameAsk({ cycle, node, rootDir }) : buildMathGameAsk({ cycle, node, rootDir });
@@ -247,13 +268,19 @@ export async function prepareGeneratedSpellingGame(input: {
   // A covered piece is a layout flaw, not a broken measurement: her board still publishes (owner: nothing holds it back).
   if (covered.length) console.warn(` 🎮 [spelling-game] [layout] [still-covered] node=${node.nodeId} ${covered.join(" | ")}`);
   captureGame(node.nodeId, game.html);
-  const html = withSunnyContract(game.html);
-  const contextDir = resolveChildContextDir(cycle.childId, { rootDir });
+  return bindGameFile({ cycle, node, html: withSunnyContract(game.html), creatorPromptHash: sha256(prompt), elapsedMs: Date.now() - started,
+    inputTokens: first.inputTokens + (game === first ? 0 : game.inputTokens), outputTokens: first.outputTokens + (game === first ? 0 : game.outputTokens) }, opts);
+}
+
+const sha256 = (value: unknown) => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+
+/** Writes her game where the kiosk serves it and binds it to its stop: a new build, a saved build, or a game coming back. */
+function bindGameFile(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; html: string; creatorPromptHash: string; elapsedMs: number; inputTokens: number; outputTokens: number }, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
+  const { cycle, node, html } = input;
   const filename = `${node.nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.html`;
-  const file = path.join(contextDir, "homework/games", cycle.homeworkId, filename);
+  const file = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir ?? process.cwd() }), "homework/games", cycle.homeworkId, filename);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(`${file}.${process.pid}.tmp`, html); fs.renameSync(`${file}.${process.pid}.tmp`, file);
-  const hash = (value: unknown) => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
   // A build takes minutes; her session keeps writing to the cycle meanwhile (Ila, 2026-11-11: a call moved it from
   // revision 588 to 589 and a finished game was thrown away). Bind against the latest cycle when this stop is unchanged.
   const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
@@ -262,15 +289,15 @@ export async function prepareGeneratedSpellingGame(input: {
     throw new Error(`spelling_game_stop_changed:${node.nodeId}`);
   }
   if (latest.revision !== cycle.revision) console.log(` 🎮 [spelling-game] [build] [rebased] node=${node.nodeId} from=${cycle.revision} to=${latest.revision}`);
-  console.log(` 🎮 [spelling-game] [build] [bound] node=${node.nodeId} file=${filename} seconds=${Math.round((Date.now() - started) / 1000)}`);
+  console.log(` 🎮 [spelling-game] [build] [bound] node=${node.nodeId} file=${filename} seconds=${Math.round(input.elapsedMs / 1000)}`);
   return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
     contentId: `${cycle.homeworkId}:${node.nodeId}`, artifactId: `${cycle.homeworkId}:${node.nodeId}:generated`,
     localArtifactPath: `/homework/games/${cycle.homeworkId}/${filename}`,
     localArtworkPath: gameArtwork(node),
-    contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
-    creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: hash(prompt), artworkPromptHash: hash(node.artwork.prompt ?? ""),
-      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: Date.now() - started,
-      inputTokens: first.inputTokens + (game === first ? 0 : game.inputTokens), outputTokens: first.outputTokens + (game === first ? 0 : game.outputTokens) },
+    contractFingerprint: sha256({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
+    creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: input.creatorPromptHash, artworkPromptHash: sha256(node.artwork.prompt ?? ""),
+      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: sha256(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: input.elapsedMs,
+      inputTokens: input.inputTokens, outputTokens: input.outputTokens },
   } }, opts);
 }
 
@@ -299,17 +326,6 @@ export function bindSavedSpellingGame(input: { cycle: LearningCycleRecordV2; nod
   const stageFile = path.join(input.draftDir, "provider-receipts", "generated-game-1.stage.json");
   const requestHash = fs.existsSync(stageFile) ? String((JSON.parse(fs.readFileSync(stageFile, "utf8")) as { requestHash?: string }).requestHash ?? "") : "";
   if (!/^[a-f0-9]{64}$/.test(requestHash)) throw new Error(`saved_game_request_unknown:${stageFile}`);
-  const hash = (value: unknown) => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
-  const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
-  const now = latest?.nodes.find(candidate => candidate.nodeId === node.nodeId);
-  if (!latest || !now || now.artifactBinding || JSON.stringify(now.evidenceContract) !== JSON.stringify(node.evidenceContract)) throw new Error(`spelling_game_stop_changed:${node.nodeId}`);
   console.log(` 🎮 [spelling-game] [saved-build] [bound] node=${node.nodeId} file=${filename} provider_calls=0`);
-  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
-    contentId: `${cycle.homeworkId}:${node.nodeId}`, artifactId: `${cycle.homeworkId}:${node.nodeId}:generated`,
-    localArtifactPath: `/homework/games/${cycle.homeworkId}/${filename}`,
-    localArtworkPath: gameArtwork(node),
-    contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
-    creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: requestHash, artworkPromptHash: hash(node.artwork.prompt ?? ""),
-      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: 0, inputTokens: 0, outputTokens: 0 },
-  } }, opts);
+  return bindGameFile({ cycle, node, html, creatorPromptHash: requestHash, elapsedMs: 0, inputTokens: 0, outputTokens: 0 }, opts);
 }

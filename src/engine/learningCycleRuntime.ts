@@ -13,7 +13,8 @@ import { conceptSignalSection } from "./conceptSignal";
 import { teachingNotesSection } from "./teachingNotes";
 import { READ_BACK_GRADES, missingReadBack, theoryReadBackSection } from "./plannerReadBack";
 import { childFeedbackSection, ownerReplanLine, plannerCallsSection, schoolTestSection, mathAnswersSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
-import type { PlannerExpectation, PlannerReadBack } from "./learningCycleRepository";
+import type { LearningCycleNodeContract, PlannerExpectation, PlannerReadBack } from "./learningCycleRepository";
+import { replayableGame } from "./spellingGameBuilder";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isItemIntakeMathCycle, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
@@ -1118,7 +1119,7 @@ Sunny runs each step as you write it. The board she has now stays as it is; your
 Games Sunny can build for her:
 ${JSON.stringify((facts.activities??[]).map(row=>row.id))}
 generated-game is a new game Sunny builds for her from her chart and the story you write for that step, around the problems you give it. It can teach an idea as well as practice it, and it can be aimed at one specific error you name in its focus. Sunny scores her first answer to each problem against the answer recorded at intake. add_problem writes a new problem for her (harder, or a step past her worksheet); Sunny computes its answer from the arithmetic you give, and it counts as unseen. check_first marks a step that checks what she does on her own; a problem she has answered before is recorded as practice there, never as an unseen check.
-${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content:
+${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content (comesBack says what that costs):
 ${JSON.stringify(facts.playedGames)}
 `:""}${notesSection}${mathAnswersSection(cycle)}
 ${thinkingSection}
@@ -1158,7 +1159,7 @@ Sunny runs each step as you write it. The board she has now stays as it is; your
 Games and modes Sunny can run for her (a hidden-word Radar is an independent check; the rest are practice):
 ${JSON.stringify(facts.activities!.map(row=>row.id))}
 ${facts.activities!.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. It can be aimed at one specific error you name in its focus. What she picks and replays shows what she enjoys.
-`:""}${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content:
+`:""}${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content (comesBack says what that costs):
 ${JSON.stringify(facts.playedGames)}
 `:""}${notesSection}${spellingTrackRecordSection(cycle)}
 ${thinkingSection}
@@ -1494,7 +1495,12 @@ function dropCommittedRequestCopies(cycle: LearningCycleRecordV2, opts: Learning
 }
 
 /** Games Sunny built for her that she played, with her answers in each (owner, 2026-11-09): the Planner may build from one. */
-export function playedGamesOf(cycle:LearningCycleRecordV2,opts:LearningCycleRepositoryOptions={}):Array<{nodeId:string;title:string;answers:number;right:number;minutesToFirstAnswer?:number|null;tutorNote?:string}>{
-  const built=new Set(cycle.nodes.filter(node=>node.implementationType==="generated-game"&&node.artifactBinding?.localArtifactPath).map(node=>node.nodeId));
-  return gameTrackRecord(cycle,opts).filter(row=>built.has(row.nodeId)).map(({game:_game,...row})=>row);
+export function playedGamesOf(cycle:LearningCycleRecordV2,opts:LearningCycleRepositoryOptions={}):Array<{nodeId:string;title:string;answers:number;right:number;minutesToFirstAnswer?:number|null;tutorNote?:string;comesBack:string}>{
+  const built=new Map(cycle.nodes.filter(node=>node.implementationType==="generated-game"&&node.artifactBinding?.localArtifactPath).map(node=>[node.nodeId,node]));
+  // Owner 2026-11-24: the price of bringing a game back is a fact the tutor weighs, not a rule.
+  const comesBack=(node:LearningCycleNodeContract)=>{
+    const file=path.join(resolveChildContextDir(cycle.childId,opts),node.artifactBinding!.localArtifactPath);
+    return cycle.domain!=="spelling"&&fs.existsSync(file)&&replayableGame(fs.readFileSync(file,"utf8"),node)?"as it is, with the new step's problems, no build cost":"rebuilt from it, a full build (~$0.30-0.50)";
+  };
+  return gameTrackRecord(cycle,opts).filter(row=>built.has(row.nodeId)).map(({game:_game,...row})=>({...row,comesBack:comesBack(built.get(row.nodeId)!)}));
 }

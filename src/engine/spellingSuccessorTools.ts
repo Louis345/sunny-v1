@@ -97,7 +97,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   const builtIns = new Map(facts.builtIns.filter(row => facts.rerunnable(row.nodeId, row.wordIds)).map(row => [row.nodeId, row]));
   const fresh = new Map((facts.activities ?? []).filter(row => !builtIns.has(row.id)).map(row => [row.id, row]));
   const played = facts.playedGames ?? [];
-  const buildFromField = played.length ? { build_from: pickFrom(played.map(row => row.nodeId), "none", "the games Sunny built for her that she played", "generated-game only: a game Sunny built for her that she played (the nodeId from that list in the question). The builder starts from that game, so she keeps what she already learned there, and puts this step's content in it. Leave out to build a new game.").optional() } : {};
+  const buildFromField = played.length ? { build_from: pickFrom(played.map(row => row.nodeId), "none", "the games Sunny built for her that she played", "generated-game only: a game Sunny built for her that she played (the nodeId from that list in the question). She keeps what she already learned there and gets this step's content: its comesBack fact says whether it returns as it is at no build cost or is rebuilt from (a full build). Leave out to build a new game.").optional() } : {};
   /** The game to build from, when the Planner named one: only a generated-game can start from a game she played. */
   const buildFromOf = (input: { built_in: string; build_from?: string }): { ok: true; value: { buildFrom?: string } } | { ok: false; error: string } => {
     const from = typeof input.build_from === "string" && input.build_from !== "none" ? input.build_from : "";
