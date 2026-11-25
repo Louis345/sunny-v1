@@ -1,6 +1,6 @@
 Organic first: Sunny is an adaptive learning system, so code must route truth, evidence, and safety while Elli handles human conversation from live context instead of canned scripted responses.
-XState owns every voice and turn-taking state. One voice at a time: the game's narrator reads only on-screen text and test words, the companion is the only one who converses, and when the child speaks both stop (`src/server/voiceFloor.ts`, `web/src/utils/voiceFloor.ts`).
 Every human-caught child-session bug must become a lab invariant: explain why the human caught it, why logs did or did not catch it, and why the AI lab missed it.
+XState owns every voice and turn-taking state. One voice at a time: the game's narrator reads only on-screen text and test words, the companion is the only one who converses, and when the child speaks both stop (`src/server/voiceFloor.ts`, `web/src/utils/voiceFloor.ts`).
 
 Required learning authority: read [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md) before changing learning evidence, prediction, theory, or adaptation behavior. It is the sole normative learning-loop contract [Laws 13, 14]: Sunny is accountable to reality, every activity is a measurement instrument first and a game second, and private game scores or synthetic learning claims are forbidden. Design stance: [`AI_DESIGN_PRINCIPLES.md`](./AI_DESIGN_PRINCIPLES.md).
 

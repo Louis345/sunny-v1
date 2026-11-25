@@ -27,8 +27,9 @@ complain, we fix it, and add a check so it doesn't happen again." Branch: `chris
 4. **The reveal matches the tier:** common gets a small sparkle; legendary gets gold light and its own sound, with no
    text to read. Elli reacts from the moment, never from a script.
 5. **The Christmas set shows as greyed-out shapes** in her collection, filling in as she wins them.
-6. **Real-world coupons in the store** for coins (the owner picks the list; see below). Buying one shows a picture
-   coupon to her and lists it on a parent page to honour. Nothing is sent anywhere.
+
+**Not in this drop (owner, 2026-11-25):** real-world rewards such as coupons. They need Saori's say, and they have to
+work for other families too before Sunny offers them.
 
 ## The two checks before anything ships (instead of a person approving each item)
 
@@ -43,7 +44,6 @@ new check in this file.
 | Question | Default |
 |---|---|
 | Window | **Dec 1 to Jan 6** |
-| Coupons | **Pick dinner (300 coins), 15 minutes later bedtime (400), choose the movie (300), a special breakfast (500)** |
 | Legendary | **Snowflake tiara only**; epic: antlers, star topper, holly crown; the rest rare and common |
 
 ## Success: every row must pass
@@ -55,8 +55,7 @@ new check in this file.
 | S3 | A Christmas item she won stays hers after the window, and she can wear it. |
 | S4 | A legendary reveal looks and sounds different from a common one. |
 | S5 | The Christmas set row shows every item, greyed until won. |
-| S6 | Buying a coupon takes the coins once, shows her the coupon, and lists it on the parent page. |
-| S7 | What she wins follows Elli everywhere (board, FaceTime, 3D games), using the outfit fix. |
+| S6 | What she wins follows Elli everywhere (board, FaceTime, 3D games), using the outfit fix. |
 
 ## Failure: any one means not done
 
@@ -64,14 +63,14 @@ new check in this file.
 |---|---|
 | F1 | Any learning record, answer or board changes because of a reward. |
 | F2 | A new item crashes or freezes any screen. |
-| F3 | A coupon or item takes coins twice, or is given without being paid for or won. |
+| F3 | An item is given without being won or paid for, or takes coins twice. |
 | F4 | Any new item has text she needs to read to understand it. |
 | F5 | The build fails, or a test that passed before fails. |
 
 ## Acceptance run
 
-1. On this Mac: screenshots of every accessory on Elli and Matilda, a common and a legendary chest reveal, the
-   Christmas set row, and a coupon purchase.
+1. On this Mac: screenshots of every accessory on Elli and Matilda, a common and a legendary chest reveal, and the
+   Christmas set row.
 2. On Saori, with the owner's OK and no child playing: deploy, then confirm a chest opens.
 3. With the kids: they are the final check.
 
