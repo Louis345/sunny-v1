@@ -132,9 +132,9 @@ describe("one coin balance", () => {
   it("the shop wallet is her saved coins and the rewards she owns", () => {
     const rootDir = setupRoot();
     planWithCoins(rootDir, 100);
-    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 100, ownedRewardIds: [] });
+    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 100, ownedRewardIds: [], wearing: {} });
     purchaseForChild("reina", { receiptId: "r1", offer: { kind: "outfit", itemId: "outfit:cat-ears" } }, { rootDir });
-    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 100 - REWARD_CATALOG.find(item => item.id === "outfit:cat-ears")!.price!, ownedRewardIds: ["outfit:cat-ears"] });
+    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 100 - REWARD_CATALOG.find(item => item.id === "outfit:cat-ears")!.price!, ownedRewardIds: ["outfit:cat-ears"], wearing: {} });
   });
 
   it("gives Elli the saved clock facts, and nothing when the chart cannot be read", () => {

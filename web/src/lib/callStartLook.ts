@@ -4,7 +4,7 @@ import {
   isWardrobeStoreItemCompatible,
   type WardrobeSelection,
 } from "./wardrobeStore";
-import { savedEquippedLook, type ServerWallet } from "./wardrobeWallet";
+import { chartLookFor, savedEquippedLook, type PostWearing, type ServerWallet } from "./wardrobeWallet";
 
 /** The look as it can be worn on this body: the outfit and the accessory are each checked for fit. */
 export function fittedCallLook(look: WardrobeSelection, modelUrl: string, companionId: string): WardrobeSelection {
@@ -33,14 +33,17 @@ export async function loadCallStartLook(input: {
   storage: Pick<Storage, "getItem"> | undefined;
   isCurrent: () => boolean;
   apply: (look: WardrobeSelection) => void;
+  postWearing?: PostWearing;
 }): Promise<void> {
   const wallet = await input.fetchWallet(input.childId);
   if (!input.isCurrent()) {
     console.log(` 🎮 [wardrobe-wallet] [call-start-look] [stale-ignored] child=${input.childId} companion=${input.companionId}`);
     return;
   }
+  // Her chart's look; a browser-only look is moved to her chart once (outfit-follows-companion S8).
+  const wearing = chartLookFor({ ...input, wallet });
   const look = fittedCallLook(
-    savedEquippedLook(input.storage, input.childId, wallet, input.companionId, input.modelUrl),
+    savedEquippedLook(undefined, input.childId, { ...wallet, wearing: { ...wallet.wearing, ...(wearing ? { [input.companionId]: wearing } : {}) } }, input.companionId, input.modelUrl),
     input.modelUrl,
     input.companionId,
   );

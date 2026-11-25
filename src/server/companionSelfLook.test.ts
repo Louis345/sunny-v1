@@ -44,6 +44,15 @@ describe("FaceTime companion knows what it is wearing (S34)", () => {
     expect(text).toContain('just tried on you, oldest to newest: "Sky Ribbon Dress", "Sleeveless Dress"');
   });
 
+  // Owner 2026-11-25: Elli remembers. The chart says when the child last chose this look, so Elli can say "you gave me
+  // this yesterday" from fact, never from a guess.
+  it("tells her when the child chose this look, from her chart (S10)", () => {
+    const text = prompt({ companionLook: { outfit: "Sleeveless Dress", accessory: "", recentTryOns: [] },
+      lookChosenAt: "2026-11-24T15:00:00.000Z", nowIso: "2026-11-25T16:00:00.000Z" });
+    expect(text).toContain("The child chose this look for you on Tue, Nov 24 (about 1 day ago).");
+    expect(prompt({ companionLook: { outfit: "", accessory: "", recentTryOns: [] } })).not.toContain("chose this look");
+  });
+
   it("says her own clothes when nothing from the shop is on", () => {
     expect(prompt({ companionLook: { outfit: "", accessory: "", recentTryOns: [] } })).toContain("You are wearing right now: your own clothes, no accessory.");
   });

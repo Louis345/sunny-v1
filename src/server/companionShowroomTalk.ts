@@ -224,6 +224,16 @@ function resolveCompanionLook(value: unknown): ShowroomCompanionLook | undefined
   return { outfit: name(raw.outfit), accessory: name(raw.accessory), recentTryOns: tried.slice(-MAX_RECENT_TRY_ONS) };
 }
 
+/** "The child chose this look for you on Tue, Nov 24 (about 1 day ago)." — a dated fact she can speak from. */
+function lookChosenLine(chosenAt: string, nowIso = new Date().toISOString()): string {
+  const at = new Date(chosenAt), now = new Date(nowIso);
+  if (Number.isNaN(at.getTime())) return "";
+  const days = Math.max(0, Math.round((now.getTime() - at.getTime()) / 86_400_000));
+  const date = at.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+  const ago = days === 0 ? "today" : `about ${days} day${days === 1 ? "" : "s"} ago`;
+  return `The child chose this look for you on ${date} (${ago}).`;
+}
+
 export const LOOK_AT_MYSELF_TOOL = "lookAtMyself";
 export const SELF_LOOK_SNAPSHOT_REASON = "self_look";
 
@@ -960,6 +970,9 @@ export function buildShowroomTalkSystemPrompt(input: {
   /** "self_look" when the picture is the companion's own portrait (S34). */
   visualSnapshotReason?: string;
   companionLook?: ShowroomCompanionLook;
+  /** When the child last chose this look, from her chart (S10, owner 2026-11-25). */
+  lookChosenAt?: string;
+  nowIso?: string;
   lastVisualSummary?: string;
   callSource?: CompanionCallSource;
   relationshipState?: CompanionRelationshipState;
@@ -1178,6 +1191,7 @@ export function buildShowroomTalkSystemPrompt(input: {
       const look = input.companionLook;
       lines.push(
         `You are wearing right now: ${look.outfit ? JSON.stringify(look.outfit) : "your own clothes"}, ${look.accessory ? `accessory ${JSON.stringify(look.accessory)}` : "no accessory"}. This is true even without a picture; answer questions about your clothes from it.`,
+        ...(input.lookChosenAt && (look.outfit || look.accessory) ? [lookChosenLine(input.lookChosenAt, input.nowIso)] : []),
         ...(look.recentTryOns.length
           ? [`Outfits the child just tried on you, oldest to newest: ${look.recentTryOns.map(name => JSON.stringify(name)).join(", ")}. "This one or that one" means these.`]
           : []),

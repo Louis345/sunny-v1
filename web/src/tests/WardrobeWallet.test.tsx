@@ -13,12 +13,13 @@ import { rewardForWardrobeItem, walletShopItems, withServerWallet } from "../lib
 // fill), shows what she really owns, and never runs on browser-only demo coins.
 const companion = { id: "elli", name: "Elli", modelUrl: "/companions/sample.vrm" };
 const call = { talkPhase: "idle" as const, responseText: "", error: null, onAskVoice: vi.fn() };
-type Server = { coins: number; owned: string[]; purchases: unknown[]; signals: Array<{ itemId: string; action: string; companionId: string }> };
+type Server = { coins: number; owned: string[]; purchases: unknown[]; signals: Array<{ itemId: string; action: string; companionId: string }>; wearing: unknown[] };
 function fakeServer(start: { coins: number; owned?: string[] }): Server {
-  const server: Server = { coins: start.coins, owned: start.owned ?? [], purchases: [], signals: [] };
+  const server: Server = { coins: start.coins, owned: start.owned ?? [], purchases: [], signals: [], wearing: [] };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const json = (data: unknown) => ({ ok: true, json: async () => data });
     if (url === "/api/rewards/wallet/ila") return json({ coins: server.coins, ownedRewardIds: server.owned });
+    if (url === "/api/rewards/wearing/ila") { server.wearing.push(JSON.parse(String(init?.body))); return json({ ok: true }); }
     if (url === "/api/child/ila/wardrobe-signal") { server.signals.push(JSON.parse(String(init?.body))); return json({ ok: true }); }
     if (url === "/api/rewards/purchase") {
       const body = JSON.parse(String(init?.body));
@@ -198,4 +199,16 @@ it("the call's closet opens as one row over the companion, and a tap wears the i
   expect(within(tray).queryByText("Your Collection")).toBeNull();
   fireEvent.click(within(tray).getByTestId(`try-on-${reward.id}`));
   await waitFor(() => expect(screen.getByTestId(`try-on-${reward.id}`)).toHaveAttribute("data-worn", "true"));
+});
+
+// Owner-reported 2026-11-25: what she puts on Elli must follow Elli into every room, so the closet saves it to her
+// chart (not only this browser) the moment she wears it (outfit-follows-companion checklist S1, S7).
+it("saves what she puts on Elli to her chart as soon as she wears it", async () => {
+  const item = acceptedItem();
+  const server = fakeServer({ coins: 500 });
+  shop(SEED);
+  await waitFor(() => expect(screen.getByText(/500 coins/)).toBeTruthy());
+  buy(item);
+  const slot = item.asset.kind === "outfit" ? "outfitItemId" : "accessoryItemId";
+  await waitFor(() => expect(server.wearing).toContainEqual(expect.objectContaining({ companionId: "elli", [slot]: item.id })));
 });

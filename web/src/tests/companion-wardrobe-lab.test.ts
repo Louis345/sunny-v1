@@ -4,10 +4,9 @@ import { describe, expect, it } from "vitest";
 import { shouldRevealWardrobeCompanionCanvas } from "../components/CompanionShowroom";
 
 function readShowroomSource(): string {
-  return readFileSync(
-    resolve(__dirname, "../components/CompanionShowroom.tsx"),
-    "utf8",
-  );
+  // The accessory helpers moved to lib/wardrobeAccessory.ts (2026-11-25) so the 3D games can share them.
+  return readFileSync(resolve(__dirname, "../components/CompanionShowroom.tsx"), "utf8")
+    + readFileSync(resolve(__dirname, "../lib/wardrobeAccessory.ts"), "utf8");
 }
 
 function readStoreSource(): string {

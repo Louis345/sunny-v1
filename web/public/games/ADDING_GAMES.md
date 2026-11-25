@@ -262,3 +262,10 @@ if (params.childId === "ila" || params.dyslexiaMode) {
 ## That's it
 
 Drop the HTML file in `web/public/games/`. It auto-discovers. No server changes needed for listing. Read this file, wire the five functions, done.
+
+## Drawing the companion in 3D (owner, 2026-11-25)
+
+Load the child's companion only with `SunnyLibrary.loadCompanion(loader)` from `/games/cookoff/_library.js`. It reads
+her companion card from her chart and puts on what she is wearing, using the same dress-up code as the board
+(`/companion/sunny-dress.js`). Never load a `.vrm` file directly: she would appear in starter clothes.
+`web/src/tests/outfitFollowsCompanion.test.ts` holds every library game to this.

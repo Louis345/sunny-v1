@@ -8,6 +8,7 @@ vi.mock("./currencyAward", async original => ({
   callClockForChild: vi.fn(() => ({ minutesLeft: 3, coins: 40, price: 30, minutes: 5, warnAtSecondsLeft: 60 })),
   spendCallMinuteForChild: vi.fn(() => ({ ok: true, minutesLeft: 2, coins: 40 })),
   walletForChild: vi.fn(() => ({ coins: 40, ownedRewardIds: ["outfit:cat-ears"] })),
+  setWearingForChild: vi.fn(() => ({ ok: true })),
 }));
 import { callClockForChild, purchaseForChild, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 import { setupRoutes } from "./routes";
@@ -51,4 +52,12 @@ it("reads her call clock and spends one minute per receipt", async () => {
 it("reads her shop wallet from the server", async () => {
   expect(await call("GET", "/api/rewards/wallet/Reina")).toEqual({ status: 200, body: { coins: 40, ownedRewardIds: ["outfit:cat-ears"] } });
   expect(walletForChild).toHaveBeenCalledWith("reina");
+});
+
+// Owner-reported 2026-11-25: the closet saves what she wears to her chart through one route; nothing else writes it.
+it("saves her companion's look through the wearing route and refuses a malformed one", async () => {
+  const { setWearingForChild } = await import("./currencyAward");
+  expect(await call("POST", "/api/rewards/wearing/Ila", { companionId: "elli", outfitItemId: "comet-hoodie" })).toEqual({ status: 200, body: { ok: true } });
+  expect(setWearingForChild).toHaveBeenCalledWith("ila", { companionId: "elli", outfitItemId: "comet-hoodie" });
+  expect((await call("POST", "/api/rewards/wearing/ila", { outfitItemId: "comet-hoodie" })).status).toBe(400);
 });

@@ -85,7 +85,8 @@
       .then(function (c) {
         if (!c || typeof c.vrmUrl !== "string" || !c.vrmUrl.trim()) throw new Error("no_vrmUrl");
         log("companion", "[loaded] child=" + childId + " companion=" + (c.companionId || "?") + " name=" + (c.name || "?"));
-        return { companionId: String(c.companionId || ""), name: String(c.name || ""), vrmUrl: c.vrmUrl, voiceId: String(c.voiceId || "") };
+        return { companionId: String(c.companionId || ""), name: String(c.name || ""), vrmUrl: c.vrmUrl, voiceId: String(c.voiceId || ""),
+          wearing: c.wearing && typeof c.wearing === "object" ? c.wearing : null };
       })
       .catch(function (err) {
         console.warn(" 🎮 [library-game] [companion] [fallback] child=" + childId + " reason=" + (err && err.message) + " vrm=" + FALLBACK_COMPANION.vrmUrl);
@@ -95,13 +96,66 @@
   }
   companion();   // start now; the game awaits it while its world builds
 
-  /** Load the child's companion VRM with the game's GLTFLoader; a model that fails to load falls back to sample.vrm. */
+  // ---------------- her look (owner, 2026-11-25) ----------------
+  // "When they change their clothes, they should be wearing their clothes throughout the entire experience." The card
+  // says what she wears; the shared dress-up module (the board's own code, built to /companion/sunny-dress.js) plans the
+  // body and puts the clothes on. Any failure leaves Elli in her own clothes and the game playing.
+  var DRESS_MODULE_URL = "/companion/sunny-dress.js";
+  function dressModule() {
+    if (window.SunnyDress) return Promise.resolve(window.SunnyDress);
+    try {
+      return import(DRESS_MODULE_URL).then(function (m) { window.SunnyDress = m; return m; });
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+  function plannedLook(c) {
+    var w = c.wearing;
+    if (!w || (!w.outfitItemId && !w.accessoryItemId)) return Promise.resolve(null);
+    return dressModule()
+      .then(function (d) { return { dress: d, plan: d.planCompanionLook(c) }; })
+      .catch(function (err) {
+        console.warn(" 🎮 [library-game] [dress] [unavailable] child=" + childId + " reason=" + (err && err.message) + " wearing=own-clothes");
+        return null;
+      });
+  }
+  function dressLater(p, vrm) {
+    var look = p.plan.look;
+    if (look.outfitId === "none" && look.accessoryId === "none") return;
+    try { if (look.outfitId !== "none") p.dress.captureXwearAvatarBindPose(vrm.scene); } catch (err) {
+      console.warn(" 🎮 [library-game] [dress] [failed] step=bind-pose reason=" + (err && err.message));
+    }
+    // After the game's own set-up of the model (it runs right after this load resolves), so it dresses the final model.
+    setTimeout(function () {
+      Promise.resolve()
+        .then(function () { return p.dress.dressCompanionVrm(vrm, look, p.plan.modelUrl, function () { return false; }, "library-game"); })
+        .then(function () { log("dress", "[wearing] outfit=" + look.outfitId + " accessory=" + look.accessoryId); })
+        .catch(function (err) { console.warn(" 🎮 [library-game] [dress] [failed] outfit=" + look.outfitId + " reason=" + (err && err.message)); });
+    }, 0);
+  }
+
+  /** Load the child's companion VRM with the game's GLTFLoader, wearing her look; a model that fails falls back to sample.vrm. */
   function loadCompanion(loader, onProgress) {
     return companion().then(function (c) {
-      return loader.loadAsync(c.vrmUrl, onProgress).catch(function (err) {
-        if (c.vrmUrl === FALLBACK_COMPANION.vrmUrl) throw err;
-        console.warn(" 🎮 [library-game] [companion] [fallback] reason=vrm_load_failed url=" + c.vrmUrl, err);
-        return loader.loadAsync(FALLBACK_COMPANION.vrmUrl, onProgress);
+      return plannedLook(c).then(function (p) {
+        var url = p ? p.plan.modelUrl : c.vrmUrl;
+        var plain = function () {
+          return loader.loadAsync(c.vrmUrl, onProgress).catch(function (err) {
+            if (c.vrmUrl === FALLBACK_COMPANION.vrmUrl) throw err;
+            console.warn(" 🎮 [library-game] [companion] [fallback] reason=vrm_load_failed url=" + c.vrmUrl, err);
+            return loader.loadAsync(FALLBACK_COMPANION.vrmUrl, onProgress);
+          });
+        };
+        if (!p || url === c.vrmUrl) {
+          return plain().then(function (gltf) { if (p && gltf && gltf.userData && gltf.userData.vrm) dressLater(p, gltf.userData.vrm); return gltf; });
+        }
+        return loader.loadAsync(url, onProgress).then(function (gltf) {
+          if (gltf && gltf.userData && gltf.userData.vrm) dressLater(p, gltf.userData.vrm);
+          return gltf;
+        }, function (err) {
+          console.warn(" 🎮 [library-game] [dress] [failed] step=body reason=" + (err && err.message) + " url=" + url + " wearing=own-clothes");
+          return plain();
+        });
       });
     });
   }

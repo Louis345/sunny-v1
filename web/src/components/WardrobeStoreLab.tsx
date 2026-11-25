@@ -33,7 +33,7 @@ import {
 } from "../lib/wardrobeStore";
 import { collectionView, type RewardItem } from "../../../src/shared/rewardCatalog";
 import { TryOnTray } from "./TryOnTray";
-import { rewardForWardrobeItem, walletShopItems, withServerWallet, type ServerWallet } from "../lib/wardrobeWallet";
+import { postChartWearing, rewardForWardrobeItem, walletShopItems, withServerWallet, type ServerWallet } from "../lib/wardrobeWallet";
 import { COINS_CHANGED_EVENT, type CoinsChangedDetail } from "./CallClock";
 import { RewardCollection } from "./RewardCollection";
 import "./WardrobeStoreLab.css";
@@ -398,6 +398,8 @@ export function WardrobeStoreLab({
   /** Her owned reward ids from the same server wallet the shop spends; null until it loads. */
   const [ownedRewardIds, setOwnedRewardIds] = useState<string[] | null>(null);
   const walletChildId = wallet?.childId;
+  /** The look her chart already has, so an unrelated save never re-stamps when she chose it. */
+  const sentLookRef = useRef<string | null>(null);
   useEffect(() => {
     if (!walletChildId) return;
     let cancelled = false;
@@ -406,6 +408,8 @@ export function WardrobeStoreLab({
       .then((loaded) => {
         if (cancelled) return;
         setStoreState((prior) => withServerWallet(prior, loaded));
+        const chartLook = loaded.wearing?.[companion.id];
+        if (chartLook) sentLookRef.current = `${companion.id}|${chartLook.outfitItemId ?? ""}|${chartLook.accessoryItemId ?? ""}`;
         setOwnedRewardIds(loaded.ownedRewardIds);
         console.log(` 🎮 [wardrobe-store] [wallet] [loaded] child=${walletChildId} coins=${loaded.coins} owned=${loaded.ownedRewardIds.length}`);
       })
@@ -488,10 +492,19 @@ export function WardrobeStoreLab({
     ],
   );
 
+  // Owner 2026-11-25: what she puts on her companion is saved to her chart, so every room (board, call, 3D games)
+  // shows it. Sent only when the worn look changes, and only in her real-coin closet.
   const persist = useCallback((nextState: WardrobeStoreState) => {
     setStoreState(nextState);
     if (!testingCloset || wallet) saveStoreState(nextState, storageKey);
-  }, [storageKey, testingCloset, wallet]);
+    if (!walletChildId) return;
+    const worn = nextState.equippedByCompanion[companion.id] ?? {};
+    const key = `${companion.id}|${worn.outfitItemId ?? ""}|${worn.accessoryItemId ?? ""}`;
+    if (sentLookRef.current === key) return;
+    sentLookRef.current = key;
+    postChartWearing(walletChildId, companion.id, worn)
+      .catch((error: unknown) => console.error(` 🎮 [wardrobe] [wearing] [save-failed] child=${walletChildId} companion=${companion.id}`, error));
+  }, [storageKey, testingCloset, wallet, walletChildId, companion.id]);
 
   const contextFor = useCallback(
     (

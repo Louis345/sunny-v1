@@ -1,7 +1,7 @@
 import { getChildChart } from "../profiles/childChart";
 import { callSecondsOf, purchaseWithCoins, spendPaidMinute, type PaidMinuteKind } from "../engine/companionCareEngine";
-import { ARCADE_RULES, CALL_RULES, PRICE_LIST } from "../shared/rewardCatalog";
-import type { CoinOffer } from "../shared/companionCareTypes";
+import { ARCADE_RULES, CALL_RULES, PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
+import type { CoinOffer, CompanionWearing } from "../shared/companionCareTypes";
 import {
   loadCompanionCarePlanForChart,
   mirrorCompanionCareToLearningProfile,
@@ -135,10 +135,49 @@ export function purchaseForChild(
   return { ok: true, balance: result.plan.economy.coins, price: result.price, duplicate: result.duplicate, callMinutes: Math.floor(callSecondsOf(result.plan.economy) / 60), callSeconds: callSecondsOf(result.plan.economy), arcadeMinutes: result.plan.economy.arcadeMinutes ?? 0 };
 }
 
-/** The outfit shop's wallet: her saved coins and the rewards she owns (chest drops and purchases). */
-export function walletForChild(childId: string, opts: { rootDir?: string } = {}): { coins: number; ownedRewardIds: string[] } {
+/** The outfit shop's wallet: her saved coins, the rewards she owns, and what each companion is wearing. */
+export function walletForChild(childId: string, opts: { rootDir?: string } = {}): { coins: number; ownedRewardIds: string[]; wearing: Record<string, CompanionWearing> } {
   const plan = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {}).companionCare.plan;
-  return { coins: plan.economy.coins, ownedRewardIds: [...(plan.inventory.rewards ?? [])] };
+  return { coins: plan.economy.coins, ownedRewardIds: [...(plan.inventory.rewards ?? [])], wearing: { ...(plan.inventory.wearing ?? {}) } };
+}
+
+/**
+ * Saves what she put on one companion (owner, 2026-11-25: her clothes follow her companion everywhere). Her chart is
+ * the one source every room reads; only the closet calls this. No item ids means her own clothes, saved on purpose.
+ */
+export function setWearingForChild(
+  childId: string,
+  input: { companionId: string; outfitItemId?: string; accessoryItemId?: string },
+  opts: { rootDir?: string; nowIso?: string } = {},
+): { ok: true } | { ok: false; reason: "not_owned" } {
+  const chart = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {});
+  const plan = chart.companionCare.plan;
+  const ownedRewards = plan.inventory.rewards ?? [];
+  const owns = (itemId: string) => REWARD_CATALOG.some(item => item.wardrobeItemId === itemId && ownedRewards.includes(item.id));
+  const items = [input.outfitItemId, input.accessoryItemId].filter((id): id is string => Boolean(id));
+  const missing = items.find(id => !owns(id));
+  if (missing) {
+    console.warn(` 🎮 [wardrobe] [wearing] [refused] child=${childId} companion=${input.companionId} item=${missing} reason=not_owned`);
+    return { ok: false, reason: "not_owned" };
+  }
+  const entry: CompanionWearing = {
+    ...(input.outfitItemId ? { outfitItemId: input.outfitItemId } : {}),
+    ...(input.accessoryItemId ? { accessoryItemId: input.accessoryItemId } : {}),
+    changedAt: opts.nowIso ?? new Date().toISOString(),
+  };
+  saveCompanionCarePlan(chart, { ...plan, inventory: { ...plan.inventory, wearing: { ...(plan.inventory.wearing ?? {}), [input.companionId]: entry } } });
+  console.log(` 🎮 [wardrobe] [wearing] [saved] child=${childId} companion=${input.companionId} outfit=${entry.outfitItemId ?? "own"} accessory=${entry.accessoryItemId ?? "none"}`);
+  return { ok: true };
+}
+
+/** When the child last chose this companion's look, so the companion can say so from fact (S10); undefined if never. */
+export function lookChosenAt(childId: string, companionId: string, opts: { rootDir?: string } = {}): string | undefined {
+  try {
+    return walletForChild(childId, opts).wearing[companionId]?.changedAt;
+  } catch (error: unknown) {
+    console.warn(` 🎮 [wardrobe] [wearing] [chosen-at-unavailable] child=${childId} companion=${companionId}`, error);
+    return undefined;
+  }
 }
 
 export type CallClock = { minutesLeft: number; secondsLeft: number; coins: number; price: number; minutes: number; warnAtSecondsLeft: number };

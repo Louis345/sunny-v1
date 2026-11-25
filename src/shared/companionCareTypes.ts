@@ -149,6 +149,9 @@ export interface CreaturePlanState {
   resolvedEncounterIds: string[];
 }
 
+/** One companion's look by wardrobe item id, and when the child chose it. */
+export type CompanionWearing = { outfitItemId?: string; accessoryItemId?: string; changedAt?: string };
+
 export interface CompanionCarePlan {
   version: 1;
   childId: string;
@@ -160,6 +163,11 @@ export interface CompanionCarePlan {
     careItems: CompanionCareItem[];
     /** Reward catalog ids she has found in chests (games, outfits). */
     rewards?: string[];
+    /**
+     * What each companion is wearing, by companion id (owner, 2026-11-25): the one source every room reads. An entry
+     * with no item ids means her own clothes, saved on purpose. Only the closet writes it.
+     */
+    wearing?: Record<string, CompanionWearing>;
   };
   economy: {
     coins: number;

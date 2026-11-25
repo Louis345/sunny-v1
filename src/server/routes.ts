@@ -319,7 +319,7 @@ import {
 } from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
-import { arcadeClockForChild, callClockForChild, reconcileCompanionCareCurrencyAward, purchaseForChild, showroomCallClockFacts, spendArcadeMinuteForChild, spendCallMinuteForChild, walletForChild } from "./currencyAward";
+import { arcadeClockForChild, callClockForChild, reconcileCompanionCareCurrencyAward, lookChosenAt, purchaseForChild, setWearingForChild, showroomCallClockFacts, spendArcadeMinuteForChild, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { closeStuckFinishedBoard, isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalLateTries, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
@@ -1268,6 +1268,22 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     return res.json(walletForChild(childId));
   });
 
+  // Owner, 2026-11-25: what she puts on a companion is saved on her chart, so every room shows it. Only the closet posts.
+  app.post("/api/rewards/wearing/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const companionId = typeof req.body?.companionId === "string" ? req.body.companionId.trim() : "";
+    const itemId = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
+    if (!childId || !companionId) return res.status(400).json({ ok: false, error: "wearing_request_invalid" });
+    const outfitItemId = itemId(req.body?.outfitItemId), accessoryItemId = itemId(req.body?.accessoryItemId);
+    try {
+      const result = setWearingForChild(childId, { companionId, ...(outfitItemId ? { outfitItemId } : {}), ...(accessoryItemId ? { accessoryItemId } : {}) });
+      return res.status(result.ok ? 200 : 409).json(result);
+    } catch (error: unknown) {
+      console.error(` 🎮 [wardrobe] [wearing] [failed] child=${childId} companion=${companionId}`, error);
+      return res.status(500).json({ ok: false, error: "wearing_save_failed" });
+    }
+  });
+
   // Owner, 2026-11-08: reward games are timed on the same paid-minute meter as the call.
   app.get("/api/rewards/arcade/:childId", (req: Request, res: Response) => {
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
@@ -2002,8 +2018,10 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ` 🎮 [companion] [current] [no-registry-voice] child=${childId} companion=${companionId} reason=${error instanceof Error ? error.message : String(error)}`,
         );
       }
-      const body = { companionId, name, vrmUrl: chart.companion.config.vrmUrl, voiceId };
-      console.log(` 🎮 [companion] [current] [ok] child=${childId} companion=${companionId} vrm=${body.vrmUrl}`);
+      // The companion card carries what she wears (owner, 2026-11-25), so every 3D room dresses her the same way.
+      const wearing = chart.companionCare.plan.inventory.wearing?.[companionId] ?? null;
+      const body = { companionId, name, vrmUrl: chart.companion.config.vrmUrl, voiceId, wearing };
+      console.log(` 🎮 [companion] [current] [ok] child=${childId} companion=${companionId} vrm=${body.vrmUrl} outfit=${wearing?.outfitItemId ?? "own"} accessory=${wearing?.accessoryItemId ?? "none"}`);
       return res.json(body);
     } catch (error: unknown) {
       console.warn(
@@ -2295,6 +2313,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
         visualSnapshotReason: talk.visualSnapshot?.reason,
         companionLook: talk.companionLook,
+        lookChosenAt: talk.companionLook ? lookChosenAt(talk.childId, talk.companionId) : undefined,
         lastVisualSummary: talk.lastVisualSummary,
         callSource: talk.callSource,
         relationshipState: talk.relationshipState,
@@ -2871,6 +2890,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
           visualSnapshotReason: talk.visualSnapshot?.reason,
           companionLook: talk.companionLook,
+          lookChosenAt: talk.companionLook ? lookChosenAt(talk.childId, talk.companionId) : undefined,
           lastVisualSummary: talk.lastVisualSummary,
           callSource: talk.callSource,
           relationshipState: talk.relationshipState,

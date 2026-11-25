@@ -6,7 +6,7 @@ import {
   companionCareToTamagotchi,
   createStarterCompanionCarePlan,
 } from "../engine/companionCareEngine";
-import type { CompanionCarePlan } from "../shared/companionCareTypes";
+import type { CompanionCarePlan, CompanionWearing } from "../shared/companionCareTypes";
 import { normalizeCreatureState } from "../engine/creatureCareEngine";
 import { resolveMatildaReadPath } from "./legacyHikariRead";
 
@@ -50,6 +50,17 @@ function readJson<T>(file: string): T | null {
 function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
+}
+
+function normalizeWearing(value: unknown): Record<string, CompanionWearing> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const text = (item: unknown) => (typeof item === "string" && item.trim() ? item.trim() : undefined);
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).flatMap(([companionId, entry]) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const raw = entry as Record<string, unknown>;
+    const outfitItemId = text(raw.outfitItemId), accessoryItemId = text(raw.accessoryItemId), changedAt = text(raw.changedAt);
+    return [[companionId, { ...(outfitItemId ? { outfitItemId } : {}), ...(accessoryItemId ? { accessoryItemId } : {}), ...(changedAt ? { changedAt } : {}) }]];
+  }));
 }
 
 function normalizeLoadedPlan(
@@ -110,6 +121,8 @@ function normalizeLoadedPlan(
       rewards: Array.isArray(plan.inventory?.rewards)
         ? plan.inventory.rewards.filter((id): id is string => typeof id === "string")
         : [],
+      // What each companion wears; a damaged entry is dropped, never the whole plan.
+      ...(plan.inventory?.wearing ? { wearing: normalizeWearing(plan.inventory.wearing) } : {}),
     },
   };
 }
