@@ -9,6 +9,7 @@ import { publishBoardInstance } from "./learningBoardInstances";
 import { recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 import { holdCompletion, raiseParentAlert, replayHeldCompletions, runStartupCheck, sunnyHealthFacts } from "./sunnyHealth";
 import { resealPublishedBoards } from "./learningCycleRepository";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 // 2026-11-10, Reina's test morning: a hand edit broke her boards' seals, every save after it was refused, and nothing
 // in Sunny noticed. She worked 35 minutes, saw "Progress could not be saved", and reported it four times; Matilda
@@ -152,4 +153,20 @@ it("keeps a save the record can never accept, stops replaying it, and says so on
   expect(log.mock.calls.filter(call => String(call[0]).includes("[held-replay] [permanent]"))).toHaveLength(0);
   const held = JSON.parse(fs.readFileSync(path.join(f.rootDir, "src/context", f.childId, "sunny_health/held-completions.json"), "utf8"));
   expect(held).toEqual([expect.objectContaining({ nodeId: "gone", permanent: true })]);
+});
+
+// Ila, 2026-11-25 (board 16): two games on her board carried an earlier board's problem ids, so 8 answers were refused
+// as unknown items. The game was put on the board the day before and nothing looked at it until she played. Invariant:
+// the start check names every game on her current board that reports a problem id this stop does not own.
+it("names a game on her current board that carries another board's problem ids, before she plays it", () => {
+  const f = fixture();
+  const game = path.join(resolveChildContextDir(f.childId, { rootDir: f.rootDir }), "games/practice.html");
+  fs.mkdirSync(path.dirname(game), { recursive: true });
+  const log = vi.spyOn(console, "log");
+  fs.writeFileSync(game, `<script>const ids = ["${f.homeworkId}-r248-step-problem-6"];</script></html>`);
+  const [stale] = runStartupCheck([f.childId], { rootDir: f.rootDir });
+  expect(stale).toMatchObject({ ok: true, staleGames: ["practice"] });
+  expect(log.mock.calls.flat().join("\n")).toContain(`[startup-check] [stale-game] child=${f.childId} node=practice ids=${f.homeworkId}-r248-step-problem-6`);
+  fs.writeFileSync(game, `<script>const items = window.GAME_PARAMS.itemBindings;</script></html>`);
+  expect(runStartupCheck([f.childId], { rootDir: f.rootDir })[0]).toMatchObject({ ok: true, staleGames: [] });
 });

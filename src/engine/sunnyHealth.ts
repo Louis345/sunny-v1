@@ -30,8 +30,29 @@ function setProblem(childId: string, kind: Problem["kind"], text: string | undef
   writeJson(problemsFile(childId, opts), text ? [...rest, { kind, at: new Date().toISOString(), text }] : rest);
 }
 
+/**
+ * Games on her current board that report a problem id their stop does not own (Ila, 2026-11-25: two games carried an
+ * earlier board's ids and 8 answers were refused). Facts in the log, named before she plays; the board still opens.
+ */
+function staleGames(childId: string, cycle: NonNullable<ReturnType<typeof getLatestLearningCycle>>, opts: Opts): string[] {
+  const contextDir = resolveChildContextDir(childId, { rootDir: opts.rootDir });
+  const idPattern = new RegExp(`["'](${cycle.homeworkId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-r\\d+-step-problem-\\d+)["']`, "g");
+  const stale: string[] = [];
+  for (const nodeId of cycle.boards?.at(-1)?.nodeIds ?? []) {
+    const node = cycle.nodes.find(row => row.nodeId === nodeId);
+    const file = node?.artifactBinding?.localArtifactPath ? path.join(contextDir, node.artifactBinding.localArtifactPath) : "";
+    if (!node || !file || !fs.existsSync(file)) continue;
+    const owned = new Set(Object.keys(node.evidenceContract.itemContracts ?? {}));
+    const foreign = [...new Set([...fs.readFileSync(file, "utf8").matchAll(idPattern)].map(match => match[1]!))].filter(id => !owned.has(id));
+    if (!foreign.length) continue;
+    stale.push(nodeId);
+    console.log(` 🎮 [startup-check] [stale-game] child=${childId} node=${nodeId} ids=${foreign.join(",")}`);
+  }
+  return stale;
+}
+
 /** Before she sits down: every published board of her current homework must still match its seal. */
-export function runStartupCheck(childIds: string[], opts: Opts = {}): Array<{ childId: string; ok: boolean; boards: number; testDate?: string | null; problem?: string }> {
+export function runStartupCheck(childIds: string[], opts: Opts = {}): Array<{ childId: string; ok: boolean; boards: number; testDate?: string | null; problem?: string; staleGames?: string[] }> {
   return childIds.map(childId => {
     try {
       const chart = getChildChart(childId, { rootDir: opts.rootDir });
@@ -42,7 +63,7 @@ export function runStartupCheck(childIds: string[], opts: Opts = {}): Array<{ ch
       // The school test date she is practising toward, so a missing one shows on every start (owner, 2026-11-21).
       const testDate = schoolTestFacts(chart.homework, cycle.homeworkId)?.testDate ?? null;
       console.log(` 🎮 [startup-check] [passed] child=${childId} homework=${cycle.homeworkId} boards=${cycle.boards?.length ?? 0} test-date=${testDate ?? "unknown"}`);
-      return { childId, ok: true, boards: cycle.boards?.length ?? 0, testDate };
+      return { childId, ok: true, boards: cycle.boards?.length ?? 0, testDate, staleGames: staleGames(childId, cycle, opts) };
     } catch (error) {
       const problem = error instanceof Error ? error.message : String(error);
       setProblem(childId, "seal", `her saved record no longer matches its seal (${problem})`, opts);
