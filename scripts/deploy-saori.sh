@@ -53,6 +53,11 @@ remote "mkdir -p ~/SunnyData/backups/$ts && cp ~/SunnyData/*.db* ~/SunnyData/bac
 size=$(remote "du -sh ~/SunnyData/backups/$ts | cut -f1")
 say "[backup] [saved] ~/SunnyData/backups/$ts size=$size"
 
+# The deploy list (owner, 2026-11-25): say exactly which changes go out, and keep docs/DEPLOYS.md in step with it.
+running=$(remote "git rev-parse HEAD")
+say "[list] [on-saori] $(git log --oneline -1 "$running" 2>/dev/null || echo "$running")"
+git log --reverse --format='%h %s' "$running..$SHA" | sed 's/^/ 🎮 [deploy] [list] [going-out] /'
+
 remote "git fetch -q && git merge -q --ff-only $SHA && git log --oneline -1" | sed 's/^/ 🎮 [deploy] [checkout] /'
 
 if ! remote "npm run build > ~/deploy-build.log 2>&1"; then
