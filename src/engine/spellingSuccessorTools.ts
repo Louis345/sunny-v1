@@ -65,7 +65,7 @@ export type SuccessorFacts = {
   pastWeeks?: PastWeeksArchive;
   /** Owner note with hand-built library games (owner, 2026-11-11), present only while a dated note is active.
    * The Planner may put one on its Quest or Boss step; nothing is inserted for it. Older frozen questions have none. */
-  libraryGames?: { note: string; games: Array<{ id: string; title: string; role: "quest" | "boss" }> };
+  libraryGames?: { note?: string; games: Array<{ id: string; title: string; role: "quest" | "boss" }> };
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
@@ -142,7 +142,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   };
   const problemOf = (state: SuccessorState, id: string) => problems?.get(id) ?? state.written?.[id];
   const missing = problems ? "problems" : "words";
-  // The owner's library games, offered only for an encounter this question can authorize (owner, 2026-11-11).
+  // The 3D library games (always offered since 2026-11-25), placeable only on an encounter this question can authorize.
   const library = (facts.libraryGames?.games ?? []).filter(game => (encounters as readonly string[]).includes(game.role));
   const libraryField = library.length ? { library_game: enumOf(["none", ...library.map(game => game.id)], "none").optional()
     .describe(`Only on your quest or boss step, and only a game whose role matches it: ${library.map(game => `${game.id} = ${game.title} (${game.role})`).join("; ")}. Sunny serves that hand-built game with this step's ${problems ? "problems" : "words"} instead of building one. none or leave out otherwise.`) } : {};

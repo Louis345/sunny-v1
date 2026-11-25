@@ -86,3 +86,17 @@ export function libraryGameHtml(input: { id: LibraryGameId; childId: string; nod
   console.log(` 🎮 [library-game] [html] [built] game=${input.id} child=${input.childId} node=${input.nodeId} items=${shown.length} matched=${matchedItemIds.length} unmatched=${unmatchedTargets.length}`);
   return { html, matchedItemIds, unmatchedTargets };
 }
+
+/**
+ * The hand-built 3D games on the tutor's menu for this subject (owner, 2026-11-25: full toolbox, every stage; no parent
+ * note needed). Any child's game for this subject can serve her; whether and when is the tutor's call from her evidence.
+ * `line` is empty when this stage offers no Quest or Boss step to put one on.
+ */
+export function libraryGameOffer(input: { subject: string; encounterOffered: boolean }): { games: Array<{ id: LibraryGameId; title: string; role: "quest" | "boss"; builtFor: string }>; line: string } {
+  const games = Object.values(LIBRARY_GAMES).filter(game => game.subject === input.subject)
+    .map(game => ({ id: game.id, title: game.title, role: game.role, builtFor: game.childId }));
+  const line = input.encounterOffered && games.length
+    ? `These hand-built 3D games are ready: ${games.map(game => `${game.id} = ${game.title} (${game.role}, first built for ${game.builtFor})`).join("; ")}. Each takes any step's ${input.subject === "math" ? "problems" : "words"}. Whether and when is your call from her evidence; to use one, put library_game on your quest or boss step.\n`
+    : "";
+  return { games, line };
+}

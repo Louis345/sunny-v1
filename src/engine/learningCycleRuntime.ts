@@ -59,7 +59,7 @@ import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchW
 import {boardDeliveries, currentBoardInstance, systemBlockedSection} from "./learningBoardInstances";
 import { readTypedSpelling } from "./imeTypedSpelling";
 import { activeOwnerNote } from "./ownerNotes";
-import { LIBRARY_GAMES, type LibraryGameId } from "./libraryGames";
+import { LIBRARY_GAMES, libraryGameOffer, type LibraryGameId } from "./libraryGames";
 
 export type CanonicalCompletionResult = {
   /** Server-validated launch whose per-answer records already exist. */
@@ -1071,11 +1071,11 @@ async function askPlanner(
     // A dated owner note (owner, 2026-11-11): a fact in the question while it lasts, never a forced step. The Planner decides.
     const ownerNote=activeOwnerNote({childId:cycle.childId,subject:cycle.domain});
     const encounterOffered=actions.some(action=>action==="generate_quest"||action==="generate_boss");
-    if(ownerNote&&!encounterOffered)console.log(` 🎮 [owner-note] [no-encounter-offered] homework=${cycle.homeworkId} lifecycle=${cycle.lifecycle} actions=${actions.join(",")} library_game=not-offered`);
-    const libraryFacts=ownerNote?{libraryGames:ownerNote}:{};
-    const ownerNoteLine=ownerNote?`A note from her parent for this week: ${ownerNote.note}
-${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game=>`${game.id} = ${game.title} (${game.role})`).join("; ")}. Whether and when is still your call from her evidence; to use one, put library_game on your quest or boss step and Sunny serves it with that step's ${math?"problems":"words"}.
-`:""}`:"";
+    // The 3D games are always on the menu (owner, 2026-11-25); an owner note is only a dated fact beside them.
+    const library=libraryGameOffer({subject:cycle.domain,encounterOffered});
+    console.log(` 🎮 [library-game] [offered] homework=${cycle.homeworkId} subject=${cycle.domain} games=${library.games.map(game=>game.id).join(",")||"none"} placeable=${encounterOffered}`);
+    const libraryFacts={libraryGames:{games:library.games,...(ownerNote?{note:ownerNote.note}:{})}};
+    const ownerNoteLine=`${ownerNote?`A note from her parent for this week: ${ownerNote.note}\n`:""}${library.line}`;
     // The school test as facts beside the goal (owner, 2026-11-08): how practice approaches test conditions is the Planner's call.
     const schoolTest=schoolTestFacts(chart.homework,cycle.homeworkId);
     console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
