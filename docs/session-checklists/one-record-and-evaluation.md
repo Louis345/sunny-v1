@@ -3,7 +3,7 @@
 Owner, 2026-11-25: "Everything is in the database, and it's queryable." "We evaluate before we do the intervention.
 We compare our results at the end." "It should be universal rules for any domain."
 
-**Status: draft for owner approval. Build after the Christmas drop. No code yet.**
+**Status: approved by owner 2026-11-25. Build after the Christmas drop. No code yet.**
 
 ## What exists today (seen in code)
 
