@@ -286,6 +286,24 @@ describe("a game she played comes back with new problems (the library, step 1)",
     expect(log.mock.calls.flat().join("\n")).toMatch(/\[library\] \[replay\] \[bound\][^\n]*provider_calls=0/);
   });
 
+  // Ila, 2026-11-25 (board 16): two replayed games showed her board 16's problems but reported every answer under the
+  // problem ids of the board they were first built for (r248, r198), so 8 of her 15 answers were "not scored" and lost.
+  // Why the human didn't see it: the games looked right on screen. Why logs only half caught it: each answer logged
+  // result=not-scored, but the bind logged [library] [replay] [bound] as a success. Why the lab missed it: the replay
+  // check only looked for old problem TEXT written into the game, never old problem IDS.
+  it("rebuilds a played game that reports answers under its old problem ids, instead of losing her answers", async () => {
+    const OLD_IDS = GOOD.replace("window.fireAttemptEvent({ target: items[i].itemId,", 'window.fireAttemptEvent({ target: ["p2", "p1", "p3"][i] ?? items[i].itemId,');
+    const f = await playedMathCycle(OLD_IDS);
+    const robot = nextBoardRobot({ raftFromPlayedGame: true });
+    await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: robot.client, draw: plainDraw }, f.opts);
+    vi.spyOn(canvas, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
+    const log = vi.spyOn(console, "log");
+    const builder = recordedBuilder();
+    await prepareSuccessorBoard({ childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, f.opts);
+    expect(log.mock.calls.flat().join("\n")).not.toMatch(/\[library\] \[replay\] \[bound\]/);
+    expect(builder.requests).toHaveLength(2);
+  });
+
   it("still rebuilds a played game whose problems are written into its code", async () => {
     const f = await playedMathCycle(BAKED);
     const robot = nextBoardRobot({ raftFromPlayedGame: true });

@@ -223,10 +223,13 @@ async function ask(client: SpellingGameClient, draftDir: string, stage: string, 
   return { text, html: extractHtml(text), inputTokens: message.usage?.input_tokens ?? 0, outputTokens: message.usage?.output_tokens ?? 0, stop: message.stop_reason };
 }
 
-/** A played math game that reads its problems at play time, with none of its old problems written into its code. */
+/** A played math game that reads its problems at play time, with none of its old problems (text or ids) in its code. */
 export function replayableGame(html: string, source: LearningCycleNodeContract): boolean {
-  const prompts = Object.values(source.evidenceContract.itemContracts ?? {}).map(item => item.prompt.trim()).filter(Boolean);
-  return /GAME_PARAMS\.itemBindings/.test(html) && prompts.length > 0 && !prompts.some(prompt => html.includes(prompt));
+  const items = Object.values(source.evidenceContract.itemContracts ?? {});
+  const prompts = items.map(item => item.prompt.trim()).filter(Boolean);
+  // Ila, 2026-11-25: a game with its old ids written in reports her answers under the old board's problems, and they are lost.
+  const oldIds = items.some(item => html.includes(`"${item.id}"`) || html.includes(`'${item.id}'`));
+  return /GAME_PARAMS\.itemBindings/.test(html) && prompts.length > 0 && !prompts.some(prompt => html.includes(prompt)) && !oldIds;
 }
 
 /** The played game this step names, when it can come back as it is: its file, or nothing. */
