@@ -380,7 +380,7 @@ export function grantNodeChest(
   const lucky = roll() < bonusChance;
   // A bonus is a collection item she does not own yet (no rarer than the chest); pity counts chests without one.
   const owned = plan.inventory.rewards ?? [];
-  const pool = lucky ? eligibleDrops(rarity, owned) : [];
+  const pool = lucky ? eligibleDrops(rarity, owned, input.nowIso) : [];
   const item = pool.length && roll() < ITEM_SHARE ? pool[Math.min(pool.length - 1, Math.floor(roll() * pool.length))] : undefined;
   const bonus: NodeChest["bonus"] = item ? { kind: "item", itemId: item.id } : undefined;
   // Call time is small rolled loot on every chest (owner, 2026-11-10), rolled last from its one table.

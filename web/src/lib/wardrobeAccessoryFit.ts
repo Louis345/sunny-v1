@@ -1,22 +1,27 @@
 import * as THREE from 'three';
 import prepared from './wardrobePrepared.generated.json';
 
+import { FIT_ANCHOR_NAME, isChristmasAccessory } from './christmasAccessories';
+
+/** The fit an accessory wears: its own, or the crown's for pieces drawn around the crown's band (Christmas 2026). */
+export function accessoryFitId(accessoryId:string):string{return isChristmasAccessory(accessoryId)?'crown':accessoryId;}
+
 export function isPreparedAccessoryAvailable(modelUrl:string,accessoryId:string){
  if(accessoryId==='none')return true;
  const body=prepared.find(b=>b.modelUrl===modelUrl);
- return Boolean(body&&(Object.values(body.intrinsicAccessoryMaterials??{}).includes(accessoryId)||Object.hasOwn(body.accessoryFits??{},accessoryId)));
+ return Boolean(body&&(Object.values(body.intrinsicAccessoryMaterials??{}).includes(accessoryId)||Object.hasOwn(body.accessoryFits??{},accessoryFitId(accessoryId))));
 }
 
 // Every accessory occupies one slot; a newly chosen item replaces whatever the body
 // already wears in that slot, including a native (intrinsic) piece like a halo.
-const ACCESSORY_SLOTS:Record<string,'head'>={crown:'head','cat-ears':'head',halo:'head'};
+const accessorySlot=(id:string):'head'|undefined=>id==='crown'||id==='cat-ears'||id==='halo'||isChristmasAccessory(id)?'head':undefined;
 
 export function retainIntrinsicAccessories(scene:THREE.Object3D,selectedAccessoryId:string){
  let restored=0,hidden=0,provided=false;
- const selectedSlot=ACCESSORY_SLOTS[selectedAccessoryId];
+ const selectedSlot=accessorySlot(selectedAccessoryId);
  scene.traverse(object=>{if(!(object instanceof THREE.Mesh))return;for(const material of Array.isArray(object.material)?object.material:[object.material]){
   const intrinsic=material.userData.sunnyIntrinsicAccessory;if(!intrinsic)continue;
-  const replaced=intrinsic!==selectedAccessoryId&&selectedSlot!==undefined&&ACCESSORY_SLOTS[intrinsic]===selectedSlot;
+  const replaced=intrinsic!==selectedAccessoryId&&selectedSlot!==undefined&&accessorySlot(intrinsic)===selectedSlot;
   if(replaced&&material.visible){material.visible=false;hidden++;}
   if(!replaced&&!material.visible){material.visible=true;restored++;}
   if(intrinsic===selectedAccessoryId)provided=true;
@@ -31,7 +36,7 @@ const UP=new THREE.Vector3(0,1,0);
 export function applyPreparedAccessoryFit(accessory:THREE.Group,head:THREE.Object3D,modelUrl:string,accessoryId:string){
  const body=prepared.find(b=>b.modelUrl===modelUrl);
  if(!body){if(modelUrl.includes('-wardrobe-'))throw new Error(`Unknown prepared accessory body ${modelUrl}`);return false;}
- const fit=(body.accessoryFits as Record<string,AccessoryFit>|undefined)?.[accessoryId];
+ const fit=(body.accessoryFits as Record<string,AccessoryFit>|undefined)?.[accessoryFitId(accessoryId)];
  if(!fit)throw new Error(`Missing prepared accessory fit ${body.companionId}/${accessoryId}`);
  placeAccessoryFit(accessory,head,fit,new THREE.Quaternion().setFromAxisAngle(UP,fit.rotationY));
  console.log(` 🎮 [wardrobe-accessory] fit companion=${body.companionId} accessory=${accessoryId} body=${body.preparedSha256}`);
@@ -40,7 +45,7 @@ export function applyPreparedAccessoryFit(accessory:THREE.Group,head:THREE.Objec
 
 /** A body with no fit of its own wears Elli's fitted size and height (Saori's try-on, 2026-11-14), turned to face where she faces. */
 export function applyReferenceAccessoryFit(accessory:THREE.Group,head:THREE.Object3D,accessoryId:string,facing:THREE.Quaternion){
- const fit=(prepared.find(b=>b.companionId==='elli')?.accessoryFits as Record<string,AccessoryFit>|undefined)?.[accessoryId];
+ const fit=(prepared.find(b=>b.companionId==='elli')?.accessoryFits as Record<string,AccessoryFit>|undefined)?.[accessoryFitId(accessoryId)];
  if(!fit)throw new Error(`Missing reference accessory fit elli/${accessoryId}`);
  placeAccessoryFit(accessory,head,fit,facing);
 }
@@ -48,7 +53,7 @@ export function applyReferenceAccessoryFit(accessory:THREE.Group,head:THREE.Obje
 function placeAccessoryFit(accessory:THREE.Group,head:THREE.Object3D,fit:AccessoryFit,turn:THREE.Quaternion){
  if(fit.lateralTilt!==undefined)for(const component of accessory.children)component.rotation.z=-Math.sign(component.position.x)*fit.lateralTilt;
  accessory.scale.setScalar(fit.scale);
- accessory.updateMatrixWorld(true);const localBounds=new THREE.Box3().setFromObject(accessory);
+ accessory.updateMatrixWorld(true);const localBounds=new THREE.Box3().setFromObject(accessory.getObjectByName(FIT_ANCHOR_NAME)??accessory);
  head.updateWorldMatrix(true,false);
  const scale=head.getWorldScale(new THREE.Vector3()).y;
  const target=head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,(fit.baseY-localBounds.min.y)*scale,0));

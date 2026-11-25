@@ -11,8 +11,11 @@ import preparedBodies from './wardrobePrepared.generated.json';
 import fittedGarments from './wardrobeFitted.generated.json';
 import { getXwearOutfitDefinition, isXwearOutfitApprovedForAvatar } from "./xwearDress";
 import assetVersions from './wardrobeAssetVersions.generated.json';
+import { CHRISTMAS_ACCESSORY_IDS, type ChristmasAccessoryId } from "./christmasAccessories";
+import { accessoryFitId } from "./wardrobeAccessoryFit";
+import { REWARD_CATALOG } from "../../../src/shared/rewardCatalog";
 
-export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo";
+export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo" | ChristmasAccessoryId;
 export type WardrobeOutfitId =
   | "none"
   | "sleeveless-dress"
@@ -176,6 +179,25 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
       material: { tint: "#f4f6ff" },
       qa: { status: "approved" },
     },
+    // Christmas drop 2026 (owner, 2026-11-25): chest-only, so no reward price; the shop price here is never charged.
+    {
+      id: "holly-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Holly Red Dress",
+      price: 0,
+      styleTags: ["christmas", "red", "festive", "ribbon"],
+      material: { tint: "#e8323f" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "evergreen-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Evergreen Dress",
+      price: 0,
+      styleTags: ["christmas", "green", "festive", "ribbon"],
+      material: { tint: "#36b864" },
+      qa: { status: "approved" },
+    },
   ],
 });
 
@@ -219,6 +241,26 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
       materialVariant: {id:candidate.id,tint:"#ffffff"}},
     compatibility: {kind: "approved_body_profiles" as const,bodyProfileIds:preparedBodies.map(body => body.bodyProfileId)},
   })),
+  // Christmas colours of the fitted hoodie and blazer (owner, 2026-11-25), dyed the way the ribbon dresses are.
+  ...([
+    {id: "candy-cane-hoodie", outfitId: "comet-hoodie", name: "Candy Cane Hoodie", tint: "#ff4a5a", styleTags: ["christmas", "red", "cozy", "festive"]},
+    {id: "evergreen-blazer", outfitId: "constellation-blazer", name: "Evergreen Blazer", tint: "#4fd27e", styleTags: ["christmas", "green", "elegant", "festive"]},
+  ] as const).map(candidate => ({
+    id: candidate.id, name: candidate.name, icon: "🧥", price: 0, styleTags: candidate.styleTags,
+    templateId: candidate.outfitId,
+    asset: {kind: "outfit" as const, outfitId: candidate.outfitId, fit: "skinned_xwear" as const,
+      materialVariant: {id:candidate.id,tint:candidate.tint}},
+    compatibility: {kind: "approved_body_profiles" as const,bodyProfileIds:preparedBodies.map(body => body.bodyProfileId)},
+  })),
+  // Christmas headwear (owner, 2026-11-25), built in code like the crown and worn with the crown's fit.
+  ...CHRISTMAS_ACCESSORY_IDS.map(id => {
+    const reward = REWARD_CATALOG.find(row => row.wardrobeItemId === id);
+    return {
+      id, name: reward?.name ?? id, icon: reward?.icon ?? "🎄", price: 0, styleTags: ["christmas", "festive"],
+      asset: { kind: "accessory" as const, accessoryId: id },
+      compatibility: { kind: "universal" as const },
+    };
+  }),
 ] as const;
 
 export type CompanionStoreDesire = {
@@ -581,6 +623,12 @@ export function isWardrobeStoreItemCompatible(
 
 /** What vouches for one item on this companion: a human-reviewed fit, an automated pass, or nothing yet. */
 export function wardrobeItemEvidence(item: WardrobeStoreItem, companionModelUrl: string, companionId: string, records: readonly WardrobeEngineeringReview[] = engineeringReviews): WardrobePairEvidence {
+  // A piece built on another's fit (the Christmas headwear wears the crown's) is vouched for wherever that fit is.
+  if (item.asset.kind === "accessory" && accessoryFitId(item.asset.accessoryId) !== item.asset.accessoryId) {
+    const fitId = accessoryFitId(item.asset.accessoryId);
+    const base = WARDROBE_STORE_CATALOG.find(row => row.asset.kind === "accessory" && row.asset.accessoryId === fitId);
+    return base ? wardrobeItemEvidence(base, companionModelUrl, companionId, records) : "none";
+  }
   const templateId = item.templateId ?? (item.asset.kind === "accessory" ? item.id : null);
   if (!templateId) return "none";
   if (resolveWardrobeTemplateCertification(companionId, templateId, companionModelUrl).status === "approved") return "human";
@@ -637,7 +685,7 @@ export function wardrobePairEvidence(requestedCompanionId:string,outfitItemId:st
  const outfitId=outfitAsset.outfitId;
  const record=records.find(r=>r.companionId===wardrobeBodyOwnerId(requestedCompanionId));
  const garment=record?.garments.find(g=>g.outfitId===outfitId);
- const pairCheck=`${outfitId}:${accessoryAsset.accessoryId}`;
+ const pairCheck=`${outfitId}:${accessoryFitId(accessoryAsset.accessoryId)}`;
  if(record?.automated==='passed'&&garment?.visual==='passed'&&record.supplemental?.some(e=>e.check===pairCheck&&e.path.trim()))return 'automated';
  if(modelUrl&&isWardrobePairApproved(requestedCompanionId,outfitItemId,accessoryItemId,getWardrobePairVersion(requestedCompanionId,modelUrl,outfitItemId,accessoryItemId)))return 'human';
  return 'none';

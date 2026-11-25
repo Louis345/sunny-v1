@@ -105,9 +105,16 @@ describe("wardrobe store domain", () => {
       "lavender-ribbon-dress",
       "ruby-ribbon-dress",
       "snow-ribbon-dress",
+      "holly-ribbon-dress",
+      "evergreen-ribbon-dress",
       // Owner, 2026-11-10: an automated visual pass is approval, so garments with a passed review are listed too.
       "comet-hoodie",
       "constellation-blazer",
+      // Christmas 2026: dyed garments and code-built headwear that wears the crown's proven fit.
+      "candy-cane-hoodie",
+      "evergreen-blazer",
+      "santa-hat", "elf-hat", "earmuffs", "pompom-beanie", "candy-cane-bow", "jingle-bell-bow", "mistletoe-headband",
+      "gingerbread-clip", "reindeer-antlers", "holly-crown", "star-topper", "snowflake-tiara",
     ]);
     // Kefla's garments passed the automated visual review, so they are hers to wear without a human sign-off.
     expect(keflaItems.map((item) => item.id)).toEqual(sampleItems.map((item) => item.id));
@@ -157,8 +164,12 @@ describe("wardrobe store domain", () => {
       "Lavender Ribbon Dress",
       "Ruby Ribbon Dress",
       "Snow Ribbon Dress",
+      "Holly Red Dress",
+      "Evergreen Dress",
       "Comet Hoodie",
       "Constellation Blazer",
+      "Candy Cane Hoodie",
+      "Evergreen Blazer",
     ]);
     expect(
       outfits.every(

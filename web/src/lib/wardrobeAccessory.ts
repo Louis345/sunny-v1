@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { applyPreparedAccessoryFit, applyReferenceAccessoryFit } from "./wardrobeAccessoryFit";
 import type { WardrobeAccessoryId } from "./wardrobeStore";
+import { buildChristmasAccessory, isChristmasAccessory } from "./christmasAccessories";
 
 // Generated accessories on a companion's head bone. Shared by the closet, the board portrait and the 3D games'
 // dress-up (owner, 2026-11-25: her look follows her companion everywhere), so it lives outside any one screen.
@@ -10,6 +11,10 @@ function createWardrobeAccessory(
 ): THREE.Group {
   const accessory = new THREE.Group();
   accessory.name = `sunny-wardrobe-${accessoryId}`;
+  if (isChristmasAccessory(accessoryId)) {
+    buildChristmasAccessory(accessoryId, accessory);
+    return accessory;
+  }
 
   if (accessoryId === "crown") {
     const gold = new THREE.MeshStandardMaterial({

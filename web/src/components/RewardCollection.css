@@ -30,3 +30,5 @@
 .reward-tile__icon[style] { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; }
 /* Owned but not for this companion yet: dimmed, with no button that would do nothing (2026-11-15). */
 .reward-tile[data-fits="false"] { opacity: 0.45; }
+/* Christmas 2026: the seasonal set gets its own festive row. */
+.reward-collection__section[data-season="christmas"] { border-radius: 16px; padding: 10px 12px; background: linear-gradient(135deg, rgba(212,42,60,0.12), rgba(31,138,76,0.14)); box-shadow: inset 0 0 0 2px rgba(212,42,60,0.35); }

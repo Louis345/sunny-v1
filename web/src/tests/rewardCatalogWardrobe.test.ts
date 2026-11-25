@@ -22,8 +22,13 @@ it("an outfit costs the same in the collection as in the wardrobe store", () => 
 // approved but had no price, so the wallet shelf hid them. Every shop item now has a price in both catalogs, and the
 // ribbon dress comes in more colours.
 it("every wardrobe item is priced in the shop and the collection, so none is hidden", () => {
-  // Only an item still waiting for its try-on may be unpriced (2026-11-14); approval prices it.
-  for (const item of WARDROBE_STORE_CATALOG.filter(row => !AWAITING_TRY_ON_ITEM_IDS.includes(row.id))) {
+  // Only an item still waiting for its try-on may be unpriced (2026-11-14); approval prices it. A seasonal item
+  // (Christmas 2026) is chest-only on purpose: it has no price in the collection, so coins can never buy it.
+  const seasonal = REWARD_CATALOG.filter(row => row.season).map(row => row.wardrobeItemId);
+  for (const item of WARDROBE_STORE_CATALOG.filter(row => seasonal.includes(row.id))) {
+    expect(REWARD_CATALOG.find(row => row.wardrobeItemId === item.id)?.price, item.id).toBeUndefined();
+  }
+  for (const item of WARDROBE_STORE_CATALOG.filter(row => !AWAITING_TRY_ON_ITEM_IDS.includes(row.id) && !seasonal.includes(row.id))) {
     expect(item.price, item.id).toBeGreaterThan(0);
     expect(REWARD_CATALOG.find(row => row.kind === "outfit" && row.wardrobeItemId === item.id)?.price, item.id).toBe(item.price);
   }

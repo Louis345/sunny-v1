@@ -79,3 +79,16 @@
 }
 
 .node-chest__item-note{display:block;margin-top:4px;font-size:14px;font-weight:700;color:#fff6d8;}
+/* Christmas 2026 (S4): a legendary find bursts in gold; a seasonal find opens with snow. */
+.node-chest__burst{position:absolute;inset:-60px;z-index:3;pointer-events:none;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,#ffe58a55 0 10deg,transparent 10deg 20deg),radial-gradient(circle,#fff6cfcc 0,#ffc93c66 30%,transparent 62%);
+  animation:node-chest-burst 1.4s ease-out both, node-chest-spin 6s linear infinite;}
+.node-chest__item[data-rarity="legendary"]{animation:node-chest-rise .6s .2s cubic-bezier(.3,1.5,.5,1) both, node-chest-glow 1.2s 0.8s ease-in-out infinite alternate;}
+.node-chest__snow{position:absolute;inset:-40px;z-index:5;pointer-events:none;overflow:hidden;}
+.node-chest__snow span{position:absolute;top:-12px;left:calc(var(--i) * 7%);width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 6px #cfe8ff;
+  animation:node-chest-snow 2.6s linear infinite;animation-delay:calc(var(--i) * -0.19s);}
+@keyframes node-chest-burst{from{scale:.2;opacity:0}30%{opacity:1}to{scale:1.15;opacity:.85}}
+@keyframes node-chest-spin{to{rotate:360deg}}
+@keyframes node-chest-glow{from{box-shadow:0 0 30px var(--glow)}to{box-shadow:0 0 70px var(--glow),0 0 120px #fff3}}
+@keyframes node-chest-snow{to{translate:calc(sin(var(--i)) * 30px) 420px}}
+@media (prefers-reduced-motion: reduce){.node-chest__burst,.node-chest__snow span,.node-chest__item[data-rarity="legendary"]{animation:none}}

@@ -74,7 +74,7 @@ export function rewardDropSystemEvent(chest: NodeChest): string | null {
   const found = chest.bonus.kind === "item"
     ? (() => {
       const item = REWARD_CATALOG.find(row => row.id === (chest.bonus as { itemId: string }).itemId);
-      return item ? `She found the ${item.name}, a ${item.rarity} ${item.kind === "game" ? "8-bit game" : "outfit"}; it is now in her collection.` : `She found a collection item (${chest.bonus.itemId}); it is now in her collection.`;
+      return item ? `She found the ${item.name}, a ${item.rarity} ${item.kind === "game" ? "8-bit game" : "outfit"}${item.season ? " from the Christmas set" : ""}; it is now in her collection.` : `She found a collection item (${chest.bonus.itemId}); it is now in her collection.`;
     })()
     : `She found ${chest.bonus.minutes} extra call minutes.`;
   return `[System event: treasure chest opened] Her ${chest.rarity} chest paid ${chest.coins} coins. ${found}`;

@@ -16,7 +16,33 @@ export type RewardItem = {
   wardrobeItemId?: string;
   /** Coins to buy it outright (the wardrobe store's price); absent means it can only be found in chests. */
   price?: number;
+  /** Where she wears it: on her head (an accessory) or as her clothes. */
+  slot?: "head" | "body";
+  /** A seasonal drop: chests give it only inside the season's window; once won it is hers forever. */
+  season?: string;
 };
+
+/** Christmas drop 2026 (owner, 2026-11-25): chest-only items, dropped Dec 1 to Jan 6 (inclusive). */
+export const CHRISTMAS_2026 = { id: "christmas-2026", name: "Christmas", from: "2026-12-01", until: "2027-01-06" } as const;
+const SEASONS: Record<string, { from: string; until: string }> = { [CHRISTMAS_2026.id]: CHRISTMAS_2026 };
+/** The family's calendar day (the kiosk is in New York), so the window opens at their midnight, not UTC's. */
+function familyDay(nowIso: string): string {
+  return new Date(nowIso).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+}
+/** Whether a chest can drop this item now. Items with no season are always in. */
+export function inSeason(item: RewardItem, nowIso: string): boolean {
+  const season = item.season ? SEASONS[item.season] : undefined;
+  if (!season) return item.season === undefined;
+  const day = familyDay(nowIso);
+  return day >= season.from && day <= season.until;
+}
+/** A season that has ended: what she never won leaves her collection; what she won stays. */
+function seasonOver(item: RewardItem, nowIso: string): boolean {
+  const season = item.season ? SEASONS[item.season] : undefined;
+  return Boolean(season && familyDay(nowIso) > season.until);
+}
+const christmas = (wardrobeItemId: string, name: string, icon: string, rarity: RewardRarity, slot: "head" | "body"): RewardItem =>
+  ({ id: `outfit:${wardrobeItemId}`, kind: "outfit", name, icon, rarity, wardrobeItemId, slot, season: CHRISTMAS_2026.id });
 
 export const REWARD_CATALOG: readonly RewardItem[] = [
   { id: "game:asteroid", kind: "game", name: "Asteroid", icon: "🚀", rarity: "rare", gameId: "asteroid" },
@@ -34,6 +60,22 @@ export const REWARD_CATALOG: readonly RewardItem[] = [
   { id: "outfit:sky-ribbon-dress", kind: "outfit", name: "Sky Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sky-ribbon-dress", price: 130 },
   { id: "outfit:sunflower-ribbon-dress", kind: "outfit", name: "Sunflower Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sunflower-ribbon-dress", price: 140 },
   { id: "outfit:sunset-ribbon-dress", kind: "outfit", name: "Sunset Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sunset-ribbon-dress", price: 140 },
+  christmas("santa-hat", "Santa Hat", "🎅", "common", "head"),
+  christmas("elf-hat", "Elf Hat", "🧝", "common", "head"),
+  christmas("earmuffs", "Snow Earmuffs", "❄️", "common", "head"),
+  christmas("pompom-beanie", "Pom-pom Beanie", "🧶", "common", "head"),
+  christmas("candy-cane-bow", "Candy Cane Bow", "🍬", "rare", "head"),
+  christmas("jingle-bell-bow", "Jingle Bell Bow", "🔔", "rare", "head"),
+  christmas("mistletoe-headband", "Mistletoe Headband", "🌿", "rare", "head"),
+  christmas("gingerbread-clip", "Gingerbread Clip", "🍪", "rare", "head"),
+  christmas("reindeer-antlers", "Reindeer Antlers", "🦌", "epic", "head"),
+  christmas("holly-crown", "Holly Crown", "🎄", "epic", "head"),
+  christmas("star-topper", "Tree-top Star", "⭐", "epic", "head"),
+  christmas("snowflake-tiara", "Snowflake Tiara", "💎", "legendary", "head"),
+  christmas("holly-ribbon-dress", "Holly Red Dress", "👗", "rare", "body"),
+  christmas("evergreen-ribbon-dress", "Evergreen Dress", "👗", "rare", "body"),
+  christmas("candy-cane-hoodie", "Candy Cane Hoodie", "🧥", "epic", "body"),
+  christmas("evergreen-blazer", "Evergreen Blazer", "🧥", "epic", "body"),
 ];
 
 /** What coins buy (owner, 2026-11-07): coins must be scarce enough to mean something. One board pays about
@@ -84,25 +126,26 @@ export const ITEM_SHARE = 0.75;
 const RANK: Record<RewardRarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3 };
 const CHESTS: RewardRarity[] = ["common", "rare", "epic", "legendary"];
 
-/** Items a chest of this rarity can drop: ones she does not own, no rarer than the chest. */
-export function eligibleDrops(chest: RewardRarity, ownedIds: readonly string[]): RewardItem[] {
-  return REWARD_CATALOG.filter(item => !ownedIds.includes(item.id) && RANK[item.rarity] <= RANK[chest]);
+/** Items a chest of this rarity can drop now: ones she does not own, no rarer than the chest, in season. */
+export function eligibleDrops(chest: RewardRarity, ownedIds: readonly string[], nowIso: string): RewardItem[] {
+  return REWARD_CATALOG.filter(item => !ownedIds.includes(item.id) && RANK[item.rarity] <= RANK[chest] && inSeason(item, nowIso));
 }
 
-/** The chance one chest drops this item, before any pity bonus. */
-export function dropChance(item: RewardItem, chest: RewardRarity, ownedIds: readonly string[]): number {
-  const pool = eligibleDrops(chest, ownedIds);
+/** The chance one chest drops this item now, before any pity bonus. */
+export function dropChance(item: RewardItem, chest: RewardRarity, ownedIds: readonly string[], nowIso: string): number {
+  const pool = eligibleDrops(chest, ownedIds, nowIso);
   if (!pool.some(row => row.id === item.id)) return 0;
   return CHEST_TABLE[chest].bonusChance * ITEM_SHARE / pool.length;
 }
 
 export type CollectionEntry = { item: RewardItem; owned: boolean; bestChest?: RewardRarity; bestChance?: number };
 
-/** Her collection: everything, owned first, then the rest by rarity with the chest most likely to drop each. */
-export function collectionView(ownedIds: readonly string[]): CollectionEntry[] {
-  return REWARD_CATALOG.map(item => {
+/** Her collection: everything, owned first, then the rest by rarity with the chest most likely to drop each.
+ * A seasonal item shows greyed before and during its season; after it, only what she won stays. */
+export function collectionView(ownedIds: readonly string[], nowIso: string = new Date().toISOString()): CollectionEntry[] {
+  return REWARD_CATALOG.filter(item => ownedIds.includes(item.id) || !seasonOver(item, nowIso)).map(item => {
     if (ownedIds.includes(item.id)) return { item, owned: true };
-    const [bestChest, bestChance] = CHESTS.map(chest => [chest, dropChance(item, chest, ownedIds)] as const)
+    const [bestChest, bestChance] = CHESTS.map(chest => [chest, dropChance(item, chest, ownedIds, nowIso)] as const)
       .reduce((best, row) => row[1] > best[1] ? row : best);
     return { item, owned: false, bestChest, bestChance };
   }).sort((a, b) => Number(b.owned) - Number(a.owned) || RANK[a.item.rarity] - RANK[b.item.rarity]);

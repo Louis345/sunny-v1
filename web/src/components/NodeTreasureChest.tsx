@@ -6,7 +6,7 @@ import { playLootSfx as play } from "../utils/gameSfx";
 /** The chest's colour says what she earned before she opens it; a mystery chest hides it until the lid lifts. */
 export type ChestRarity = "common" | "rare" | "epic" | "legendary";
 export type ChestKind = ChestRarity | "mystery";
-export type ChestLoot = { coins: number; callSeconds?: number; rarity?: ChestRarity; item?: { name: string; rarity: ChestRarity; icon?: string; kind?: "outfit" | "game" | "minutes" } };
+export type ChestLoot = { coins: number; callSeconds?: number; rarity?: ChestRarity; item?: { name: string; rarity: ChestRarity; icon?: string; kind?: "outfit" | "game" | "minutes"; season?: string } };
 /** The chest the server rolled and saved, as the completion route returns it. */
 export type ServerNodeChest = { homeworkId?: string; nodeId?: string; kind: ChestKind; rarity: ChestRarity; coins: number; bonusChance: number;
   bonus?: { kind: "call_minutes"; minutes: number } | { kind: "item"; itemId: string }; callSeconds?: number };
@@ -15,7 +15,7 @@ export type ServerNodeChest = { homeworkId?: string; nodeId?: string; kind: Ches
 function bonusItem(bonus: NonNullable<ServerNodeChest["bonus"]>, rarity: ChestRarity): NonNullable<ChestLoot["item"]> {
   if (bonus.kind === "call_minutes") return { name: `${bonus.minutes} call minutes`, rarity, icon: "🎥", kind: "minutes" };
   const item = REWARD_CATALOG.find(row => row.id === bonus.itemId);
-  return item ? { name: item.name, rarity: item.rarity, icon: item.icon, kind: item.kind } : { name: "A new treasure", rarity, icon: "✦" };
+  return item ? { name: item.name, rarity: item.rarity, icon: item.icon, kind: item.kind, ...(item.season ? { season: item.season } : {}) } : { name: "A new treasure", rarity, icon: "✦" };
 }
 
 export function chestFromServer(chest: ServerNodeChest): { rarity: ChestKind; bonusChance: number; loot: ChestLoot } {
@@ -85,8 +85,11 @@ export function NodeTreasureChest({ rarity, loot, bonusChance, compact = false, 
           </div>
         </div>
         {isOpen ? <div className="node-chest__coins" aria-hidden="true">{Array.from({ length: COIN_SPRAY }, (_, i) => <span key={i} style={{ ["--i" as string]: i }} />)}</div> : null}
+        {/* Christmas 2026 (S4): a legendary find bursts in gold; a seasonal find opens with falling snow. No words. */}
+        {isOpen && loot.item?.rarity === "legendary" ? <div className="node-chest__burst" aria-hidden="true" /> : null}
+        {isOpen && loot.item?.season ? <div className="node-chest__snow" aria-hidden="true">{Array.from({ length: 14 }, (_, i) => <span key={i} style={{ ["--i" as string]: i }} />)}</div> : null}
         {isOpen && loot.item ? (
-          <div className="node-chest__item" data-rarity={loot.item.rarity}>
+          <div className="node-chest__item" data-rarity={loot.item.rarity} data-season={loot.item.season}>
             <span className="node-chest__item-icon" aria-hidden="true">{loot.item.icon ?? "✦"}</span>
             <span className="node-chest__item-rarity">{RARITY_NAME[loot.item.rarity]}</span>
             <span className="node-chest__item-name">{loot.item.name}</span>

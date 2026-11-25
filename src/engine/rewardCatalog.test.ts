@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops, dropChance, collectionView } from "../shared/rewardCatalog";
 import { REWARD_GAMES } from "../shared/gameRegistry.generated";
+/** Outside any seasonal window, so these odds are the everyday catalog. */
+const NOW = "2026-11-20T12:00:00.000Z";
 
 // Owner, 2026-11-07: one catalog of everything she can earn, shown greyed out until she finds it in a chest,
 // so new content is one more entry, never new plumbing.
@@ -13,20 +15,20 @@ describe("reward catalog", () => {
   });
 
   it("drops only items she does not own, no rarer than the chest", () => {
-    const fromRare = eligibleDrops("rare", []).map(item => item.rarity);
+    const fromRare = eligibleDrops("rare", [], NOW).map(item => item.rarity);
     expect(fromRare.length).toBeGreaterThan(0);
     expect(fromRare.every(rarity => rarity === "common" || rarity === "rare")).toBe(true);
-    const owned = eligibleDrops("legendary", []).map(item => item.id);
-    expect(eligibleDrops("legendary", owned)).toEqual([]);
+    const owned = eligibleDrops("legendary", [], NOW).map(item => item.id);
+    expect(eligibleDrops("legendary", owned, NOW)).toEqual([]);
   });
 
   it("shows the real chance a chest drops an item, and none for an item she owns or a chest too plain for it", () => {
     const legendaryItem = REWARD_CATALOG.find(item => item.rarity === "legendary")!;
-    expect(dropChance(legendaryItem, "rare", [])).toBe(0);
+    expect(dropChance(legendaryItem, "rare", [], NOW)).toBe(0);
     const commonItem = REWARD_CATALOG.find(item => item.rarity === "common")!;
-    const pool = eligibleDrops("epic", []).length;
-    expect(dropChance(commonItem, "epic", [])).toBeCloseTo(CHEST_TABLE.epic.bonusChance * ITEM_SHARE / pool);
-    expect(dropChance(commonItem, "epic", [commonItem.id])).toBe(0);
+    const pool = eligibleDrops("epic", [], NOW).length;
+    expect(dropChance(commonItem, "epic", [], NOW)).toBeCloseTo(CHEST_TABLE.epic.bonusChance * ITEM_SHARE / pool);
+    expect(dropChance(commonItem, "epic", [commonItem.id], NOW)).toBe(0);
   });
 
   it("builds the collection: everything, owned first in colour, the rest locked with where to find them", () => {
@@ -55,14 +57,14 @@ it("a typical session pays for a small treat but not a dress", () => {
 // Owner 2026-11-08 ("the World of Warcraft model ... to get them hooked"): coins every chest, and an item
 // often enough that opening a chest is a real "what did I get" moment; junk often, great things rarely.
 describe("loot drops often enough to hook her", () => {
-  const itemChance = (chest: "common" | "rare" | "epic") => eligibleDrops(chest, []).reduce((sum, item) => sum + dropChance(item, chest, []), 0);
+  const itemChance = (chest: "common" | "rare" | "epic") => eligibleDrops(chest, [], NOW).reduce((sum, item) => sum + dropChance(item, chest, [], NOW), 0);
   it("drops an item from about a third of common chests, half of rare and three quarters of epic", () => {
     expect(itemChance("common")).toBeCloseTo(1 / 3, 1);
     expect(itemChance("rare")).toBeCloseTo(1 / 2, 1);
     expect(itemChance("epic")).toBeCloseTo(3 / 4, 1);
   });
   it("keeps dresses rare: only epic and legendary chests can drop one", () => {
-    const dresses = (chest: "common" | "rare") => eligibleDrops(chest, []).filter(item => item.name.includes("Dress"));
+    const dresses = (chest: "common" | "rare") => eligibleDrops(chest, [], NOW).filter(item => item.name.includes("Dress"));
     expect(dresses("common")).toEqual([]);
     expect(dresses("rare")).toEqual([]);
   });

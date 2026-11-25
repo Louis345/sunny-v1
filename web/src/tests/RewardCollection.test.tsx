@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { RewardCollection } from "../components/RewardCollection";
-import { REWARD_CATALOG } from "../../../src/shared/rewardCatalog";
+import { collectionView } from "../../../src/shared/rewardCatalog";
 
 // Owner, 2026-11-07: she sees everything she could earn; what she has is in colour, the rest is greyed out
 // with where to find it, so she knows what she is playing for.
 it("shows how much of the collection she has found", () => {
   render(<RewardCollection ownedIds={["game:asteroid", "outfit:cat-ears"]} />);
-  expect(screen.getByText(`2 of ${REWARD_CATALOG.length} found`)).toBeTruthy();
+  expect(screen.getByText(`2 of ${collectionView([]).length} found`)).toBeTruthy();
 });
 
 it("greys out what she has not found yet and says which chest drops it and how likely", () => {
