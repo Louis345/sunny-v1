@@ -97,3 +97,21 @@ function PlayABoard() {
   );
 }
 export const PlayABoardStory: Story = { name: "Play a board (real roll)", render: () => <PlayABoard /> };
+
+/** Christmas drop 2026 (S4): a legendary find bursts in gold with its own sound; every Christmas find opens with snow. */
+const christmasFind = (wardrobeItemId: string, kind: "common" | "legendary") => {
+  const item = REWARD_CATALOG.find(row => row.wardrobeItemId === wardrobeItemId)!;
+  return chestFromServer({ kind, rarity: kind, coins: kind === "legendary" ? 60 : 8, bonusChance: 1, bonus: { kind: "item", itemId: item.id } });
+};
+export const ChristmasFinds: Story = {
+  name: "Christmas finds (common vs legendary, opened)",
+  render: () => (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "#05030f" }}>
+      <NodeTreasureChest {...christmasFind("santa-hat", "common")} onCollect={() => {}} />
+      <NodeTreasureChest {...christmasFind("snowflake-tiara", "legendary")} onCollect={() => {}} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    for (const button of within(canvasElement).getAllByRole("button", { name: /tap to open/i })) await userEvent.click(button);
+  },
+};

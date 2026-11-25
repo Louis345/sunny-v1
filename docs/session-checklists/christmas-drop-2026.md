@@ -4,7 +4,7 @@ Owner, 2026-11-25: Christmas items as Quest and Boss rewards, no human approval 
 complain, we fix it, and add a check so it doesn't happen again." Branch: `christmas/drop-2026` (from the #59 branch;
 #59 fixes are pulled in as they land). Rewards never touch learning records.
 
-**Status: draft for owner approval. No code yet.**
+**Status: approved by owner 2026-11-25; built and checked on this Mac 2026-11-25. Not yet on Saori.**
 
 ## What clothes can be made, honestly (seen in code)
 
@@ -74,6 +74,26 @@ new check in this file.
 2. On Saori, with the owner's OK and no child playing: deploy, then confirm a chest opens.
 3. With the kids: they are the final check.
 
-## Results
+## Results (2026-11-25, lab server and Storybook on this Mac, no provider keys)
 
-_(filled in after the build)_
+Photos are kept on the dev Mac only (out of the public repo): all 12 pieces on Elli, the four garments, the two chest
+reveals and the closet row. In this build Reina's Matilda wears the same prepared body as Elli (the lab log said
+`companion=matilda body=/companions/elli-wardrobe-identity-preserved-v1.vrm`), so the Elli photos are what both girls
+see. Matilda's own prepared body is covered by the automated S1 test.
+
+| # | Result | Proof |
+|---|---|---|
+| S1 | **Pass** | `web/src/tests/christmasDrop.test.ts`: all 12 pieces attach on Elli's and Matilda's prepared bodies, have visible meshes, are head-sized and sit on the head; the closet offers the whole set on both. By eye: every piece sits on Elli's head, centred and facing forward. The first pass had the hats perched too high and the bows too small, so they were lowered and enlarged after the first photos. |
+| S2 | **Pass** | `src/engine/christmasDrop.test.ts`: a real chest roll gives a Christmas item in the window; before Dec 1 and after Jan 6 the pool has none. The window uses the family's New York day. |
+| S3 | **Pass** | Same test: a won item stays in her collection after the window. The closet's wearing save checks ownership through the same catalog, so she can wear it. |
+| S4 | **Pass** | `christmasCollection.test.tsx`: a legendary find bursts in gold and plays the legendary sound; a common one does neither. Every Christmas find opens with snow. Story "Christmas finds". |
+| S5 | **Pass** | Collection: its own Christmas row, greyed until won (test). The closet in a call has a second row of greyed shapes with no padlocks and no words, filling in colour as she wins them (test, story "Christmas row"). Unwon items leave after the window. |
+| S6 | **Pass by test** | The companion card's look puts a won hat and dress on her (`christmasDrop.test.ts`, S6). Every room draws through the same code (outfit-follows-companion). Not yet seen in a live 3D game. |
+| F1 | **Pass** | No learning, evidence or board code changed. The only server change is the chest pool and one fact line for Elli ("from the Christmas set"). |
+| F2 | **Pass** | Nothing crashed in the lab across 12 pieces and 4 garments. The build passes. |
+| F3 | **Pass** | Test: coins cannot buy a Christmas item (`unknown_offer`). Her real shelf shows one only once she owns it. Drops only add items she does not own. |
+| F4 | **Pass** | The closet row and the reveal use shapes, colour and motion only. The chest card's existing line ("A new look for Elli!") is unchanged. |
+| F5 | **Pass** | `npm run build` passes; web suite 1698/1698; reward and wardrobe server tests 85/85. |
+
+**Garments:** all four dye visibly (red and green dresses, red hoodie, green blazer), so none was dropped.
+**Watch with the kids:** the red hoodie comes out coral rather than deep red. The Santa hat's tip reads as a folded hat.

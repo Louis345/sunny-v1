@@ -26,3 +26,16 @@ export const PrincessTonight: Story = {
     </div>
   ),
 };
+
+// Christmas drop 2026 (S5): the set is a second row of greyed shapes that fill in as she wins them.
+const christmas: TryOnEntry[] = REWARD_CATALOG.filter(row => row.season === "christmas-2026").map(row => ({
+  item: row, owned: ["outfit:santa-hat", "outfit:holly-ribbon-dress", "outfit:reindeer-antlers"].includes(row.id), fits: true, worn: row.id === "outfit:santa-hat",
+  chest: row.rarity, ...(row.id === "outfit:holly-ribbon-dress" ? { tint: "#e8323f" } : {}),
+}));
+export const ChristmasRow: Story = {
+  render: () => (
+    <div style={{ position: "relative", width: 1200, height: 780, background: "linear-gradient(#cfd8f0,#f3e6f0)" }}>
+      <TryOnTray entries={[...entries.slice(0, 5), ...christmas]} onWear={() => {}} onOriginal={() => {}} onClose={() => {}} companionName="Elli" />
+    </div>
+  ),
+};
