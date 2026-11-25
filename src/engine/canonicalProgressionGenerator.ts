@@ -654,6 +654,31 @@ export async function retryCutOffStop(
 }
 
 /**
+ * Owner, 2026-11-25: "it's just a game that fails and it needs to be repaired". Each stop on her current board whose
+ * build was refused, cut off, or lost its bind is rebuilt once, by itself, through the same routine a person ran before.
+ * A stop already rebuilt once waits for a person. A repair that fails leaves one Not ready portal; the board still plays.
+ */
+export async function autoRepairNotReadyStops(
+  input: { childId: string; homeworkId: string; client?: SpellingGameClient },
+  opts: LearningCycleRepositoryOptions = {},
+  retry: typeof retryCutOffStop = retryCutOffStop,
+): Promise<void> {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle?.boards?.length) return;
+  const onBoard = currentBoardInstance(cycle).nodeIds;
+  const repairable = cycle.nodes.filter(node => onBoard.includes(node.nodeId) && !node.artifactBinding
+    && [CUT_OFF_STOP_REASON, LOST_BIND_STOP_REASON, REFUSED_STOP_REASON].some(prefix => node.notReadyReason?.startsWith(prefix))
+    && !cycle.decisionHistory.some(row => row.eventType === "not_ready_paid_retry_authorized" && row.nodeId === node.nodeId));
+  for (const node of repairable) {
+    console.log(` 🎮 [board] [auto-repair] [started] child=${input.childId} homework=${input.homeworkId} node=${node.nodeId}`);
+    const result = await retry({ childId: input.childId, homeworkId: input.homeworkId, nodeId: node.nodeId, client: input.client,
+      reason: "Automatic repair: a failed game rebuilds itself once (owner, 2026-11-25)." }, opts)
+      .catch((error: unknown) => ({ rebuilt: false, failure: error instanceof Error ? error.message : String(error) }));
+    console.log(` 🎮 [board] [auto-repair] [${result.rebuilt ? "rebuilt" : "still-not-ready"}] child=${input.childId} homework=${input.homeworkId} node=${node.nodeId}${result.failure ? ` reason=${result.failure.slice(0, 160)}` : ""}`);
+  }
+}
+
+/**
  * Implement and verify every node of the one preparing successor board, reusing
  * nodes already bound by an earlier run. The board publishes on its last verified
  * binding; it never opens a node or interrupts the child.
@@ -691,6 +716,17 @@ function launchBuiltInActivity(childId: string, homeworkId: string, cycle: Learn
 }
 
 export async function prepareSuccessorBoard(
+  input: Omit<CanonicalProgressionGeneratorInput, "nodeId">,
+  opts: LearningCycleRepositoryOptions = {},
+): Promise<LearningCycleRecordV2> {
+  const built = await buildSuccessorBoard(input, opts);
+  // After the build releases its lease: each failed stop rebuilds itself once (owner, 2026-11-25).
+  if (!built.boards || preparingBoardInstance(built)) return built;
+  await autoRepairNotReadyStops({ childId: input.childId, homeworkId: input.homeworkId, client: input.spellingGameClient }, opts);
+  return getLearningCycle(input.childId, input.homeworkId, opts) ?? built;
+}
+
+async function buildSuccessorBoard(
   input: Omit<CanonicalProgressionGeneratorInput, "nodeId">,
   opts: LearningCycleRepositoryOptions = {},
 ): Promise<LearningCycleRecordV2> {
