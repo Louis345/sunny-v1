@@ -160,7 +160,11 @@ export function gameItemLines(node: LearningCycleNodeContract): string[] {
 export function gameProblems(html: string, domain: string): string[] {
   if (domain === "spelling") return spellingGameProblems(html);
   const problems = spellingGameProblems(html).filter(row => !row.includes("openSpellingItem"));
-  return [...(/openItem\s*\(/.test(html) ? [] : ["it never calls window.openItem before a problem, so no answer can count"]), ...problems];
+  // Ila, 2026-11-25: a game with ids written in reports her answers under another board's problems, and they are lost.
+  const written = [...new Set([...html.matchAll(/["']([\w-]+-r\d+-step-problem-\d+)["']/g)].map(match => match[1]!))];
+  return [...(/openItem\s*\(/.test(html) ? [] : ["it never calls window.openItem before a problem, so no answer can count"]),
+    ...(written.length ? [`it writes problem ids into its code (${written.slice(0, 3).join(", ")}); read each problem's itemId from window.GAME_PARAMS.itemBindings so her answers count`] : []),
+    ...problems];
 }
 
 /** Problems code can see in a game before she plays it: each would break her measurement or her safety. */

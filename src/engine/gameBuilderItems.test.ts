@@ -39,4 +39,14 @@ describe("the shared game builder", () => {
     // Spelling keeps its own opener.
     expect(gameProblems(game, "spelling").join(" ")).toMatch(/openSpellingItem/);
   });
+
+  // Ila, 2026-11-25 (board 16): games with problem ids written into their code reported her answers under another
+  // board's problems; 8 answers were refused. The builder is told to read ids from itemBindings; now code checks it, and
+  // the one repair turn the builder already gets fixes it, with no person involved.
+  it("sends a math game back for repair when it writes problem ids into its code", () => {
+    const reads = `<html><body><script>const items=window.GAME_PARAMS.itemBindings;window.openItem(items[0].itemId);window.reportStep("answer","Go.");window.fireAttemptEvent({target:items[0].itemId,attemptedValue:"4"});window.sendNodeComplete({completed:true});</script></body></html>`;
+    expect(gameProblems(reads, "math")).toEqual([]);
+    const written = reads.replace("items[0].itemId,attemptedValue", '"hw-math-21cc76a6-r248-step-problem-6",attemptedValue');
+    expect(gameProblems(written, "math").join(" ")).toMatch(/hw-math-21cc76a6-r248-step-problem-6[^]*GAME_PARAMS\.itemBindings/);
+  });
 });
