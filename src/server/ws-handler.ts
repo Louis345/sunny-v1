@@ -13,6 +13,7 @@ import {
 import type { ChildName } from "./session-triggers";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { getChildChart } from "../profiles/childChart";
+import { setCompanionSpeechMuted } from "./companionItemHelp";
 
 /** retryable: a retry can fix it (a provider or network failure while starting); the others need a grown-up (S7a). */
 function formatSessionStartError(message: string): { code: string; message: string; retryable: boolean } {
@@ -202,6 +203,7 @@ export function handleWsConnection(
               }
             : undefined;
         session = new SessionManager(ws, child as ChildName, diagKiosk, sessionOptions);
+        setCompanionSpeechMuted(session.chartChildId, false, "session_start");
         try {
           await session.start();
         } catch (err) {
@@ -285,6 +287,7 @@ export function handleWsConnection(
         // S10: a mute press was only in the session trace; it must be in the server log too.
         if ((msg as Record<string, unknown>).event === "companion_speech_mute") {
           console.log(` 🎮 [client-audio] [companion_speech_mute] [${(msg as Record<string, unknown>).muted ? "on" : "off"}]`);
+          setCompanionSpeechMuted(session.chartChildId, (msg as Record<string, unknown>).muted === true);
         }
         session.recordDebugEvent("client_audio", "status", {
           event: (msg as Record<string, unknown>).event,
