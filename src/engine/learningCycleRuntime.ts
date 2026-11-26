@@ -219,15 +219,14 @@ export function resolveCanonicalProgressionDecisionForLifecycle(
   lifecycle: LearningCycleRecordV2["lifecycle"],
   decision: CanonicalProgressionDecision,
 ): CanonicalProgressionDecision {
-  if (lifecycle !== "boss_evaluating" || decision.status !== "awaiting_calibration" || decision.progressionAction === "await_calibration") {
+  // A "waiting for grades" status with an action but no board is read as waiting. A board the Planner planned
+  // is never dropped this way (Reina 2026-11-26).
+  if (lifecycle !== "boss_evaluating" || decision.status !== "awaiting_calibration" || decision.progressionAction === "await_calibration"
+    || decision.successor?.instruments?.length) {
     return decision;
   }
-  console.log(` 🎮 [canonical-progression] [boss-action-normalized] from=${decision.progressionAction} to=await_calibration`);
-  return {
-    ...decision,
-    progressionAction: "await_calibration",
-    successor: undefined,
-  };
+  console.log(` 🎮 [canonical-progression] [boss-action-normalized] from=${decision.progressionAction} to=await_calibration reason=no_board`);
+  return { ...decision, progressionAction: "await_calibration", successor: undefined };
 }
 
 function slug(value: string): string {
@@ -1069,7 +1068,9 @@ async function askPlanner(
     // before her test the Boss vanished until a second Quest; full toolbox, the Planner decides).
     const questPassed=cycle.nodes.some(node=>node.role==="quest"&&node.state==="completed");
     const actions:LearningProgressionAction[]=cycle.lifecycle==="quest_evaluating"?["generate_boss","generate_support","await_calibration"]
-      :cycle.lifecycle==="boss_evaluating"?["await_calibration"]
+      // After a Boss the full menu stays (Reina 2026-11-26: offered only "wait", her Planner's board was thrown away
+      // five days before her test). Waiting for the graded test is one choice; the Planner decides.
+      :cycle.lifecycle==="boss_evaluating"?allowedProgressionActions.filter(action=>action!=="generate_boss"||questPassed)
       :allowedProgressionActions.filter(action=>(action!=="generate_boss"||questPassed)&&action!=="await_calibration");
     console.log(` 🎮 [canonical-progression] [actions-offered] homework=${cycle.homeworkId} lifecycle=${cycle.lifecycle} actions=${actions.join(",")}`);
     // A dated owner note (owner, 2026-11-11): a fact in the question while it lasts, never a forced step. The Planner decides.
@@ -1448,9 +1449,6 @@ async function decideOnce(
     if (!hasUnassistedUnseenQuestEvidence) {
       throw new Error("canonical_progression_boss_requires_unseen_quest_evidence");
     }
-  }
-  if (cycle.lifecycle === "boss_evaluating" && decision.progressionAction !== "await_calibration") {
-    throw new Error("canonical_progression_boss_requires_calibration");
   }
   const expectedEncounter = decision.progressionAction === "generate_quest" ? "quest" : decision.progressionAction === "generate_boss" ? "boss" : undefined;
   const encounters = instruments.filter((instrument) => instrument.encounter);

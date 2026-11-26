@@ -2091,7 +2091,8 @@ export function transitionLearningCycle(
     node.notReadyReason = `successor_node_failed:${event.reason}`;
     reason = `The one approved rebuild of node=${node.nodeId} failed; it stays Not ready.`;
   } else if (event.type === "owner_replan_requested") {
-    if (!["board_ready", "baseline_ready", "baseline_active"].includes(current.lifecycle) || !current.boards?.length
+    // Also from a wait for the graded test (Reina 2026-11-26: marked waiting five days before her test).
+    if (!["board_ready", "baseline_ready", "baseline_active", "awaiting_calibration"].includes(current.lifecycle) || !current.boards?.length
       || preparingBoardInstance(current) || !event.reason.trim()) throw new Error("owner_replan_not_eligible");
     next.lifecycle = "baseline_evaluating";
     reason = `The owner closed her current board early for this fresh decision: "${event.reason.trim()}"`;
