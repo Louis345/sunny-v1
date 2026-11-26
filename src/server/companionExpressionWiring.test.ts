@@ -7,7 +7,7 @@ vi.mock("ai", async (importOriginal) => ({
   streamText: stream,
   stepCountIs: () => () => false,
 }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: () => "model" }));
+vi.mock("@ai-sdk/anthropic", () => ({ anthropic: () => "model", createAnthropic: () => () => "model" }));
 vi.mock("../agents/elli/tools/generateToolDocs", () => ({ ALL_TOOLS: {} }));
 
 import { runCompanionResponseForSession } from "./companion-response-runner";
