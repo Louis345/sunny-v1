@@ -19,6 +19,7 @@ Owner, 2026-11-25: every deploy has a list of what it carries. `scripts/deploy-s
 | 241c60fe | The pace her companion picks for its own talking sticks across games and sessions (Reina: Matilda too fast) | `[companion-speech] [pace] [saved]` |
 | cc301a37 | Elli and Matilda keep 5 tools or fewer; spelling replay and teach are one tool (owner: keep tool calls low) | `[companion] [teach-word] [granted]` and no sessionStatus/spinWheel tool calls |
 | 27a03fa4 | Help she could not hear (companion muted) is no longer saved as companion help | `[companion-help] [not-heard] ... reason=muted` after a mute press; no `[companion-help] [noted]` while muted |
+| 5da78f72 | Elli and Matilda are told when the child has them muted, and that the mic hears everyone and cannot tell who spoke | `[companion-context] [voice-muted]` after a mute press; fewer replies while muted and fewer replies to adult talk |
 
 ## On Saori
 
