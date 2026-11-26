@@ -17,6 +17,7 @@ Owner, 2026-11-25: every deploy has a list of what it carries. `scripts/deploy-s
 | dfe6046a | The 3D Quest and Boss games are always on the tutor's menu (no parent note needed) | `[library-game] [offered] ... games=` on every board question |
 | 70e3d1b8 | A problem whose wording holds its answer is flagged to the Planner and never counts as a clean check (Reina's 9 x 4 Boss) | `[planner-tools] [problem-written] ... answer_in_wording=` |
 | 241c60fe | The pace her companion picks for its own talking sticks across games and sessions (Reina: Matilda too fast) | `[companion-speech] [pace] [saved]` |
+| cc301a37 | Elli and Matilda keep 5 tools or fewer; spelling replay and teach are one tool (owner: keep tool calls low) | `[companion] [teach-word] [granted]` and no sessionStatus/spinWheel tool calls |
 
 ## On Saori
 
