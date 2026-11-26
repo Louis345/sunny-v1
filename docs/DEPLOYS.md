@@ -21,6 +21,7 @@ Owner, 2026-11-25: every deploy has a list of what it carries. `scripts/deploy-s
 | 27a03fa4 | Help she could not hear (companion muted) is no longer saved as companion help | `[companion-help] [not-heard] ... reason=muted` after a mute press; no `[companion-help] [noted]` while muted |
 | 5da78f72 | Elli and Matilda are told when the child has them muted, and that the mic hears everyone and cannot tell who spoke | `[companion-context] [voice-muted]` after a mute press; fewer replies while muted and fewer replies to adult talk |
 | 8dd3d480 | After a Boss the tutor can still build boards before the test; the owner's replan works on a waiting record | `[canonical-progression] [actions-offered] ... lifecycle=boss_evaluating` lists generate_support; Reina gets a new board after the replan |
+| 03f58462 | Elli speaks without thinking first; her prompt stays cached for an hour; thinking tokens are logged (owner, 2026-11-26: one commit, revert if it fails) | `[companion] [thinking] [off] tokens=0` on every spoken turn; Claude first-word p90 under 1.5 s on `npm run sunny:voice:latency-report` (was 2.4 s). Fails if Elli contradicts the answer key more or coaches worse by ear: add `SUNNY_VOICE_THINKING=on` to Saori's `.env` and restart the kiosk, or `git revert 03f58462` |
 
 ## On Saori
 
