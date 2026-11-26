@@ -307,6 +307,27 @@ describe("canonical learning cycle runtime", () => {
     fs.rmSync(rootDir, { recursive: true, force: true });
   });
 
+  // Reina, 2026-11-25 (Boss, board 5): the problem's own words held its answer ("The picture shows 9 circles ...
+  // 36 ÷ ? = 4"). Code knows the wording and the answer, so her answer to such a problem is never a clean check.
+  it("records an answer as helped when the problem's wording holds its answer", () => {
+    const rootDir = root();
+    const items = frozenItems(["checkpoint-1", "2x5"]).map(item => item.id === "checkpoint-1"
+      ? { ...item, prompt: "The picture shows 10 circles. Each circle has 4 counters. 40 ÷ ? = 4", response: { mode: "numeric" as const, expected: 10 } } : item);
+    const instrument = { ...node("facts", "baseline"), evidenceContract: { academic: true, engagement: true, companionObservations: true,
+      itemContracts: Object.fromEntries(items.map(item=>[item.id,item])), itemRoles: { "checkpoint-1": "fresh_checkpoint", "2x5": "fresh_checkpoint" } } };
+    createLearningCycle({ ...input(), nodes: [instrument] as never }, { rootDir });
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "wording-session", nodeId: "facts", result: {
+      completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [
+        { target: "checkpoint-1", correct: true, attemptedValue: "10", screenAtOpen: "Camp 1." },
+        { target: "2x5", correct: true, attemptedValue: "10", screenAtOpen: "Camp 2." },
+      ] as never } }, { rootDir });
+    expect(cycle?.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemId: "checkpoint-1", provenance: "practice", assistance: expect.objectContaining({ status: "assisted", scaffolds: expect.arrayContaining(["answer_in_wording"]) }), confounds: expect.arrayContaining(["answer_exposure"]) }),
+      expect.objectContaining({ itemId: "2x5", provenance: "independent_probe" }),
+    ]));
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
   it("rejects target results that are not in the frozen item contract", () => {
     const rootDir = root();
     createLearningCycle({

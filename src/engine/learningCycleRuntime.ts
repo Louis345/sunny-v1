@@ -1,3 +1,4 @@
+import { answerInWording } from "./answerInWording";
 import {isDeepStrictEqual} from "node:util";
 import type { SchoolForecast } from "./schoolForecast";
 import { readyOnPaperSection, type PaperReadinessCall } from "./readyOnPaper";
@@ -436,8 +437,10 @@ function observationsForCompletion(input: {
     // An answer already on screen when the item opened is help, whatever the game says (owner, 2026-11-08).
     const answerShowing = item?.response.mode === "numeric" && typeof row.screenAtOpen === "string"
       && new RegExp(`=\\s*${String(item.response.expected).replace(".", "\\.")}(?![\\d.])`).test(row.screenAtOpen);
+    // The answer in the problem's own words is on her screen too (Reina, 2026-11-25: "it says the answer").
+    const answerInWords = item?.response.mode === "numeric" && typeof item.response.expected === "number" && answerInWording(item.prompt, item.response.expected) !== null;
     const helpedOnItem = (input.result.companionHelpItemIds ?? []).includes(row.target) || row.companionHelp === true;
-    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || helpedOnItem || hinted;
+    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || answerInWords || helpedOnItem || hinted;
     const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target) || tryIndex > 0;
     const spellingItem = spellingItems?.[row.target];
     const responseNotCaptured = !assistedInstruction && isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
@@ -470,6 +473,7 @@ function observationsForCompletion(input: {
           ...(Number(row.scaffoldLevel ?? 0) > 0 ? [`scaffold_level_${row.scaffoldLevel}`] : []),
           ...(companionHelp ? ["companion_help"] : []),
           ...(answerShowing ? ["answer_on_screen"] : []),
+          ...(answerInWords ? ["answer_in_wording"] : []),
           ...(helpedOnItem ? ["companion_help_on_item"] : []),
           ...(hinted ? ["hint_shown"] : []),
         ],
@@ -479,7 +483,7 @@ function observationsForCompletion(input: {
       observedAt: input.observedAt,
       confounds: [
         ...(scaffolded ? ["assistance_present"] : []),
-        ...(answerShowing ? ["answer_exposure"] : []),
+        ...(answerShowing || answerInWords ? ["answer_exposure"] : []),
         ...(repeatedAssessmentItem ? ["item_previously_exposed"] : []),
         ...(result.observedErrorType ? [result.observedErrorType] : []),
         // A letter game's own report on the word, labelled as the game's, so the Planner sees the
