@@ -225,3 +225,17 @@ it("keeps the pace Elli chose for every next problem in the same game", async ()
   expect(JSON.parse(third.send.mock.calls[0][0]).voice_settings.speed).toBe(0.85);
   bridge.close();
 });
+
+// Reina, 2026-11-25: the pace Matilda chose for her own talking reset at the next game. It now holds across games
+// (and starts at the pace saved for her); a word a game plays keeps its own item's pace.
+it("keeps the companion's chosen pace for her own talking across games, and leaves game words at their own pace",()=>{
+ vi.stubEnv("TTS_ENABLED","true");vi.stubEnv("ELEVENLABS_API_KEY","test-only");
+ const bridge=new WsTtsBridge({readyState:1,OPEN:1,send:vi.fn()} as any,"test-voice");
+ bridge.useCompanionPace(0.85);
+ bridge.beginPlayback("companion:1","item-a",false,false,"launch-1");
+ expect(bridge.getSpeechRate()).toBe(0.85);
+ bridge.beginPlayback("companion:2","item-z",false,false,"launch-2");
+ expect(bridge.getSpeechRate()).toBe(0.85);
+ bridge.beginPlayback("word:1","item-z",false,true,"launch-2");
+ expect(bridge.getSpeechRate()).toBe(1);
+});

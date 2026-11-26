@@ -1,5 +1,6 @@
 /** Session cold-start — extracted from SessionManager.start(). */
 // @ts-nocheck
+import { companionPaceFor } from "./currencyAward";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -1602,6 +1603,9 @@ This is a safe space to test everything.
     if (!session.options?.silentTts && !session.options?.sttOnly) {
       session.ttsBridge = new WsTtsBridge(session.ws, session.companion.voiceId);
       session.ttsBridge.useNarratorVoice(NARRATOR_VOICE_ID);
+      // Her companion starts at the pace it last chose for her (Reina, 2026-11-25); unreadable means normal pace.
+      try { session.ttsBridge.useCompanionPace(companionPaceFor(session.chartChildId)); }
+      catch (error) { console.warn(` 🎮 [companion-speech] [pace] [load-failed] child=${session.chartChildId}`, error); }
       session.ttsBridge.onLatencyMark = (mark: VoiceLatencyMark) => session.voiceLatency.mark(mark);
       await session.ttsBridge.prime();
     }

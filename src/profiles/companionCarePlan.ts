@@ -110,6 +110,8 @@ function normalizeLoadedPlan(
         ? plan.economy.coinPurchases.map((row) => ({ ...row, offer: { ...row.offer } }))
         : [],
     },
+    // The pace her companion chose for its own talking; an out-of-range value is dropped, never the plan.
+    ...(typeof plan.speechPace === "number" && plan.speechPace >= 0.7 && plan.speechPace <= 1.2 ? { speechPace: plan.speechPace } : {}),
     // Her creatures (den, seen, milestones, try lockouts); dropping them here would erase what she caught.
     ...(plan.creatures ? { creatures: normalizeCreatureState(plan.creatures) } : {}),
     inventory: {
