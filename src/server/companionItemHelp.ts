@@ -13,6 +13,10 @@ export function setCompanionSpeechMuted(childId: string, isMuted: boolean, reaso
   console.log(` 🎮 [companion-help] [speech-${isMuted ? "muted" : "heard"}] child=${childId} reason=${reason}`);
 }
 
+export function isCompanionSpeechMuted(childId: string): boolean {
+  return muted.has(childId);
+}
+
 export function noteCompanionHelpOnItem(childId: string, nodeId: string, itemId: string): void {
   if (muted.has(childId)) {
     console.log(` 🎮 [companion-help] [not-heard] child=${childId} node=${nodeId} item=${itemId} reason=muted`);
