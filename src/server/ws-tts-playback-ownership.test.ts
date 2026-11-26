@@ -125,7 +125,7 @@ it.each(["rate_first","replay_first"])("uses the selected rate in the real narra
   narration=narrateGameStimulus({text:"night.",metadata:{...metadata,assessmentMode:true,itemId:"i1"},childName:"Lab" as any,ttsLabel:"Lab",bridge,assessment:{itemId:"i1",word:"night",audioDelivered:false},record:vi.fn()});
  }});
  const speech:any=createSpeechTools(bridge,vi.fn());
- const calls=order==="rate_first"?[speech.setSpeechRate.execute({speed:0.7}),replay.replayWord.execute({})]:[replay.replayWord.execute({}),speech.setSpeechRate.execute({speed:0.7})];
+ const calls=order==="rate_first"?[speech.setSpeechRate.execute({speed:0.7}),replay.spellingHelp.execute({action:"replay"})]:[replay.spellingHelp.execute({action:"replay"}),speech.setSpeechRate.execute({speed:0.7})];
  const ws=fixtures.sockets.at(-1);ws.readyState=1;ws.emit("open");await Promise.all(calls);
  await vi.waitFor(()=>expect(ws.send.mock.calls.map(([m]:[string])=>JSON.parse(m)).some((p:any)=>p.text.trim()==="night.")).toBe(true));
  expect(JSON.parse(ws.send.mock.calls[0][0]).voice_settings.speed).toBe(0.7);
@@ -161,8 +161,8 @@ it.each(['rate_first','replay_first'])('delivers and records pace through the sl
  const lab=await liveManager();const {s,bridge}=lab;
  try{
   bridge.beginPlayback('companion','i1',false,false,'token');const connected=bridge.connect();const old=fixtures.sockets.at(-1);old.readyState=1;old.emit('open');await connected;bridge.sendText('Here it comes.');s.currentAbort=new AbortController();
-  const tools=s.buildAgentToolkit();expect(tools.canvasShow).toBeUndefined();expect(tools.setSpeechRate).toBeDefined();expect(tools.replayWord).toBeDefined();
-  const calls=order==='rate_first'?[tools.setSpeechRate.execute({speed:0.7}),tools.replayWord.execute({})]:[tools.replayWord.execute({}),tools.setSpeechRate.execute({speed:0.7})];
+  const tools=s.buildAgentToolkit();expect(tools.canvasShow).toBeUndefined();expect(tools.setSpeechRate).toBeDefined();expect(tools.spellingHelp).toBeDefined();
+  const calls=order==='rate_first'?[tools.setSpeechRate.execute({speed:0.7}),tools.spellingHelp.execute({action:"replay"})]:[tools.spellingHelp.execute({action:"replay"}),tools.setSpeechRate.execute({speed:0.7})];
   const current=fixtures.sockets.at(-1);current.readyState=1;current.emit('open');await Promise.all(calls);
   await vi.waitFor(()=>expect(current.send.mock.calls.map(([m]:[string])=>JSON.parse(m)).some((p:any)=>p.text.trim()==='night.')).toBe(true));
   expect(JSON.parse(current.send.mock.calls[0][0]).voice_settings.speed).toBe(0.7);

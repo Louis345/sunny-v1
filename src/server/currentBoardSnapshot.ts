@@ -360,7 +360,7 @@ export function buildCurrentBoardSnapshotContext(
       "The activity controls written answer visibility. Teaching is assistance, not an independent spelling result.");
     if (snapshot.spellingSupportMode === "stimulus_only") {
       lines.push("Purpose: establish what the child can spell independently; practice with full help comes after this check. Whole-word replay and task clarification support that measurement; syllables, letters and spelling demonstrations would supply part of the answer.",
-        "replayWord plays the activity’s own whole-word audio. teachWord gives you the word so you can teach it; her answer on it is then recorded as help. A best guess or Not sure are answers too. The private stimulus is held by the activity, not supplied in this context.");
+        "spellingHelp replay plays the activity’s own whole-word audio. spellingHelp teach gives you the word so you can teach it; her answer on it is then recorded as help. A best guess or Not sure are answers too. The private stimulus is held by the activity, not supplied in this context.");
     } else {
       lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
         "Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available. The canonical target comes from this activity, not room conversation.");

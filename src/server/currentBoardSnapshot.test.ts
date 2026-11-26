@@ -58,7 +58,7 @@ describe("CurrentBoardSnapshot", () => {
     expect(context).toContain('Child speech: "what word is it?"');
     expect(context).toContain("Current game: spell-check");
     expect(context).not.toContain("above");
-    expect(context).toContain("replayWord");
+    expect(context).toContain("spellingHelp replay");
     expect(context).not.toContain("Word Radar");
   });
 
@@ -241,8 +241,8 @@ describe("spelling pronunciation context", () => {
     expect(value.targetIsSpeakable).toBe(false);
     const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help with Tuscaloosa" });
     expect(context).not.toContain("title");
-    expect(context).toContain("replayWord");
-    expect(context).toContain("replayWord");
+    expect(context).toContain("spellingHelp replay");
+    expect(context).toContain("spellingHelp replay");
     expect(context).toContain("Purpose: establish what the child can spell independently");
     expect(context).toContain("syllables, letters and spelling demonstrations would supply part of the answer");
     expect(context).not.toContain("ARPABET");
@@ -271,8 +271,8 @@ describe("spelling pronunciation context", () => {
     const value = snapshot({ game: "word-radar", itemId: "item-title", currentTarget: "title", answerVisibility: "hidden", assessmentMode: true });
     const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help me" });
     expect(context).toContain("practice with full help comes after this check");
-    expect(context).toContain("replayWord plays the activity’s own whole-word audio.");
-    expect(context).toContain("teachWord gives you the word so you can teach it; her answer on it is then recorded as help.");
+    expect(context).toContain("spellingHelp replay plays the activity’s own whole-word audio.");
+    expect(context).toContain("spellingHelp teach gives you the word so you can teach it; her answer on it is then recorded as help.");
   });
 
   it.each([
@@ -292,7 +292,7 @@ describe("spelling pronunciation context", () => {
 
   it("does not turn explicit assessment into teaching just because text is visible", () => {
     const context = buildCurrentBoardSnapshotContext(snapshot({ game: "word-radar", currentTarget: "tonight", answerVisibility: "visible", assessmentMode: true }));
-    expect(context).toContain("replayWord");
+    expect(context).toContain("spellingHelp replay");
     expect(context).not.toContain("ARPABET");
   });
 
@@ -372,7 +372,7 @@ it.each(["hidden", "unknown", undefined, "visible"])("does not leak protected sp
  expect(snapshot.spellingTarget).toBe("dissatisfied");
  const context=buildCurrentBoardSnapshotContext(snapshot);
  expect(context.toLowerCase()).not.toContain("dissatisfied");
- expect(context).toContain("replayWord");
+ expect(context).toContain("spellingHelp replay");
 });
 
 it.each([

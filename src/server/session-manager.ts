@@ -2038,8 +2038,10 @@ export class SessionManager {
       }, () => speechScopeFor(this.currentBoardSnapshot)),
     };
     if (slimVoice) {
-      const { canvasShow, canvasClear, canvasStatus, sessionLog, ...boardTools } = baseTools;
-      return { ...boardTools, dateTime, ...screenshotTools };
+      // Kiosk companion: 5 tools at most (owner, 2026-11-25; companionToolBudget.test.ts). Saori 11/18–11/25 used only these.
+      const { companionAct, recordChildSignal, recordProductIssue } = baseTools;
+      const { takeGameScreenshot: _unusedOnKiosk, ...voiceTools } = screenshotTools;
+      return { companionAct, recordChildSignal, recordProductIssue, ...voiceTools };
     }
     if (this.worksheetSession && this.worksheetMode) {
       return {

@@ -22,9 +22,9 @@ it("her companion decides to teach a hidden word with a tool, which records the 
   const granted: string[] = [];
   const tools = createReplayWordTools({ snapshot: () => snapshot, playbackBusy: () => false, assessmentItemId: () => bound.itemId, requestNarration: () => undefined,
     grantHelp: () => { granted.push(bound.itemId); bound.supportIds.push("support:s1:i1"); snapshot = { ...snapshot!, spellingSupportMode: "pronunciation_model" }; return true; } }) as Record<string, { description?: string; execute?: (input: object, options: never) => Promise<unknown> }>;
-  expect(Object.keys(tools)).toEqual(expect.arrayContaining(["replayWord", "teachWord"]));
-  expect(tools.teachWord.description).toMatch(/recorded as help/i);
-  const result = await tools.teachWord.execute!({}, undefined as never) as { word?: string; recordedAs?: string };
+  expect(Object.keys(tools)).toEqual(["spellingHelp"]);
+  expect(tools.spellingHelp.description).toMatch(/recorded as help/i);
+  const result = await tools.spellingHelp.execute!({ action: "teach" }, undefined as never) as { word?: string; recordedAs?: string };
   expect(result).toEqual(expect.objectContaining({ word: "carnivore", recordedAs: "help" }));
   expect(granted).toEqual(["i1"]);
   expect(bound.supportIds).toEqual(["support:s1:i1"]);

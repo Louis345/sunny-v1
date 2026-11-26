@@ -475,7 +475,7 @@ export function createSixTools(host: SixToolsHost) {
     }),
     recordProductIssue: tool({
       description:
-        "Record one bounded product issue when the child or parent/caregiver reports a bug, confusing flow, companion lag, content mismatch, or UI blocker. This is product evidence, not learning preference. Use sessionStatus first when state matters; keep evidenceText concrete.",
+        "Record one bounded product issue when the child or parent/caregiver reports a bug, confusing flow, companion lag, content mismatch, or UI blocker. This is product evidence, not learning preference; keep evidenceText concrete.",
       inputSchema: recordProductIssueSchema,
       execute: async (args) =>
         host.recordProductIssue(recordProductIssueSchema.parse(args)),

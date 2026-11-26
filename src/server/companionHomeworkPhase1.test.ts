@@ -104,7 +104,7 @@ describe("one factual homework turn path", () => {
     expect(request.messages[0].content).toContain(liveTalk);
     expect(request.messages[0].content).not.toMatch(/one or two short sentences|gets genuinely excited|never re-introduces/i);
     expect(request.tools).toHaveProperty("companionAct");
-    expect(request.tools).toHaveProperty("sessionStatus");
+    expect(request.tools).toHaveProperty("recordProductIssue");
     expect(stream).toHaveBeenCalledTimes(1);
 
   });
