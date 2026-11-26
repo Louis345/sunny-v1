@@ -20,6 +20,7 @@ Owner, 2026-11-25: every deploy has a list of what it carries. `scripts/deploy-s
 | cc301a37 | Elli and Matilda keep 5 tools or fewer; spelling replay and teach are one tool (owner: keep tool calls low) | `[companion] [teach-word] [granted]` and no sessionStatus/spinWheel tool calls |
 | 27a03fa4 | Help she could not hear (companion muted) is no longer saved as companion help | `[companion-help] [not-heard] ... reason=muted` after a mute press; no `[companion-help] [noted]` while muted |
 | 5da78f72 | Elli and Matilda are told when the child has them muted, and that the mic hears everyone and cannot tell who spoke | `[companion-context] [voice-muted]` after a mute press; fewer replies while muted and fewer replies to adult talk |
+| 8dd3d480 | After a Boss the tutor can still build boards before the test; the owner's replan works on a waiting record | `[canonical-progression] [actions-offered] ... lifecycle=boss_evaluating` lists generate_support; Reina gets a new board after the replan |
 
 ## On Saori
 
