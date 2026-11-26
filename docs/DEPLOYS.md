@@ -18,6 +18,7 @@ Owner, 2026-11-25: every deploy has a list of what it carries. `scripts/deploy-s
 | 70e3d1b8 | A problem whose wording holds its answer is flagged to the Planner and never counts as a clean check (Reina's 9 x 4 Boss) | `[planner-tools] [problem-written] ... answer_in_wording=` |
 | 241c60fe | The pace her companion picks for its own talking sticks across games and sessions (Reina: Matilda too fast) | `[companion-speech] [pace] [saved]` |
 | cc301a37 | Elli and Matilda keep 5 tools or fewer; spelling replay and teach are one tool (owner: keep tool calls low) | `[companion] [teach-word] [granted]` and no sessionStatus/spinWheel tool calls |
+| 27a03fa4 | Help she could not hear (companion muted) is no longer saved as companion help | `[companion-help] [not-heard] ... reason=muted` after a mute press; no `[companion-help] [noted]` while muted |
 
 ## On Saori
 
