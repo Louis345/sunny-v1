@@ -1,5 +1,5 @@
 import { familyDay } from "../utils/familyCalendar";
-import { LIBRARY_GAMES, type LibraryGameId } from "./libraryGames";
+import { LIBRARY_GAMES, type LibraryGameId, type LibraryGameRole } from "./libraryGames";
 
 /**
  * Dated notes from the owner to the next-board Planner (owner, 2026-11-11: "we tell the planner instead of forcing
@@ -32,7 +32,7 @@ export const OWNER_NOTES: OwnerNote[] = [{
   libraryGames: { ila: ["opus-ila", "fable-ila"] },
 }];
 
-export type OfferedLibraryGame = { id: LibraryGameId; title: string; role: "quest" | "boss" };
+export type OfferedLibraryGame = { id: LibraryGameId; title: string; role: LibraryGameRole };
 export type ActiveOwnerNote = { note: string; games: OfferedLibraryGame[] };
 
 /** The owner note offered to this child's Planner on this family day, with its games for this subject; undefined when none applies. */
