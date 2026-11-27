@@ -22,8 +22,8 @@ export type RewardItem = {
   season?: string;
 };
 
-/** Christmas drop 2026 (owner, 2026-11-25): chest-only items, dropped Dec 1 to Jan 6 (inclusive). */
-export const CHRISTMAS_2026 = { id: "christmas-2026", name: "Christmas", from: "2026-12-01", until: "2027-01-06" } as const;
+/** Christmas drop 2026 (owner, 2026-11-25): chest-only items, dropped Nov 27 to Jan 6 (inclusive). Opened early on 11-27 so the kids see it this weekend. */
+export const CHRISTMAS_2026 = { id: "christmas-2026", name: "Christmas", from: "2026-11-27", until: "2027-01-06" } as const;
 const SEASONS: Record<string, { from: string; until: string }> = { [CHRISTMAS_2026.id]: CHRISTMAS_2026 };
 /** The family's calendar day (the kiosk is in New York), so the window opens at their midnight, not UTC's. */
 function familyDay(nowIso: string): string {

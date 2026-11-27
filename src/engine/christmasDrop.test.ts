@@ -25,11 +25,11 @@ describe("the Christmas set", () => {
     for (const item of christmas) expect(item.price, `${item.id} is chest-only`).toBeUndefined();
   });
 
-  it("runs Dec 1 to Jan 6", () => {
-    expect([CHRISTMAS_2026.from, CHRISTMAS_2026.until]).toEqual(["2026-12-01", "2027-01-06"]);
+  it("runs Nov 27 to Jan 6 (opened early, owner 2026-11-27)", () => {
+    expect([CHRISTMAS_2026.from, CHRISTMAS_2026.until]).toEqual(["2026-11-27", "2027-01-06"]);
     const tiara = christmas.find(item => item.wardrobeItemId === "snowflake-tiara")!;
-    expect(inSeason(tiara, "2026-11-30T12:00:00.000Z")).toBe(false);
-    expect(inSeason(tiara, "2026-12-01T12:00:00.000Z")).toBe(true);
+    expect(inSeason(tiara, "2026-11-26T12:00:00.000Z")).toBe(false);
+    expect(inSeason(tiara, "2026-11-27T12:00:00.000Z")).toBe(true);
     expect(inSeason(tiara, "2027-01-06T12:00:00.000Z")).toBe(true);
     expect(inSeason(tiara, "2027-01-07T12:00:00.000Z")).toBe(false);
   });
