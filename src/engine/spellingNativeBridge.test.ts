@@ -105,10 +105,28 @@ it('opens the actual Monster Stampede word with canonical bridge identity before
  const html=fs.readFileSync('web/public/games/monster-stampede.html','utf8');
  const start=html.slice(html.indexOf('  const startWord = useCallback('),html.indexOf('  /* ── Tile tapped'));
  const messages:any[]=[];const calls:any[]=[];
- const sandbox:any={location:{search:'?nodeId=native&launchToken=live&spellingItemBindings='+encodeURIComponent(JSON.stringify([{itemId:'i1',word:'night'}]))},URLSearchParams,console,Date,Math,document:{title:'Monster Stampede',addEventListener(){}},window:{parent:{postMessage:(m:any)=>messages.push(m)},setTimeout:()=>1},WORDS_RAW:['night'],wrongCount:{current:0},useCallback:(f:any)=>f,buildTiles:()=>[],setTyped(){},setTiles(){},setMonsterScale(){},setMonsterAnim(){},setShowHint(){},setShakeIdx(){},setCompleteAnim(){},requestNarration(){}};
+ const sandbox:any={location:{search:'?nodeId=native&launchToken=live&spellingItemBindings='+encodeURIComponent(JSON.stringify([{itemId:'i1',word:'night'}]))},URLSearchParams,console,Date,Math,document:{title:'Monster Stampede',addEventListener(){}},window:{parent:{postMessage:(m:any)=>messages.push(m)},setTimeout:()=>1},WORDS_RAW:['night'],wrongCount:{current:0},firstWrong:{current:null},useCallback:(f:any)=>f,buildTiles:()=>[],setTyped(){},setTiles(){},setMonsterScale(){},setMonsterAnim(){},setShowHint(){},setShakeIdx(){},setCompleteAnim(){},requestNarration(){}};
  vm.runInNewContext(fs.readFileSync('web/public/games/_contract.js','utf8'),sandbox);
  sandbox.reportState=(label:string,extras:any)=>{calls.push(extras);sandbox.window.GameBridge.reportState(label,extras);};
  vm.runInNewContext(start+'\nstartWord(0);',sandbox);
  expect(calls[0]).toMatchObject({spellingItemOpened:true,currentWord:'night',itemIndex:0});
  expect(messages.at(-1).payload).toMatchObject({itemId:'i1',practiceCapture:true,launchToken:'live'});
+});
+
+// E4 (board 7, 2026-11-04): Wheel of Words closed with only per_word_results_unavailable; the word she worked on left no presentation.
+it('Wheel of Words opens its one word as hidden practice when she first spins, without saying the word',()=>{
+ const html=fs.readFileSync('web/public/games/WheelOfFortune.html','utf8');
+ expect(html).toContain('function openWheelWord(');
+ const fn=html.slice(html.indexOf('let wheelWordOpened'),html.indexOf('function reportGameAction('));
+ const spin=html.slice(html.indexOf('const handleSpin = useCallback('),html.indexOf('setCompanionJustBankrupt(false);',html.indexOf('const handleSpin = useCallback(')));
+ expect(spin).toContain('openWheelWord()');
+ const messages:any[]=[];
+ const sandbox:any={location:{search:'?nodeId=wheel&launchToken=launch&spellingItemBindings='+encodeURIComponent(JSON.stringify([{itemId:'i-night',word:'night'}]))},URLSearchParams,console,Date,Math,document:{title:'Wheel',addEventListener(){}},window:{parent:{postMessage:(m:any)=>messages.push(m)}},WORD_RAW:'night'};
+ vm.runInNewContext(fs.readFileSync('web/public/games/_contract.js','utf8'),sandbox);
+ vm.runInNewContext("function reportGameState(m,e){window.GameBridge.reportState(m,e||{});}\n"+fn+'\nopenWheelWord();openWheelWord();',sandbox);
+ const opened=messages.filter(m=>m.payload?.spellingItemOpened===true);
+ expect(opened).toHaveLength(1);
+ expect(opened[0].payload).toMatchObject({itemId:'i-night',practiceCapture:true,launchToken:'launch',answerVisibility:'hidden'});
+ expect(messages.some(m=>m.type==='narration_request')).toBe(false);
+ expect(messages.some(m=>m.type==='attempt_event')).toBe(false); // Opening is exposure, never an answer.
 });

@@ -57,11 +57,5 @@
       "label": "Candy - Young and Sweet",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "Hi, I'm Yukari. I love soft sweaters, purple evenings, and helping you feel steady when things get loud.",
-      "plead": "Pick me and we'll take it one breath at a time—I'll cheer the small wins and keep the vibe gentle."
-    }
-  }
+  ]
 }

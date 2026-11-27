@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
-npm run build
-# Only tests related to staged files (CI still runs the full suite on every PR).
-# Force everything locally with: SUNNY_PRECOMMIT_FULL=1 git commit ...
-npx tsx src/scripts/precommitTests.ts
+# Fast commit check (owner, 2026-11-08): type errors only, about a minute. Tests run before every deploy
+# (npm test, npm run test:predeploy) and CI runs the full suite on every PR.
+# Run the tests here too with: SUNNY_PRECOMMIT_FULL=1 git commit ...
+npx tsc --noEmit -p .
+(cd web && npx tsc -b)
+if [ "${SUNNY_PRECOMMIT_FULL:-}" = "1" ]; then npm test; fi

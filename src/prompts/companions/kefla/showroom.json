@@ -49,11 +49,5 @@
       "label": "Candy - Young and Sweet",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "I'm Kefla. I turn spelling and math into training — big energy, zero meanness, all heart.",
-      "plead": "Pick me and we'll treat every lesson like leveling up: hard work, loud cheers, real progress."
-    }
-  }
+  ]
 }

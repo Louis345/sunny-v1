@@ -1,5 +1,6 @@
 /** Session cold-start — extracted from SessionManager.start(). */
 // @ts-nocheck
+import { companionPaceFor } from "./currencyAward";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -27,6 +28,10 @@ import {
 import { planSession } from "../engine/learningEngine";
 import { getChildChart } from "../profiles/childChart";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { advanceCanonicalCycleFromEvidence } from "../engine/learningCycleRuntime";
+import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
+import { successorResumeAction } from "../engine/learningBoardInstances";
+import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import { getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
 import { computeProgression } from "../engine/progression";
 import {
@@ -57,8 +62,9 @@ import {
 import { generateCanvasCapabilitiesManifest } from "./canvas/registry";
 import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
-import { isBoardBeingPrepared, startMaxDurationTimer } from "./session-triggers";
+import { boardBeingBuilt, startMaxDurationTimer } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
+import { NARRATOR_VOICE_ID } from "./narratorVoice";
 import type { VoiceLatencyMark } from "./voiceTurnLatency";
 import { mathProblem, resetMathProbeSession } from "../agents/elli/tools/mathProblem";
 import { resetSessionStart } from "../agents/elli/tools/startSession";
@@ -490,6 +496,26 @@ export function assertHomeworkSessionAssignment(opts: {
   }
 }
 
+/**
+ * Her session finishes whatever next-board work was left waiting (S19; 11/22: a decision refused for lack of credit
+ * waited for a server restart). Same rule as server startup: an evaluating board is decided, a preparing board is
+ * prepared. Receipts make a replay free; an uncertain outcome or a blocked board still waits for a person; and
+ * advanceCanonicalCycleFromEvidence joins a decision already in flight, so there is one per homework.
+ */
+export function resumeSuccessorAtSessionStart(cycle: LearningCycleRecordV2 | null | undefined): Promise<LearningCycleRecordV2> | null {
+  const action = cycle ? successorResumeAction(cycle) : null;
+  if (!cycle || !action) return null;
+  const { childId, homeworkId } = cycle;
+  console.log(` 🎮 [session-bootstrap] [successor-resume] [${action}] child=${childId} homework=${homeworkId}`);
+  const decided = action === "decide" ? advanceCanonicalCycleFromEvidence({ childId, homeworkId }) : Promise.resolve(cycle);
+  const run = decided.then(() => prepareSuccessorBoard({ childId, homeworkId }));
+  run.then(
+    (prepared) => console.log(` 🎮 [session-bootstrap] [successor-resume] [done] child=${childId} homework=${homeworkId} lifecycle=${prepared.lifecycle}`),
+    (error: unknown) => console.error(` 🎮 [session-bootstrap] [successor-resume] [deferred] child=${childId} homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`),
+  );
+  return run;
+}
+
 export async function runSessionStart(
   session: any,
   hooks: SessionStartHooks = {},
@@ -551,6 +577,7 @@ export async function runSessionStart(
       console.log(
         `  🎮 [session-bootstrap] [assignment-validation] [accepted] child=${homeworkChild} homework=${session.options?.homeworkId ?? "legacy"}`,
       );
+      void resumeSuccessorAtSessionStart(chart.learningCycle)?.catch(() => undefined);
     }
     let homeworkPayload: Awaited<ReturnType<typeof loadHomeworkPayload>> | null =
       null;
@@ -1556,8 +1583,8 @@ This is a safe space to test everything.
     }, () => {
       try {
         const limitChildId = String(session.chartChildId ?? homeworkChild).toLowerCase();
-        const homeworkId = getChildChart(limitChildId).learningCycle?.homeworkId;
-        return Boolean(homeworkId) && isBoardBeingPrepared(getMathGenerationStatus(limitChildId, homeworkId!)?.phase);
+        const cycle = getChildChart(limitChildId).learningCycle;
+        return Boolean(cycle?.homeworkId) && boardBeingBuilt(cycle, getMathGenerationStatus(limitChildId, cycle!.homeworkId));
       } catch (err) {
         console.error("  🎮 [session-limit] [board-status] [unavailable]", err);
         return false;
@@ -1575,6 +1602,10 @@ This is a safe space to test everything.
 
     if (!session.options?.silentTts && !session.options?.sttOnly) {
       session.ttsBridge = new WsTtsBridge(session.ws, session.companion.voiceId);
+      session.ttsBridge.useNarratorVoice(NARRATOR_VOICE_ID);
+      // Her companion starts at the pace it last chose for her (Reina, 2026-11-25); unreadable means normal pace.
+      try { session.ttsBridge.useCompanionPace(companionPaceFor(session.chartChildId)); }
+      catch (error) { console.warn(` 🎮 [companion-speech] [pace] [load-failed] child=${session.chartChildId}`, error); }
       session.ttsBridge.onLatencyMark = (mark: VoiceLatencyMark) => session.voiceLatency.mark(mark);
       await session.ttsBridge.prime();
     }

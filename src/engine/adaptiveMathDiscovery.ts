@@ -870,6 +870,14 @@ export async function runMathProviderStage<T>(input: {
   const priorFile = stage?.requestHash ? path.join(receipts,`${stage.requestHash}.json`) : receiptFile;
   const prior = readReceipt(priorFile);
   if (stage && !prior) throw new Error(`provider_receipt_invalid:${priorFile}`);
+  // The provider refused this exact request before and the stage moved on to a fallback: replay the same refusal, so
+  // the caller takes the same fallback after a restart instead of blocking (BUGS.md S16). No provider call.
+  const refused = priorFile !== receiptFile && prior?.status === "received" ? readReceipt(receiptFile) : undefined;
+  const refusal = refused?.status === "rejected" ? refused.attempts?.at(-1) : undefined;
+  if (refusal?.error) {
+    console.log(` 🎮 [adaptive-math] [provider-request] [rejection-replayed] stage=${input.stage}`);
+    throw Object.assign(new Error(refusal.error), refusal.code ? { status: refusal.code } : {});
+  }
   if (prior?.status === "received" && priorFile !== receiptFile) throw new Error(`provider_stage_request_changed:${input.stage}`);
   if (["in_flight", "outcome_uncertain"].includes(prior?.status ?? "") && (!input.retryUncertain || priorFile!==receiptFile)) throw new Error(`provider_outcome_uncertain:${priorFile}`);
   const saved = readReceipt(receiptFile);
@@ -1348,7 +1356,7 @@ export type DiscoveryEvidenceSummary = {
   version: 1;
   homeworkId: string;
   evaluationId: string;
-  coverage?: { assigned: number; attempted: number; untestedItemIds: string[]; complete: boolean };
+  coverage?: { assigned: number; attempted: number; untestedItemIds: string[]; complete: boolean; notCheckedItemIds?: string[] };
   spellingTargets?: Array<{
     word: string;
     itemId: string;
@@ -1703,10 +1711,13 @@ export async function publishDiscoveryExperience(input: {
     [domain]: next,
   });
   const now = new Date().toISOString();
+  const previousHomework = readObject(homeworkPath);
+  // A test date a parent already gave this week survives a re-ingest (E5); only setHomeworkTestDate sets one.
+  const kept = [previousHomework.current, ...Object.values((previousHomework.activeByDomain ?? {}) as object)].find(row => row?.homeworkId === input.homeworkId && row.testDate) as { testDate: string; testDateSource?: string; testDateConfirmed?: boolean } | undefined;
   const pending = {
     homeworkId: input.homeworkId,
     weekOf: now.slice(0, 10),
-    testDate: null,
+    testDate: kept?.testDate ?? null, ...(kept ? { testDateSource: kept.testDateSource, testDateConfirmed: kept.testDateConfirmed } : {}),
     returnTag: `#sunny_${input.childId}_${input.homeworkId}`,
     wordList: native?.map(item => item.word) ?? [],
     contentProfile: { practiceDomain: domain, topic: input.assignment.title },
@@ -1729,7 +1740,6 @@ export async function publishDiscoveryExperience(input: {
     const publishedCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir })!;
     const publishedPlan = { ...input.activeSessionPlan, adventureBoard: projectLearningCycle(publishedCycle).activeSessionPlan.adventureBoard };
     const previousPlan = readObject(planPath);
-    const previousHomework = readObject(homeworkPath);
     const profile = readObject(profilePath);
     atomicJson(homeworkPath, {
       version: 1, childId: input.childId, selectedDomain: domain, current: pending,
@@ -2003,13 +2013,18 @@ export function buildDiscoveryEvidenceSummary(cycle: LearningCycleRecordV2): Dis
   const evaluationSourceIds = new Set(evaluations.map(node => `evaluation:${node.nodeId}`));
   const observations = cycle.observations.filter((observation) => evaluationSourceIds.has(observation.sourceId));
   const spellingItems = evaluations.flatMap(evaluation => Object.values(evaluation.evidenceContract.spellingItems ?? {}));
-  const untestedItemIds = spellingItems.filter(item => !observations.some(row => row.itemId === item.id)).map(item => item.id);
+  // Contract 54: Discovery covers the words the Planner chose to check; the rest are explicitly not checked (unknown).
+  const checked = (item: { id: string }) => evaluations.every(evaluation => !evaluation.evidenceContract.discoveryItemIds
+    || !evaluation.evidenceContract.spellingItems?.[item.id] || evaluation.evidenceContract.discoveryItemIds.includes(item.id));
+  const checkedItems = spellingItems.filter(checked);
+  const notCheckedItemIds = spellingItems.filter(item => !checked(item)).map(item => item.id);
+  const untestedItemIds = checkedItems.filter(item => !observations.some(row => row.itemId === item.id)).map(item => item.id);
   const constructIds = [...new Set([...spellingItems.map(item => item.constructId), ...observations.flatMap((observation) => observation.constructLinks.map((link) => link.constructId))])].sort();
   return {
     version: 1,
     homeworkId: cycle.homeworkId,
     evaluationId: evaluations.length === 1 ? evaluations[0]!.nodeId : `probe-board:${cycle.homeworkId}`,
-    ...(spellingItems.length ? { coverage: { assigned: spellingItems.length, attempted: spellingItems.length - untestedItemIds.length, untestedItemIds, complete: untestedItemIds.length === 0 } } : {}),
+    ...(spellingItems.length ? { coverage: { assigned: checkedItems.length, attempted: checkedItems.length - untestedItemIds.length, untestedItemIds, complete: untestedItemIds.length === 0, ...(notCheckedItemIds.length ? { notCheckedItemIds } : {}) } } : {}),
     ...(spellingItems.length ? {
       spellingTargets: spellingItems.map((item) => {
         const matching = observations.filter((observation) => observation.itemId === item.id);

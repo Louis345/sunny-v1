@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {afterEach,expect,it,vi} from 'vitest';
+import {offeredValues} from './plannerTransport';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
 import {plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
@@ -236,8 +237,8 @@ it('offers the Planner the built-ins she played and every certified game and mod
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  const addStep=(f.create.mock.calls[0][0] as any).tools.find((tool:any)=>tool.name==='add_step').input_schema;
  expect(addStep.required).toContain('built_in');
- expect(addStep.properties.built_in.enum).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
- expect(addStep.properties.built_in.enum).not.toContain('generated-baseline');
+ expect(offeredValues(addStep.properties.built_in)).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
+ expect(offeredValues(addStep.properties.built_in)).not.toContain('generated-baseline');
 });
 // 2026-10-23: the deepest cause of AI-built spelling games was the request itself. It told the Planner
 // "You are the artist ... choose a game" and required a creator prompt and game-design fields for every
@@ -365,4 +366,18 @@ it('marks a re-run built-in as reused in the catalog, from the order itself, wit
  expect(payload.messages[0].content[0].text).not.toContain('contentDecisionEvidenceIds');
  const recorded=getChildChart(childId,opts).contentCatalog.items.find(row=>row.contentId===contentId)!;
  expect(recorded.reuseStatus).toBe('reuse');
+});
+
+// Owner, 2026-11-08: a creature encounter the Planner placed reaches the published stop, with that stop's
+// own questions as the charge items; the server rolls it only when she finishes the stop.
+it('carries the Planner\'s creature encounter mark onto the published stop with its own items',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ (f.decision.nextInstruments[0] as any).creatureEncounter={reason:'Both words are close to secure.'};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
+ const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml:async()=>'<html></html>',generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
+ const board=currentBoardInstance(after);
+ const marked=after.nodes.filter(node=>board.nodeIds.includes(node.nodeId)&&node.creatureEncounter);
+ expect(marked).toHaveLength(1);
+ expect(marked[0].creatureEncounter).toEqual({reason:'Both words are close to secure.',itemIds:Object.keys(marked[0].evidenceContract.spellingItems!)});
 });

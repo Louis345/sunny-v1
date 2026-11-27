@@ -154,3 +154,18 @@
 .ap-card .ap-new { position: absolute; left: 50%; top: -2cqmin; transform: translateX(-50%); padding: .3cqmin 1.2cqmin; border-radius: 1.2cqmin; background: var(--ap-go); color: var(--ap-go-ink); font-size: 2.4cqmin; font-weight: 800; white-space: nowrap; }
 .ap-card[data-result="correct"] .ap-result { color: #17643b; }
 .ap-card[data-result="incorrect"] .ap-result { color: #a52b28; }
+/* Right with a hint or Elli's help: still right, with a small helper picture (2026-11-15). */
+.ap-helped { font-size: 0.7em; margin-left: 0.15em; vertical-align: super; }
+
+/* Report card (2026-11-15): her answers in honest groups, each a row led by its picture, and her progress on top. */
+.ap-cards:has(.ap-group) { flex-direction: column; align-items: center; flex-wrap: nowrap; gap: 1.6cqmin; }
+.ap-group { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1.6cqmin; }
+.ap-group-icon { font-size: 4.4cqmin; width: 6cqmin; text-align: center; }
+.ap-group[data-group="own"] .ap-group-icon { color: #97c459; }
+.ap-group[data-group="fixed"] .ap-card { background: #faeeda; }
+.ap-group[data-group="helped"] .ap-card { background: #e6f1fb; }
+.ap-group[data-group="growing"] .ap-card { background: #eeedfe; }
+.ap-progress { font-size: 4.6cqmin; font-weight: 800; color: #c0dd97; margin: -1cqmin 0 1.6cqmin; }
+.ap-tray .ap-card[data-group="fixed"] { background: #faeeda; }
+.ap-tray .ap-card[data-group="helped"] { background: #e6f1fb; }
+.ap-tray .ap-card[data-group="growing"] { background: #eeedfe; }

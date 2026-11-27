@@ -11,7 +11,7 @@ export function createSpeechTools(host: SpeechHost | null, record: (receipt: Rat
   if (!host || host.isSpeechEnabled?.() === false) return {};
   const scope = readScope ? {...readScope()} : undefined;
   return { setSpeechRate: tool({
-    description: `Current configured speed: ${host.getSpeechRate?.(scope) ?? "unavailable"}. Set the speed of upcoming spoken audio, including your explanations and activity word replays. Range 0.7 (slowest) to 1.2 (fastest); 1 is normal. Applies only to this item and launch (or the current conversation without an item); another item uses normal pace unless you choose its rate. It does not interrupt unrelated playback. Already generated audio cannot be changed. This configures speech; it does not confirm the child heard or understood it.`,
+    description: `Current configured speed: ${host.getSpeechRate?.(scope) ?? "unavailable"}. Set the speed of upcoming spoken audio, including your explanations and activity word replays. Range 0.7 (slowest) to 1.2 (fastest); 1 is normal. It stays for every next problem in this game (or the conversation outside a game) until you change it; another game or a check starts at normal pace. It does not interrupt unrelated playback. Already generated audio cannot be changed. This configures speech; it does not confirm the child heard or understood it.`,
     inputSchema: z.object({ speed: z.number().min(0.7).max(1.2) }),
     execute: async ({ speed }) => {
       const current = readScope?.();

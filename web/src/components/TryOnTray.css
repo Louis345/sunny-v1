@@ -1,0 +1,14 @@
+.try-on-tray { position: absolute; left: 0; right: 0; bottom: 0; z-index: 40; padding: 14px 16px 18px; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.try-on-tray__close { pointer-events: auto; align-self: flex-end; width: 52px; height: 52px; border-radius: 50%; border: none; background: rgba(255,255,255,0.9); font-size: 22px; margin-bottom: 8px; cursor: pointer; }
+.try-on-tray__row { pointer-events: auto; display: flex; gap: 14px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; padding: 10px 14px; border-radius: 48px; background: rgba(255,255,255,0.82); }
+.try-on-tray__row::-webkit-scrollbar { display: none; }
+.try-on-tray__item { flex: 0 0 auto; width: 76px; height: 76px; border-radius: 50%; border: 3px solid rgba(0,0,0,0.08); background: #f3f0ff; font-size: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 160ms ease; }
+.try-on-tray__item:active { transform: scale(0.92); }
+.try-on-tray__item[data-worn="true"] { border-color: #534ab7; box-shadow: 0 0 0 4px rgba(83,74,183,0.35); transform: translateY(-6px); }
+.try-on-tray__locked { background: #2a2540; opacity: 0.55; font-size: 26px; }
+.try-on-tray__locked[data-chest="legendary"] { border-color: #c9a227; }
+.try-on-tray__locked[data-chest="epic"] { border-color: #9d6bff; }
+.try-on-tray__locked:active { animation: try-on-shake 300ms; }
+.try-on-tray__original { background: #ffffff; font-size: 30px; }
+@keyframes try-on-shake { 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) { .try-on-tray__item { transition: none; } .try-on-tray__locked:active { animation: none; } }

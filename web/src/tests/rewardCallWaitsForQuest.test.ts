@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { rewardCallHeldReason } from "../utils/rewardCallOffer";
+import { isCompanionCallPath, rewardCallHeldReason } from "../utils/rewardCallOffer";
 
 /**
  * A child caught this (Ila, Saori kiosk, 2026-11-05): she finished the last stop of board 8,
@@ -17,24 +17,20 @@ import { rewardCallHeldReason } from "../utils/rewardCallOffer";
  * taps the bright "Call Elli" button offered right beside "Back to map".
  */
 describe("the earned reward call waits for the Quest", () => {
-  it("is held while the next board is still being decided or built after she finishes a board", () => {
-    for (const lifecycle of ["baseline_evaluating", "baseline_generating", "quest_generating", "boss_generating", "quest_evaluating", "boss_evaluating"]) {
-      expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBe("next_board_coming");
+  // Owner 2026-11-08, watching Ila finish board 2 and land on the loading screen with no call: FaceTime comes
+  // the moment a board ends. The wait for the next board is when she calls Elli; nothing holds the offer.
+  it("is offered while the next board is being built and before its reveal", () => {
+    for (const lifecycle of ["baseline_evaluating", "baseline_generating", "quest_generating", "boss_evaluating"]) {
+      expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBeNull();
     }
+    expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [] }, true)).toBeNull();
   });
 
-  it("is held on a Quest or Boss board", () => {
+  it("is offered on a Quest or Boss board once its reveal has been seen", () => {
     for (const lifecycle of ["quest_ready", "quest_active", "boss_ready", "boss_active"]) {
-      expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBe("encounter_board");
+      expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBeNull();
     }
-  });
-
-  it("is held on any board that still has an unfinished Quest or Boss encounter", () => {
-    expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [{ role: "baseline", state: "completed" }, { role: "quest", state: "locked" }] }, false)).toBe("encounter_on_board");
-  });
-
-  it("is held while a just-published board's reveal is pending", () => {
-    expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [] }, true)).toBe("reveal_pending");
+    expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [{ role: "baseline", state: "completed" }, { role: "quest", state: "locked" }] }, false)).toBeNull();
   });
 
   it("is offered at a calm moment: an ordinary board, or when the encounters are done", () => {
@@ -63,4 +59,18 @@ describe("App wiring: one held rule gates every way to open the call", () => {
     expect(src).toMatch(/callOffered=\{rewardCallHeld == null\}/);
     expect(src).toMatch(/earnedTicket && props\.callOffered \?/);
   });
+});
+
+// BUGS.md 2026-11-07 (AI-caught in the demo): the server redirects /companions to /companions/, and the
+// app only opened the call on the exact path, so the earned call landed back on the map.
+it("opens the earned call on either spelling of its address", () => {
+  expect(isCompanionCallPath("/companions")).toBe(true);
+  expect(isCompanionCallPath("/companions/")).toBe(true);
+  expect(isCompanionCallPath("/companions/elli.vrm")).toBe(false);
+  expect(isCompanionCallPath("/")).toBe(false);
+  // The call page is chosen before the homework app mounts, so no homework session starts behind the call.
+  const main = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../main.tsx"), "utf8");
+  expect(main).toMatch(/companionShowroomEnabled = [^;]*isCompanionCallPath\(window\.location\.pathname\)/);
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../App.tsx"), "utf8");
+  expect(app).not.toContain("<CompanionShowroomPage");
 });

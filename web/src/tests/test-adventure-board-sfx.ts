@@ -1,3 +1,4 @@
+import { UNLOCK_CEREMONY_END_MS, ceremonyStageAt } from "../components/unlockCeremonyTimeline";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -28,7 +29,11 @@ describe("Adventure Board sound", () => {
       vi.useFakeTimers(); stubAudio();
       expect(playUnlockCeremonySfx("quest")).toBe(true);
       expect(played).toEqual(["/sfx/unlock/rumble.mp3"]);
-      vi.advanceTimersByTime(3500);
+      // The rumble keeps going under her companion's reaction; the riser waits for the light (owner, 2026-11-20).
+      vi.advanceTimersByTime(ceremonyStageAt("pillar") - 50);
+      expect(played).not.toContain("/sfx/unlock/riser.mp3");
+      expect(played.filter((src) => src === "/sfx/unlock/rumble.mp3").length).toBeGreaterThan(1);
+      vi.advanceTimersByTime(UNLOCK_CEREMONY_END_MS);
       expect(played).toContain("/sfx/unlock/riser.mp3");
       expect(played).toContain("/sfx/unlock/boom.mp3");
       expect(played.filter((src) => src === "/sfx/unlock/coin.mp3")).toHaveLength(12);
@@ -39,7 +44,7 @@ describe("Adventure Board sound", () => {
     it("plays the Boss timeline with its boss hit instead of the fanfare", () => {
       vi.useFakeTimers(); stubAudio();
       playUnlockCeremonySfx("boss");
-      vi.advanceTimersByTime(3500);
+      vi.advanceTimersByTime(UNLOCK_CEREMONY_END_MS);
       expect(played).toContain("/sfx/unlock/boss.mp3");
       expect(played).toContain("/sfx/unlock/boom.mp3");
       expect(played).not.toContain("/sfx/unlock/fanfare.mp3");

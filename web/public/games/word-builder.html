@@ -72,8 +72,9 @@
         targetResults.push(result);
         fireAttemptEvent({
           activityId: "word_builder",
+          domain: "spelling",
           target: target,
-          attemptedValue: target,
+          // No attemptedValue: Word Builder has no typing, so it never saw what she spelled (E6).
           correct: result.correct,
           quality: result.correct ? "correct" : "struggled",
           scaffoldLevel: result.scaffoldLevel,
@@ -113,8 +114,11 @@
         for (var i = 0; i < words.length; i++) {
           recordWordAttempt(i, completed, completed ? "manual_confirm" : "struggle_finish");
         }
+        // Either Finish button ends the run; a struggle finish is a finished loss, not a quit (E6).
         sendNodeComplete({
           completed: completed,
+          ended: true,
+          won: completed,
           accuracy: accuracy,
           flaggedWords: [],
           xpEarned: Math.round(accuracy * 10),

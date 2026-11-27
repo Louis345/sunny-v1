@@ -1,7 +1,7 @@
 import {expect,it,vi} from 'vitest';
 const {stream}=vi.hoisted(()=>({stream:vi.fn()}));
 vi.mock('ai',()=>({streamText:stream,stepCountIs:()=>()=>false}));
-vi.mock('@ai-sdk/anthropic',()=>({anthropic:()=> 'model'}));
+vi.mock('@ai-sdk/anthropic',()=>({anthropic:()=> 'model',createAnthropic:()=>()=> 'model'}));
 vi.mock('../agents/elli/tools/generateToolDocs',()=>({ALL_TOOLS:{}}));
 import {runAgent} from '../agents/elli/run';
 import {TurnStateMachine} from './session-state';

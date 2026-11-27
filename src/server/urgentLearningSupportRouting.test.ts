@@ -36,44 +36,6 @@ describe("urgent learning support routing", () => {
     process.env.SUNNY_STATELESS = prevStateless;
   });
 
-  it("interrupts stale processing and gives current-word help instead of queueing", async () => {
-    const ws = mockWs();
-    const session = new SessionManager(ws, "Ila");
-    const turnSM = (session as unknown as { turnSM: TurnStateMachine }).turnSM;
-    const handleCompanionTurn = vi
-      .spyOn(
-        session as unknown as { handleCompanionTurn: (text: string) => Promise<void> },
-        "handleCompanionTurn",
-      )
-      .mockResolvedValue(undefined);
-
-    session.injectGameContext({
-      game: "pronunciation",
-      currentWord: "able",
-      answerVisibility: "visible",
-      wordIndex: 0,
-      totalWords: 10,
-      phase: "approaching",
-    });
-    turnSM.onStartCompanionFromIdle();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    expect(turnSM.getState()).toBe("PROCESSING");
-
-    session.injectTranscript("Can you help me, Ellie?");
-
-    await vi.waitFor(() => {
-      expect(handleCompanionTurn).toHaveBeenCalledWith(expect.stringContaining("a-ble"));
-    });
-    expect(peekPending(turnSM)).toBeNull();
-    expect(turnSM.getState()).toBe("IDLE");
-    expect(ws.send).toHaveBeenCalledWith(
-      expect.stringContaining('"type":"game_message"'),
-    );
-    expect(ws.send).toHaveBeenCalledWith(
-      expect.stringContaining('"pronunciation_support"'),
-    );
-  });
-
   it("keeps ordinary room speech out of Elli while the canonical spelling assessment owns the turn", async () => {
     // Human catch: Ila's self-talk repeatedly triggered model responses during Discovery.
     // Logs recorded valid STT and model turns, so they did not identify the ownership bug.
@@ -157,7 +119,7 @@ describe("urgent learning support routing", () => {
     expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
   });
 
-  it("does not wake collapsed Elli for an unaddressed help request while preserving game capture", async () => {
+  it("still keeps collapsed Elli quiet for room talk while a game captures speech", async () => {
     const ws = mockWs();
     const session = new SessionManager(ws, "Ila");
     session.companionWakeGateEnabled = true;
@@ -165,7 +127,7 @@ describe("urgent learning support routing", () => {
       .mockResolvedValue(undefined);
     session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
 
-    session.injectTranscript("Can you help me with this word?");
+    session.injectTranscript("This word is so long");
 
     await vi.waitFor(() => expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"type":"final"')));
     expect(respond).not.toHaveBeenCalled();

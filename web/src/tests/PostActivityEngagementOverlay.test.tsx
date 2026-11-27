@@ -82,95 +82,116 @@ describe("PostActivityEngagementOverlay", () => {
     expect(onAction).toHaveBeenCalledWith("replay_harder");
   });
 
-  it("records a one-tap fun rating or skip", () => {
-    vi.useFakeTimers();
-    const onFunRating = vi.fn();
-    const { rerender } = render(
-      <PostActivityEngagementOverlay
-        title="Puzzle Vault"
-        outcome={{ completed: true, accuracy: 1 }}
-        onAction={vi.fn()}
-        onFunRating={onFunRating}
-      />,
-    );
+});
 
-    expect(screen.getByText("How fun was this activity?")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "4 stars" }));
-    vi.advanceTimersByTime(300);
-    expect(onFunRating).toHaveBeenCalledWith(4);
+// Caught by the browser acceptance runs (2026-11-07): with a treasure chest inside, the centred panel grew
+// taller than a 1280×720 screen and pushed Back to map out of reach. The panel scrolls instead.
+it("keeps its buttons reachable when its content is taller than the screen", () => {
+  render(<PostActivityEngagementOverlay title="Done" outcome={{ completed: true }} onAction={() => {}}><div style={{ height: 2000 }} /></PostActivityEngagementOverlay>);
+  const overlay = screen.getByTestId("post-activity-engagement-overlay");
+  expect(overlay.className).toContain("overflow-y-auto");
+  expect(overlay.className).not.toMatch(/(^|\s)justify-center(\s|$)/);
+});
 
-    rerender(
-      <PostActivityEngagementOverlay
-        title="Puzzle Vault"
-        outcome={{ completed: true, accuracy: 1 }}
-        onAction={vi.fn()}
-        onFunRating={onFunRating}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Skip fun rating" }));
-    expect(onFunRating).toHaveBeenLastCalledWith(null);
-    vi.useRealTimers();
-  });
-
-  it("can make rating or Skip the only Discovery exit", () => {
+// Owner, 2026-11-07, after Ila's session: the treasure is the center of attention. When a stop earns a chest, the
+// screen opens on the chest alone; the summary (rating, buttons) comes only after she collects it.
+describe("treasure first", () => {
+  it("shows only the chest until she collects it, then the summary", () => {
+    const onAction = vi.fn();
     render(
       <PostActivityEngagementOverlay
-        title="Discovery"
-        outcome={{ completed: true }}
-        canReplay={false}
-        showBackAction={false}
-        onAction={vi.fn()}
-        onFunRating={vi.fn()}
+        title="Letter Box Trek"
+        outcome={{ completed: true, accuracy: 0.8 }}
+        onAction={onAction}
+        treasure={(finish) => <button type="button" onClick={finish}>Collect treasure</button>}
       />,
     );
-
-    expect(screen.getByText("How fun was this activity?")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Play again" })).toBeNull();
+    expect(screen.getByTestId("post-activity-treasure-stage")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Back to map" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Collect treasure" }));
+    expect(screen.queryByTestId("post-activity-treasure-stage")).toBeNull();
+    expect(screen.getByRole("button", { name: "Back to map" })).toBeTruthy();
   });
 
-  it("shows cumulative outlined, hovered, and selected star feedback", () => {
-    vi.useFakeTimers();
-    const onFunRating = vi.fn();
-    render(
-      <PostActivityEngagementOverlay
-        title="Puzzle Vault"
-        outcome={{ completed: true }}
-        onAction={vi.fn()}
-        onFunRating={onFunRating}
-      />,
-    );
+  it("goes straight to the summary when there is no treasure", () => {
+    render(<PostActivityEngagementOverlay title="Letter Box Trek" outcome={{ completed: true }} onAction={vi.fn()} />);
+    expect(screen.queryByTestId("post-activity-treasure-stage")).toBeNull();
+    expect(screen.getByRole("button", { name: "Back to map" })).toBeTruthy();
+  });
+});
 
-    const third = screen.getByRole("button", { name: "3 stars" });
-    expect(screen.getAllByText("☆")).toHaveLength(5);
-
-    fireEvent.mouseEnter(third);
-    expect(screen.getAllByText("★")).toHaveLength(3);
-    expect(screen.getAllByText("☆")).toHaveLength(2);
-
-    fireEvent.click(third);
-    expect(screen.getAllByText("★")).toHaveLength(3);
-    expect(third).toHaveAttribute("aria-pressed", "true");
-    vi.advanceTimersByTime(300);
-    expect(onFunRating).toHaveBeenCalledWith(3);
-    vi.useRealTimers();
+// Bug 2026-11-10 (owner, Ila's session): the stars popup after every game was an annoyance. Her replay / harder /
+// back-to-map signal comes from her map choices anyway, so a finished stop returns her straight to the map.
+// Why the human caught it: the owner watched her dismiss the same popup after every game.
+// Why the logs did not: each popup produced a valid choice event (often a Skip), which looks like healthy data.
+// Why the lab missed it: overlay tests asserted the rating works, never whether it should be there at all.
+describe("a finished stop goes straight back to the map", () => {
+  it("never asks how fun it was and finishes by itself", () => {
+    const onFinished = vi.fn();
+    render(<PostActivityEngagementOverlay title="Puzzle Vault" outcome={{ completed: true, accuracy: 1 }} onAction={vi.fn()} onFinished={onFinished} />);
+    expect(screen.queryByText("How fun was this activity?")).toBeNull();
+    expect(screen.queryByTestId("post-activity-engagement-overlay")).toBeNull();
+    expect(onFinished).toHaveBeenCalledTimes(1);
   });
 
-  it("shows a confirmed coin award without hover geometry changes", () => {
+  it("after she collects the chest she is back on the map, with no summary in between", () => {
+    const onFinished = vi.fn();
     render(
-      <PostActivityEngagementOverlay
-        title="Fraction Run"
-        outcome={{ completed: true }}
-        coinAward={{ amount: 25, balance: 125 }}
-        onAction={vi.fn()}
-        onFunRating={vi.fn()}
-      />,
+      <PostActivityEngagementOverlay title="Letter Box Trek" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished}
+        treasure={(finish) => <button type="button" onClick={finish}>Collect treasure</button>} />,
     );
+    expect(onFinished).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Collect treasure" }));
+    expect(screen.queryByTestId("post-activity-engagement-overlay")).toBeNull();
+    expect(onFinished).toHaveBeenCalledTimes(1);
+  });
 
-    expect(screen.getByText("+25 Sunny Coins")).toBeTruthy();
-    expect(screen.getByText("Balance: 125")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "5 stars" }).className).not.toContain(
-      "scale",
-    );
+  it("a stop that could not be saved still explains itself and offers the map", () => {
+    const onFinished = vi.fn();
+    render(<PostActivityEngagementOverlay title="Progress could not be saved" outcome={{ completed: false }} onAction={vi.fn()} onFinished={onFinished} />);
+    expect(screen.getByRole("button", { name: "Back to map" })).toBeTruthy();
+    expect(onFinished).not.toHaveBeenCalled();
+  });
+
+  it("the App mounts no rating and finishes stops through onFinished", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const app = fs.readFileSync(path.join(process.cwd(), "src/App.tsx"), "utf8");
+    expect(app).not.toContain("onFunRating");
+    expect(app).toContain("onFinished={handlePlannerBoardFinished}");
+  });
+});
+
+// Bug 2026-11-10 (Ila's session): a treasure chest appeared as a session started or closed and could not be
+// finished. Discovery and probe stops (the session's first and last stops) get their chest from the academic
+// commit, a moment after the stop's result; the stop's exit could close the screen while that chest was arriving.
+// Why the human caught it: she saw a chest she could not open or collect.
+// Why the logs did not: `[node-chest] [granted]` was logged on the server; nothing logged that the screen holding it closed.
+// Why the lab missed it: overlay tests passed the chest in at mount; none delivered it after the result.
+describe("a chest that arrives after the result is shown before the stop closes", () => {
+  it("waits while the reward is still being saved, then shows the chest, then finishes", () => {
+    const onFinished = vi.fn();
+    const { rerender } = render(<PostActivityEngagementOverlay title="Discovery" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished} holdFinish />);
+    expect(onFinished).not.toHaveBeenCalled();
+    expect(screen.getByTestId("post-activity-saving")).toBeTruthy();
+    rerender(<PostActivityEngagementOverlay title="Discovery" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished} holdFinish={false}
+      treasure={(finish) => <button type="button" onClick={finish}>Collect treasure</button>} />);
+    expect(onFinished).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Collect treasure" }));
+    expect(onFinished).toHaveBeenCalledTimes(1);
+  });
+
+  it("finishes once the save settles with no chest", () => {
+    const onFinished = vi.fn();
+    const { rerender } = render(<PostActivityEngagementOverlay title="Discovery" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished} holdFinish />);
+    rerender(<PostActivityEngagementOverlay title="Discovery" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished} holdFinish={false} />);
+    expect(onFinished).toHaveBeenCalledTimes(1);
+  });
+
+  it("the App holds Discovery and probe stops until their reward is saved", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const app = fs.readFileSync(path.join(process.cwd(), "src/App.tsx"), "utf8");
+    expect(app).toContain("holdFinish={discoveryRewardsPending}");
   });
 });

@@ -111,8 +111,11 @@ it.each([['primary-wheel',primary,'opt-wheel'],['primary-radar',primary,'opt-rad
  const next=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  // The next decision is new, so it goes through the tools (its first turn holds the facts).
  const prompt=f.requests[0].messages[0].content[0].text;
- for(const observation of practice)expect(prompt).toContain(observation.observationId);
- expect(prompt).toContain('assisted');
+ // Every saved answer is in the record it reads with read_record (2026-11-10); the question carries the summaries.
+ const questionFile=fs.readdirSync(f.rootDir,{recursive:true}).map(String).filter(name=>name.endsWith('tools.question.json')).map(name=>path.join(f.rootDir,name)).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs)[0];
+ const record=JSON.stringify(JSON.parse(fs.readFileSync(questionFile,'utf8')).facts.record.observations);
+ for(const observation of practice)expect(record).toContain(observation.observationId);
+ expect(prompt).toMatch(/assisted|with help/);
  expect(next.observations).toEqual(cycle.observations);
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  expect(f.create).toHaveBeenCalledTimes(3); // three tool turns, the last accepting its one look; the repeated call bought nothing

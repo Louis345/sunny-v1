@@ -5,7 +5,12 @@ import { runPsychologist } from "../psychologist/psychologist";
 import { shouldPersistSessionData } from "../../utils/runtimeMode";
 
 function summarizerSystemPrompt(childName: "Ila" | "Reina"): string {
-  const soul = readSoul(childName.toLowerCase());
+  let soul = "(No profile on file for this child.)";
+  try { soul = readSoul(childName.toLowerCase()); } catch (error) {
+    // A missing soul.md (lab and demo children) must not abort the post-session chain (E10, Law 4); other errors still do.
+    if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error;
+    console.warn(` 🎮 [session-recorder] [soul] [missing] child=${childName} path=${(error as NodeJS.ErrnoException).path}`);
+  }
   if (childName === "Ila") {
     return SLP_PROMPT(childName, soul);
   }

@@ -1,3 +1,10 @@
+import { replyOverlap } from "../engine/companionPresenceAudit";
+import { childPaceFacts, itemAttemptFacts } from "./itemAttemptFacts";
+import { sunnyHealthFacts } from "../engine/sunnyHealth";
+import { isCompanionSpeechMuted, noteCompanionHelpOnItem } from "./companionItemHelp";
+import { gamePaceFacts, noteGamePace } from "./gamePace";
+import { unnamedPetFacts } from "./creatureCare";
+import { normalizeSpeechText } from "../engine/helpRequest";
 import { getChildChart } from "../profiles/childChart";
 import type { SpellingAssessmentState } from "./game-event-handler";
 import type {
@@ -22,6 +29,7 @@ import {
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import { companionMathTestObjective, companionSpellingTestObjective } from "../engine/schoolTestObjective";
 
 export type UrgentIntentType =
   | "help_request"
@@ -46,17 +54,6 @@ export type LiveLearningContext = {
   missCount?: number;
   accuracy?: number;
   updatedAt: string;
-};
-
-export type UrgentChildIntent = {
-  type: UrgentIntentType;
-  shouldInterrupt: boolean;
-  reason: string;
-};
-
-export type UrgentEvidence = {
-  childSignals: Array<Omit<ChildSignalInput, "createdAt">>;
-  productIssues: Array<Omit<ProductIssueInput, "createdAt">>;
 };
 
 type BuildContextInput = {
@@ -115,22 +112,8 @@ export function buildLiveLearningContext(input: BuildContextInput): LiveLearning
   };
 }
 
-function isActiveLearningGame(context: LiveLearningContext | null): context is LiveLearningContext {
-  if (!context) return false;
-  return /pronunciation|spell-check|word-radar|monster-stampede|wheel/.test(context.activityId);
-}
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function normalizeSpeechText(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[’']/g, "")
-    .replace(/[^a-z0-9\s]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 export type CompanionPresenceTranscriptRoute =
@@ -196,12 +179,10 @@ export function prepareInstructionReadRequest(input: {
         : "The child asked Elli to read or explain the current prompt.",
       `Frozen prompt: ${JSON.stringify(prompt)}`,
       `Measurement role: ${input.measurementRole ?? "unknown"}.`,
-      "Use the live answer-hidden activity context. Speak naturally in one short, age-appropriate sentence.",
-      "Read or briefly simplify what the child needs to do; do not reveal, imply, or eliminate toward the answer and do not alter the choices or scoring contract.",
+      "The live activity context hides the answer. Pointing toward the answer, ruling choices out, or changing the choices would change what this item measures.",
       input.trigger === "guided_prompt"
-        ? "This was system-invited support, not evidence that the child asked for help; do not record a help-needed child signal."
-        : "This was child-requested support; record it only as support/interaction evidence, never mastery.",
-      "Return control to the activity unless a brief understanding question is genuinely needed.",
+        ? "The activity invited this, not her: it is not a help request from her."
+        : "She asked for this; it is saved as support, never mastery.",
     ].join("\n"),
     trace: {
       type: "instructional_companion_support",
@@ -217,8 +198,8 @@ export function prepareInstructionReadRequest(input: {
   };
 }
 
-function readCompanionCycle(childId: string) {
-  try { return getChildChart(childId).learningCycle; }
+function readCompanionChart(childId: string) {
+  try { return getChildChart(childId); }
   catch (error) {
     console.warn(" 🎮 [companion] [recorded-status] [unavailable]", error instanceof Error ? error.message : String(error));
     return undefined;
@@ -237,7 +218,8 @@ export function buildActivityCompanionContext(input: {
   screenReport?: ScreenReport | null;
 }): string {
   const reported = input.screenReport !== undefined;
-  const cycle = input.snapshot?.nodeId || reported ? readCompanionCycle(input.childId) : undefined;
+  const chart = input.snapshot?.nodeId || reported ? readCompanionChart(input.childId) : undefined;
+  const cycle = chart?.learningCycle;
   const snapshot = input.snapshot ? { ...input.snapshot,
     recordedActivityStatus: cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.state } : null;
   const activityState = buildCurrentBoardSnapshotContext(snapshot, { childSpeech: input.childSpeech });
@@ -248,19 +230,30 @@ export function buildActivityCompanionContext(input: {
   const activityOnScreen = !reported || screenShowsActivity(check);
   const board = reported ? describeScreenForCompanion({ ...check, activityContext: activityState }) : activityState;
   const liveBoard = cycle ? describeLiveBoardForCompanion(cycle) : "";
+  const tutorPlan = cycle ? describeTutorPlanForCompanion(cycle, input.snapshot?.nodeId) : "";
+  // The problem she has open, as saved (never its answer), so the companion knows what is really there (BUGS.md 2026-11-09).
+  const openProblem = input.snapshot?.itemId
+    ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract.itemContracts?.[input.snapshot.itemId]?.prompt : undefined;
+  const problemText = openProblem ? `[The problem she has open, as Sunny saved it]\n"${openProblem}"` : "";
+  // A game with problems that has not said which one is open: the companion is told it cannot see it (2026-11-10:
+  // Elli guessed from Ila counting aloud and told her a wrong answer three times). Code-owned fact, no script.
+  const openContract = input.snapshot?.nodeId ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract : undefined;
+  const unseen = activityOnScreen && !openProblem && Object.keys({ ...openContract?.itemContracts, ...openContract?.spellingItems }).length > 0
+    && !(input.spellingAssessment && input.snapshot?.itemId === input.spellingAssessment.itemId);
+  if (unseen) console.log(` 🎮 [companion-context] [problem-unseen] child=${input.childId} node=${input.snapshot?.nodeId}`);
+  const unseenText = unseen ? "[What Sunny can see]\nSunny cannot see which problem is on her screen right now: the game has not said which one is open. You do not know its numbers, its words or its answer." : "";
+  // Pace facts in every game, for her companion's judgment (2026-11-10); talking to her companion in a game is help asked.
+  if (input.presence === "summoned" && input.snapshot?.nodeId) noteGamePace(input.childId, input.snapshot.nodeId, "help");
+  // Her tries on the open problem and her pace from her chart (2026-11-10): facts, the companion judges.
+  const pace = activityOnScreen ? [gamePaceFacts(input.childId, input.snapshot?.nodeId), itemAttemptFacts(input.childId, input.snapshot?.nodeId, input.snapshot?.itemId),
+    input.snapshot?.nodeId ? childPaceFacts(chart?.demographics, cycle) : ""].filter(Boolean).join("\n") : "";
+  // Her companion answering while a problem is open is help on that problem: saved with its answer (2026-11-10).
+  if (openProblem && input.presence === "summoned" && input.snapshot?.nodeId && input.snapshot.itemId) noteCompanionHelpOnItem(input.childId, input.snapshot.nodeId, input.snapshot.itemId);
   const remembered = buildShowroomTalkMemoryPrompt(
     withoutRememberedPosition(readCompanionCareMemoryForPrompt(input.childId, input.companionId)),
   );
   const memory = remembered && [remembered,
-    "Memory is from past sessions: use it for who she is, never for where she is. Where she left off, what she just did and what is next come only from the live board and screen above; never offer a remembered game, round or level to resume."].join("\n");
-  const helpObjective = input.presence === "summoned" && input.snapshot && activityOnScreen
-    ? [
-        "Activity-help objective:",
-        "Resolve the child's request briefly from the answer-hidden activity context.",
-        "Ask one short understanding question only when it adds value; if you do, set companionAct presenceAfterSpeech=await_child_response.",
-        "Otherwise return control to the activity and allow the companion to return to standby.",
-      ].join("\n")
-    : "";
+    "That memory is from past sessions. Where she is now, what she just did and what is next are on the live board and screen above."].join("\n");
   let spelling = "";
   const assessment = input.spellingAssessment;
   if (assessment && activityOnScreen && input.snapshot?.itemId === assessment.itemId) {
@@ -270,14 +263,64 @@ export function buildActivityCompanionContext(input: {
       JSON.stringify({ itemId:assessment.itemId, ...(input.snapshot.spellingSupportMode === "pronunciation_model" ? {spokenStimulus:assessment.word} : {}),
         instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
         ...(cycle ? {lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null} : {recordedHistoryAvailable:false}) }),
-      "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
-      ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it. Until her answer for this item is submitted, you may say the word again or encourage her."]),
+      "The activity takes her typed answer and grades it; saying letters aloud is not a submitted answer. These facts are newer than anything said earlier in the conversation.",
+      assessment.instrument === "practice" ? "This word is practice: help counts as part of learning it." : "This word is a check: it measures what she spells on her own.",
     ].join("\n");
   }
-  return redactProtectedSpellingText([board, liveBoard, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  // The school test as her goal plus facts (owner, 2026-11-08): Elli judges how much help fits.
+  const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework, history: chart?.learningHistory,
+    instrument: undefined })
+    : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
+  // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
+  const health = sunnyHealthFacts(input.childId);
+  const recent = recentRepliesFact(input.childId);
+  // A pet she caught and has not named yet (Ila 11/22): a fact each turn, gone once she names it.
+  const unnamedPets = unnamedPetFacts(input.childId);
+  // What she can hear and who Sunny hears (Saori 11/22–11/25: 60 of 62 replies unheard; adults answered as her). Facts only.
+  const speechMuted = isCompanionSpeechMuted(input.childId);
+  if (speechMuted) console.log(` 🎮 [companion-context] [voice-muted] child=${input.childId} node=${input.snapshot?.nodeId ?? "none"}`);
+  const hearing = ["[Hearing]", ...(speechMuted ? ["She has your voice muted on her screen: she cannot hear what you say."] : []),
+    "Sunny's microphone hears everyone near the kiosk (her, her sister, the adults at the table) and cannot tell who spoke."].join("\n");
+  return redactProtectedSpellingText([health, hearing, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, unnamedPets, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; stays for every next problem in this game; another game or a check starts at normal pace).`, memory, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
-type CompanionCycle = NonNullable<ReturnType<typeof readCompanionCycle>>;
+type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
+
+/**
+ * The Planner's current plan, in its own words, and what the open stop is for (owner, 2026-11-09: the teacher and
+ * the aide work in sync). Facts for Elli's judgment; how she helps stays hers.
+ */
+export function describeTutorPlanForCompanion(cycle: CompanionCycle, nodeId?: string): string {
+  const decision = [...(cycle.decisionHistory ?? [])].reverse().find(row => row.eventType === "theory_decided");
+  const node = nodeId ? cycle.nodes.find(candidate => candidate.nodeId === nodeId) : undefined;
+  const plan = decision?.selfReview?.whatIChangeNow;
+  const trying = decision?.experiment?.trying;
+  const lines = ["[Her tutor's plan (the Planner, in its own words)]",
+    ...(trying ? [`What the tutor is trying on this board: "${trying}"`] : plan ? [`What the tutor changes now: "${plan}"`] : decision?.reason ? [`The tutor's latest reasoning: "${decision.reason.slice(0, 400)}"`] : []),
+    ...(decision?.selfReview?.whatIKeep ? [`What the tutor keeps because it worked for her: "${decision.selfReview.whatIKeep}"`] : []),
+    ...(decision?.change?.length ? ["The tutor's changes for this board:", ...decision.change.map(line => `- ${line}`)] : []),
+    ...(node ? [`This stop, "${node.title}", is for: ${node.openingScreen?.purpose ?? "not stated"}.${node.focus ? ` Aimed at: ${node.focus}.` : ""}`] : [])];
+  return lines.length > 1 ? lines.join("\n") : "";
+}
+
+/**
+ * What the companion said to her in the last few minutes, shown back to it as facts (Ila, 2026-11-16: "Elli is annoying,
+ * she keeps saying the same over and over"). Per child, in memory; each reply is scored against the last three.
+ */
+const recentReplies = new Map<string, Array<{ at: number; text: string }>>();
+const RECENT_MS = 5 * 60_000;
+export function noteCompanionReply(childId: string, reply: string, now = Date.now()): { words: number; repeat: number } {
+  const text = reply.trim();
+  const kept = (recentReplies.get(childId) ?? []).filter(row => now - row.at < RECENT_MS);
+  const repeat = Math.max(0, ...kept.slice(-3).map(row => replyOverlap(text, row.text)));
+  if (text) recentReplies.set(childId, [...kept, { at: now, text }].slice(-3));
+  return { words: (text.match(/[\p{L}\p{N}'-]+/gu) ?? []).length, repeat: Math.round(repeat * 100) / 100 };
+}
+function recentRepliesFact(childId: string, now = Date.now()): string {
+  const rows = (recentReplies.get(childId) ?? []).filter(row => now - row.at < RECENT_MS);
+  if (!rows.length) return "";
+  return ["[What you said to her in the last few minutes, oldest first]", ...rows.map(row => `- "${row.text.slice(0, 220)}"`)].join("\n");
+}
 
 /** The current board's path, its saved progress and the next step: the only answer to "where did I leave off". */
 export function describeLiveBoardForCompanion(cycle: CompanionCycle): string {
@@ -471,50 +514,6 @@ export function routeCompanionPresenceTranscript(input: {
 
 type ProductComplaintKind = "companion_lag" | "flow_complaint" | "bug_report";
 
-function classifyProductComplaintText(
-  transcript: string,
-  context: LiveLearningContext | null,
-): ProductComplaintKind | null {
-  const text = normalizeSpeechText(transcript);
-  if (!text) return null;
-  if (/\b(my name|say my name|name is|not ee lah|not ila|ayla|isla)\b/.test(text)) {
-    return null;
-  }
-  if (/\b(behind|lag|lagging|too slow|not listening)\b/.test(text)) {
-    return "companion_lag";
-  }
-  if (/\b(bug|broken|glitch|not working)\b/.test(text)) {
-    return "bug_report";
-  }
-  if (
-    isActiveLearningGame(context) &&
-    /\b(worse than before|worse|wrong words?|same words?|not the right words?|not high frequency|make some more words|more words only|fix this|this is bad)\b/.test(text)
-  ) {
-    return "flow_complaint";
-  }
-  if (/\bi was explaining\b/.test(text)) return null;
-
-  const hasActiveProductContext = isActiveLearningGame(context);
-  const saysMissingPrompt =
-    /\b(didnt|doesnt|dont|never|not)\s+(say|speak|read|tell|show)\b/.test(text) ||
-    /\b(say|speak|read|tell|show)\s+(the\s+)?word\b/.test(text);
-  const saysBeforeSpell =
-    /\b(say|speak|read|tell)\b.*\bbefore\b.*\b(spell|type|answer|guess)\b/.test(text) ||
-    /\bbefore\b.*\b(i|we)\b.*\b(spell|type|answer|guess)\b/.test(text);
-  const saysFlowSkipped =
-    /\b(game|it|this|that)\s+(skipped|skip|went too fast)\b/.test(text) ||
-    /\bdidnt\s+give\s+me\s+a\s+turn\b/.test(text);
-  const saysGroundedWrong =
-    hasActiveProductContext &&
-    (/\b(thats|that|this|it|you|game)\s+(is|was|are|were)?\s*(wrong|not right)\b/.test(text) ||
-      /\b(thats|that|this|it)\s+not\s+right\b/.test(text));
-
-  if (saysMissingPrompt || saysBeforeSpell || saysFlowSkipped || saysGroundedWrong) {
-    return "flow_complaint";
-  }
-  return null;
-}
-
 export function looksLikeSessionEndRequest(
   transcript: string,
   companionName?: string,
@@ -547,206 +546,11 @@ export function looksLikeSessionEndRequest(
   return /\b(n|in|and|end)\s+(the\s+)?(session|sesh)\b/.test(text);
 }
 
-function isShortCompanionNameCall(transcript: string, companionName: string): boolean {
-  const companion = companionName.trim();
-  if (!companion) return false;
-  const words = transcript
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s'-]+/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-  if (words.length > 4) return false;
-  const companionPattern = new RegExp(`\\b${escapeRegExp(companion)}\\b`, "i");
-  return companionPattern.test(transcript);
-}
-
-export function detectUrgentChildIntent(
-  transcript: string,
-  context: LiveLearningContext | null,
-): UrgentChildIntent | null {
-  if (!isActiveLearningGame(context)) return null;
-  const t = transcript.toLowerCase().trim();
-  if (!t) return null;
-
-  if (looksLikeSessionEndRequest(transcript, context.companionName)) return null;
-
-  if (/\b(i do not need help|i don't need help|dont need help|don't help|stop helping|go away|i got it|let me do it|no help)\b/.test(t)) {
-    return {
-      type: "autonomy_pushback",
-      shouldInterrupt: true,
-      reason: "child_rejected_help",
-    };
-  }
-
-  if (classifyProductComplaintText(transcript, context)) {
-    return {
-      type: "bug_report",
-      shouldInterrupt: true,
-      reason: "child_reported_product_issue",
-    };
-  }
-
-  if (/\b(can you help|help me|help|i need help|i'm stuck|im stuck|stuck|i don't know|i dont know|what is it|how do i)\b/.test(t)) {
-    return {
-      type: "help_request",
-      shouldInterrupt: true,
-      reason: "child_requested_help",
-    };
-  }
-
-  if (/\b(this is hard|too hard|i can't|i cant|can't do|cant do|i give up|ugh|frustrated|mad|angry|cry|hurts?)\b/.test(t)) {
-    return {
-      type: "frustration",
-      shouldInterrupt: true,
-      reason: "child_frustration_language",
-    };
-  }
-
-  if (/\b(pause|wait|one second|hold on|slow down)\b/.test(t)) {
-    return {
-      type: "stop_or_pause",
-      shouldInterrupt: true,
-      reason: "child_requested_pause",
-    };
-  }
-
-  if (isShortCompanionNameCall(transcript, context.companionName)) {
-    return {
-      type: "companion_name_call",
-      shouldInterrupt: true,
-      reason: "child_called_companion",
-    };
-  }
-
-  return null;
-}
-
-function childSignal(
-  context: LiveLearningContext,
-  transcript: string,
-  signalType: ChildSignalType,
-  dimension: ChildSignalDimension,
-  evidenceText: string,
-): Omit<ChildSignalInput, "createdAt"> {
-  return {
-    childId: context.childId,
-    activityId: context.activityId,
-    domain: context.activityId === "pronunciation" ? "reading" : "spelling",
-    signalType,
-    dimension,
-    valence: "negative",
-    confidence: 0.9,
-    evidenceText: evidenceText || `child said: "${transcript}"`,
-    source: "observed_behavior",
-    nodeId: context.nodeId,
-  };
-}
-
-export function chartEvidenceForUrgentIntent(
-  intent: UrgentChildIntent,
-  context: LiveLearningContext,
-  transcript: string,
-): UrgentEvidence {
-  if (intent.type === "bug_report") {
-    const lower = transcript.toLowerCase();
-    const complaintKind =
-      classifyProductComplaintText(transcript, context) ??
-      (/\b(behind|lag|slow|not listening)\b/.test(lower)
-        ? "companion_lag"
-        : "bug_report");
-    return {
-      childSignals: [],
-      productIssues: [
-        {
-          childId: context.childId,
-          activityId: context.activityId,
-          issueType: complaintKind,
-          severity: /\b(behind|lag|bug|broken|not working)\b/.test(lower)
-            ? "high"
-            : "medium",
-          childUtterance: transcript,
-          evidenceText: `child reported Sunny issue during ${context.activityId}: "${transcript}"`,
-          confidence: 0.85,
-          source: "child_utterance",
-          nodeId: context.nodeId,
-          activityState: { ...context },
-        },
-      ],
-    };
-  }
-
-  const signal =
-    intent.type === "autonomy_pushback"
-      ? childSignal(context, transcript, "autonomy_pushback", "autonomy", `child rejected help: "${transcript}"`)
-      : intent.type === "frustration"
-        ? childSignal(context, transcript, "frustration", "reading", `child showed frustration language: "${transcript}"`)
-        : intent.type === "stop_or_pause"
-          ? childSignal(context, transcript, "frustration", "calm", `child requested pause/slowdown: "${transcript}"`)
-          : childSignal(context, transcript, "help_needed", "help", `child requested help during ${context.activityId}: "${transcript}"`);
-
-  return { childSignals: [signal], productIssues: [] };
-}
-
-export function auditConversationForLearningSignals(input: {
-  childId: string;
-  sessionId?: string;
-  messages: string[];
-  recentActivityState?: Record<string, unknown> | null;
-}): UrgentEvidence {
-  const text = input.messages.join("\n").toLowerCase();
-  const context =
-    buildLiveLearningContext({
-      childId: input.childId,
-      childName: input.childId,
-      companionName: "Sunny",
-      currentActivityState: input.recentActivityState ?? { game: "pronunciation" },
-    }) ?? {
-      childId: input.childId,
-      childName: input.childId,
-      companionName: "Sunny",
-      activityId: "pronunciation",
-      updatedAt: new Date().toISOString(),
-    };
-  const childSignals: UrgentEvidence["childSignals"] = [];
-  const productIssues: UrgentEvidence["productIssues"] = [];
-
-  if (
-    /\bbiggest signal\b/.test(text) ||
-    (/\bpractice reading\b/.test(text) && /\blistening to (the )?book\b/.test(text))
-  ) {
-    childSignals.push({
-      childId: input.childId,
-      activityId: context.activityId || "pronunciation",
-      domain: "reading",
-      signalType: "reading_struggle",
-      dimension: "reading",
-      valence: "negative",
-      confidence: 0.9,
-      evidenceText:
-        "Parent/caregiver identified reading practice as the main signal after pronunciation struggle.",
-      source: "parent_comment",
-      sessionId: input.sessionId,
-      nodeId: context.nodeId,
-    });
-  }
-
-  const auditComplaintKind = classifyProductComplaintText(text, context);
-  if (auditComplaintKind) {
-    productIssues.push({
-      childId: input.childId,
-      activityId: context.activityId || "unknown_activity",
-      issueType: auditComplaintKind,
-      severity: "medium",
-      childUtterance: "session transcript contained product complaint",
-      evidenceText: "Session audit found a child/parent product complaint in the transcript.",
-      confidence: 0.7,
-      source: "observed_behavior",
-      sessionId: input.sessionId,
-      nodeId: context.nodeId,
-      activityState: input.recentActivityState ?? null,
-    });
-  }
-
-  return { childSignals, productIssues };
-}
+/**
+ * Is this transcript plausibly her own single turn? (11/23: the parents' conversation by the kiosk became Ila's help
+ * request three times.) Code owns provenance: speech with back-channels ("uh-huh", "-- yep --") is a conversation
+ * between other people, and a transcript far longer than one child turn is the room, not her. Either way it is never
+ * saved as her evidence; she still gets her reply. Her own turns that night: median 9 words.
+ */
+const BACK_CHANNEL = /(?:^|[\s.,!?-])(uh-huh|mm-hmm|mhm|uh huh|mm hmm)(?=[\s.,!?-]|$)|--\s*(yep|yeah|right|okay|ok)\.?\s*--/gi;
+const MAX_ONE_TURN_WORDS = 60;

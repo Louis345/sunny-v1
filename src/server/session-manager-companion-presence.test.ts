@@ -110,7 +110,7 @@ describe("SessionManager companion presence", () => {
 
     expect(session.runCompanionResponse).toHaveBeenCalledOnce();
     expect(session.runCompanionResponse).toHaveBeenCalledWith(
-      expect.stringMatching(/Which hand shows the minutes\?[\s\S]*do not reveal/i), "system",
+      expect.stringMatching(/Which hand shows the minutes\?[\s\S]*hides the answer/i), "system",
     );
     expect(session.handleCompanionTurn).not.toHaveBeenCalled();
     expect(session.companionDispositionAfterSpeech).toBe("standby_after_speech");

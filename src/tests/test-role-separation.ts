@@ -166,25 +166,6 @@ describe("worksheetSessionPrompt — vision-based grading", () => {
     expect(prompt.toLowerCase()).toContain("grade");
   });
 
-  it("contains dispute resolution — count together", async () => {
-    const { buildWorksheetToolPrompt } = await import(
-      "../agents/prompts/worksheetSessionPrompt"
-    );
-    const prompt = buildWorksheetToolPrompt({
-      childName: "Reina",
-      companionName: "Matilda",
-      subjectLabel: "Counting Coins",
-      problemCount: 4,
-      rewardThreshold: 2,
-      rewardGame: "space-invaders",
-      pendingRewardFromLastSession: null,
-      interactionMode: "answer_entry",
-    });
-
-    expect(prompt.toLowerCase()).toContain("count");
-    expect(prompt.toLowerCase()).toContain("together");
-  });
-
   it("does NOT reference facts.totalCents or extracted answers", async () => {
     const { buildWorksheetToolPrompt } = await import(
       "../agents/prompts/worksheetSessionPrompt"
@@ -229,44 +210,31 @@ describe("worksheetSessionPrompt — vision-based grading", () => {
     expect(prompt).not.toMatch(/expected answer in facts/i);
   });
 
-  it("contains hint ladder — no immediate answer reveal", async () => {
+  // Owner 2026-11-24 (prompt sweep): the prompt told the companion to log correct: true after explaining the answer
+  // or after a third miss, so a walked-through problem would be saved as solved on her own. Why no human caught it:
+  // worksheet mode has not run since honest records began. Why the lab missed it: these tests checked for a hint
+  // ladder and "respond naturally", i.e. for the rules, not for what reaches her record.
+  it("saves a walked-through problem as help, never as correct, and gives facts, not rules", async () => {
     const { buildWorksheetToolPrompt } = await import(
       "../agents/prompts/worksheetSessionPrompt"
     );
-    const prompt = buildWorksheetToolPrompt({
-      childName: "Reina",
-      companionName: "Matilda",
-      subjectLabel: "Counting Coins",
-      problemCount: 4,
-      rewardThreshold: 2,
-      rewardGame: "space-invaders",
-      pendingRewardFromLastSession: null,
-      interactionMode: "answer_entry",
-    });
-
-    expect(prompt.toLowerCase()).toContain("hint");
-    expect(prompt.toLowerCase()).toContain("never");
-    expect(prompt.toLowerCase()).toContain("reveal");
-  });
-
-  it("permits natural response length while retaining answer recording", async () => {
-    const { buildWorksheetToolPrompt } = await import(
-      "../agents/prompts/worksheetSessionPrompt"
-    );
-    const prompt = buildWorksheetToolPrompt({
-      childName: "Reina",
-      companionName: "Matilda",
-      subjectLabel: "Counting Coins",
-      problemCount: 4,
-      rewardThreshold: 2,
-      rewardGame: "space-invaders",
-      pendingRewardFromLastSession: null,
-      interactionMode: "answer_entry",
-    });
-
-    expect(prompt).not.toMatch(/Maximum 2 sentences|Do NOT speak more than 2 sentences|react in 1 sentence/);
-    expect(prompt).toContain("respond naturally");
-    expect(prompt).toContain("call sessionLog");
+    for (const interactionMode of ["answer_entry", "review"] as const) {
+      const prompt = buildWorksheetToolPrompt({
+        childName: "Reina",
+        companionName: "Matilda",
+        subjectLabel: "Counting Coins",
+        problemCount: 4,
+        rewardThreshold: 2,
+        rewardGame: "space-invaders",
+        pendingRewardFromLastSession: "space-invaders",
+        interactionMode,
+      });
+      expect(prompt).not.toMatch(/after explaining the answer|walk through the answer[^.]*correct: true|to move on/i);
+      expect(prompt).toMatch(/correct means she got it herself/i);
+      expect(prompt).toMatch(/skipped: true/);
+      expect(prompt).not.toMatch(/\b(never|always|must|do not|don't|NOT|IMPORTANT|CRITICAL|RULES)\b/);
+      expect(prompt).not.toMatch(/example/i);
+    }
   });
 });
 

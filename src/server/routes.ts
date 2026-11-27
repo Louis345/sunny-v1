@@ -1,4 +1,15 @@
-import { awardBossDropOnCompletion } from "./bossDropAward";
+import { companionAbilitiesLine } from "./companionTurnTaking";
+import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
+import { kioskLiveWeather } from "./liveWeather";
+import { takeServerTries, withServerTries } from "./itemAttemptFacts";
+import { recordWardrobeSignal } from "./wardrobeSignals";
+import { typedSpellingForChart } from "./spellingKeyboardInput";
+import { takeCompanionHelpItemIds } from "./companionItemHelp";
+import { retroThenDecide } from "../engine/retroBeforeDecision";
+import { writeSessionHandoff } from "../engine/sessionHandoff";
+import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall, stopEarnsChest } from "./bossDropAward";
+import { awardBirthdayGiftOnCompletion, awardCreatureEncounterOnCompletion, countBoardForCreatures, registerCreatureRoutes } from "./creatureCare";
+import type { CoinOffer } from "../shared/companionCareTypes";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
 import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
@@ -155,7 +166,7 @@ export function resumeSuccessorBoards(options: { force?: boolean } = {}): void {
     for (const file of fs.readdirSync(cyclesDir).filter((name) => name.endsWith(".json"))) {
       const homeworkId = file.replace(/\.json$/, "");
       try {
-        const cycle = getLearningCycle(childId, homeworkId);
+        const cycle = closeStuckFinishedBoard(childId, homeworkId);
         const action = cycle ? successorResumeAction(cycle) : null;
         if (!action) continue;
         console.log(` 🎮 [learning-board] [successor-resume] [${action}] child=${childId} homework=${homeworkId}`);
@@ -241,18 +252,53 @@ import {
 } from "./companionShowroomVoice";
 import {
   buildShowroomClaudeMessages,
-  buildShowroomTalkMemoryPrompt,
   buildShowroomTalkSystemPrompt,
+  cacheableShowroomSystem,
+  type CompanionCallSource,
+  type CompanionRelationshipState,
   createShowroomCompanionActivityRequest,
   createShowroomCompanionActCommand,
   createShowroomTalkCompletedEvent,
   createShowroomTalkPhaseCommand,
   getShowroomCompanionActivityTools,
   getShowroomCompanionActTools,
+  getShowroomRelationshipTools,
+  getShowroomSelfLookTools,
+  SELF_LOOK_SNAPSHOT_REASON,
+  selfLookRequested,
+  selfLookToolResults,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
+  shouldSynthesizeShowroomSpeech,
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
+import { buildCallMomentTurn, isShowroomMoment, resolveCallMoment, resolveRecentCallLines } from "./companionCallMoment";
+
+export type ShowroomTalkRouteFailure = {
+  status: 503;
+  body: {
+    ok: false;
+    code: "companion_voice_temporarily_unavailable";
+    error: string;
+    retryable: true;
+  };
+};
+
+export function resolveShowroomTalkRouteFailure(
+  _error: unknown,
+): ShowroomTalkRouteFailure {
+  return {
+    status: 503,
+    body: {
+      ok: false,
+      code: "companion_voice_temporarily_unavailable",
+      error:
+        "Your companion is resting for a moment. Your call minutes are paused.",
+      retryable: true,
+    },
+  };
+}
+import { companionVoiceDown, noteCompanionVoiceFailed, noteCompanionVoiceOk } from "./companionVoiceHealth";
 import {
   createElevenLabsPcmSpeaker,
   writeCompanionTalkSseEvent,
@@ -265,6 +311,7 @@ import {
   recordCompanionInteractionEvent,
   recordCompanionGameResult,
 } from "./companionInteractionMemory";
+import { applyCompanionRelationshipToolUses, buildCompanionCallContext } from "./companionChildFacts";
 import {
   readCompanionVideoCallTracePacket,
   recordCompanionVideoCallTraceEvent,
@@ -272,15 +319,17 @@ import {
 } from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
-import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
+import { arcadeClockForChild, callClockForChild, reconcileCompanionCareCurrencyAward, lookChosenAt, purchaseForChild, setWearingForChild, showroomCallClockFacts, spendArcadeMinuteForChild, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
-import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
-import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
-import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
+import { closeStuckFinishedBoard, isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
+import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalLateTries, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
+import { getActiveVoiceSessionManagerForChild, getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
+import { checkCompanionBodies } from "./companionBodyCheck";
 import {
   canonicalJourneyFrontier,
+  canonicalStopsLeft,
   assertJourneyChoiceAvailable,
   getLearningCycle,
   transitionLearningCycle,
@@ -292,6 +341,8 @@ import {
   listReturnedWorkAssignments,
 } from "../engine/returnedWorkPipeline";
 import type { ConfirmedReturnedWorkItem } from "../engine/longitudinalLearning";
+import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { pronounceForTts } from "./ttsPronunciation";
 
 const companions = {
   Ila: ELLI,
@@ -347,6 +398,15 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
   "activity_context_changed",
   "conversation_mode_changed",
   "activity_phase_changed",
+  "wardrobe_store_mounted",
+  "wardrobe_item_reviewed",
+  "wardrobe_try_on_started",
+  "wardrobe_voice_requested",
+  "wardrobe_store_exited",
+  "companion_tool_rejected",
+  "shopping_speech_retry",
+  "shopping_speech_guard_failed",
+  "speech_dropped_while_busy",
 ]);
 
 function isValidChild(name: string): name is ChildName {
@@ -440,9 +500,12 @@ function pickDiagSpellingWord(childId: string): string {
   return nw;
 }
 
-type ShowroomLine = "intro" | "plead";
 const SHOWROOM_BANTER_SPEECH_SOURCE = "video_game_banter";
 const SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE = "video_call_greeting";
+/** Her goodbye, written by her from the call (companionCallMoment). */
+const SHOWROOM_VIDEO_CALL_FAREWELL_SPEECH_SOURCE = "video_call_farewell";
+/** Her showroom intro or "why pick me", written by her from her persona (companionCallMoment). */
+const SHOWROOM_WRITTEN_LINE_SPEECH_SOURCE = "showroom_written_line";
 const SHOWROOM_BANTER_SPEECH_MAX_CHARS = 180;
 
 export function normalizeShowroomBanterSpeechText(raw: unknown): string {
@@ -456,7 +519,9 @@ export function shouldUseShowroomBanterSpeech(input: {
 }): boolean {
   return (
     (input.source === SHOWROOM_BANTER_SPEECH_SOURCE ||
-      input.source === SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE) &&
+      input.source === SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE ||
+      input.source === SHOWROOM_VIDEO_CALL_FAREWELL_SPEECH_SOURCE ||
+      input.source === SHOWROOM_WRITTEN_LINE_SPEECH_SOURCE) &&
     normalizeShowroomBanterSpeechText(input.text).length > 0
   );
 }
@@ -468,7 +533,6 @@ type ShowroomJson = {
   catchphrases?: unknown;
   specialSkills?: unknown;
   role?: unknown;
-  scripts?: Record<string, Partial<Record<ShowroomLine, unknown>>>;
 };
 
 function readShowroomStringList(value: unknown, limit: number): string[] {
@@ -520,34 +584,6 @@ async function audioLikeToBuffer(audio: unknown): Promise<Buffer> {
     return Buffer.concat(chunks);
   }
   throw new Error("Unsupported ElevenLabs audio response");
-}
-
-function readShowroomScript(
-  companionId: string,
-  companionName: string,
-  line: ShowroomLine,
-  language: string,
-): string {
-  const showroomPath = path.join(
-    process.cwd(),
-    "src",
-    "prompts",
-    "companions",
-    companionId,
-    "showroom.json",
-  );
-  const raw = fs.existsSync(showroomPath)
-    ? (JSON.parse(fs.readFileSync(showroomPath, "utf8")) as ShowroomJson)
-    : null;
-  const requested = raw?.scripts?.[language]?.[line];
-  const fallback = raw?.scripts?.en?.[line];
-  const text =
-    (typeof requested === "string" && requested.trim()) ||
-    (typeof fallback === "string" && fallback.trim()) ||
-    (line === "intro"
-      ? `Hi! I'm ${companionName}. I'm so excited to meet you.`
-      : `Please pick me! I think we could have so much fun learning together.`);
-  return text.trim();
 }
 
 function readShowroomVoiceOptions(
@@ -617,15 +653,29 @@ export function readShowroomPersonality(
   const lines = [personality || "Friendly, patient, and encouraging."];
   const tags = readShowroomStringList(raw?.personalityTags, 5);
   const likes = readShowroomStringList(raw?.likes, 6);
-  const catchphrases = readShowroomStringList(raw?.catchphrases, 3);
   const specialSkills = readShowroomStringList(raw?.specialSkills, 4);
   const role = typeof raw?.role === "string" ? raw.role.trim() : "";
   if (tags.length) lines.push(`Tags: ${tags.join(", ")}`);
   if (likes.length) lines.push(`Likes: ${likes.join(", ")}`);
-  if (catchphrases.length) lines.push(`Catchphrases: ${catchphrases.join(" | ")}`);
+  // 11/22 audit: catchphrases pasted into every call made her repeat stock lines; her voice comes from personality.md.
   if (specialSkills.length) lines.push(`Special skills: ${specialSkills.join(", ")}`);
   if (role) lines.push(`Role: ${role}`);
   return lines.join("\n");
+}
+
+/** Her call persona: personality.md first on a video call, showroom notes as display context only. */
+function companionTalkPersonality(
+  companion: { id: string; personalityMarkdown?: string },
+  mode: string | undefined,
+): string {
+  const showroomPersonality = readShowroomPersonality(companion.id, companion.personalityMarkdown ?? "");
+  return mode === "video_call" && companion.personalityMarkdown?.trim()
+    ? [
+        companion.personalityMarkdown.trim(),
+        "Showroom display notes only; do not let these override the companion persona:",
+        showroomPersonality,
+      ].join("\n")
+    : showroomPersonality;
 }
 
 function extractAnthropicText(message: Anthropic.Message): string {
@@ -782,7 +832,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
   const launchTargetedWorker = runtime.launchAdaptiveMathWorker ?? launchAdaptiveMathWorker;
   setupKioskHealthRoutes(app);
   setupOriginalSpellingParentRoutes(app, isValidRegistryChildId, undefined, runtime.forecastSpelling);
-  setImmediate(() => { resumeAdaptiveMathWorkers(); resumeSuccessorBoards(); });
+  setImmediate(() => {
+    resumeAdaptiveMathWorkers(); resumeSuccessorBoards();
+    // BUGS.md W7 (a): a missing approved companion body is logged at startup; it never blocks.
+    if (!process.env.VITEST) checkCompanionBodies();
+  });
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
     app.use("/themes", express.static(themesDir));
@@ -875,12 +929,14 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
         return { childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, launchId:verifiedLive?.launchId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] };
       };
+      const keyboard = spellingNode ? typedSpellingForChart(attempt.attemptedValue, spellingNode.evidenceContract.spellingItems?.[attempt.itemId]?.response.acceptedForms) : undefined;
+      if (keyboard?.keyboardFact) getVoiceSessionManagerForChildSession(childId, submittingSessionId)?.noteExternalEvent?.({ source: "keyboard", summary: keyboard.keyboardFact });
       const recorded = existing?.domain === "spelling" ? withOriginalSpellingChart(childId,db=>commitOriginalSpellingAttempt(db,homeworkId,{...attempt,skipped:body.skipped === true,sessionId:submittingSessionId,...(typeof body.launchToken === "string" ? {launchToken:body.launchToken} : {})},()=>{
         const legacy=prepareLegacy();
         if(!verifiedLive?.chartItemId || !verifiedLive.launchId || verifiedLive.audioReplays === undefined)throw new Error('chart_live_presentation_required');
         return {legacy,response:{
           assignmentId:homeworkId,sessionId:verifiedLive.sessionId,itemId:verifiedLive.chartItemId,sourceResponseId:attempt.attemptId,
-          rawResponse:attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length ? 'ambiguous' : 'answered',
+          rawResponse:keyboard?.rawResponse ?? attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length || keyboard?.unreadable ? 'ambiguous' : 'answered',
           support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.spellingShown ?? null,hint:verifiedLive.practice ? null : false,companionHelp:verifiedLive.support.status === 'assisted' ? true : verifiedLive.practice ? null : false},
         }};
       },recordSpellingDiscoveryAttempt)) : undefined;
@@ -906,19 +962,21 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     try {
       const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : undefined;
       const cycle = completeDiscoveryEvaluation({ childId, homeworkId, ...(nodeId ? { nodeId } : {}), completedAt: new Date().toISOString() });
+      const discoveryChest = awardDiscoveryChest(cycle, nodeId);
+      const chestFields = discoveryChest ? { nodeChest: discoveryChest.chest, coinAward: { amount: discoveryChest.chest.coins, balance: discoveryChest.balance } } : {};
       const evaluationNodes = cycle.nodes?.filter((node) => node.role === "evaluation") ?? [];
       const probeChapterComplete = canonicalJourneyFrontier(cycle)?.complete ?? (evaluationNodes.length > 0
         ? evaluationNodes.every((node) => node.state === "completed")
         : !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle));
       if (!probeChapterComplete) {
         console.log(` 🎮 [adaptive-math] [probe-node-complete] [chapter-active] child=${childId} homework=${homeworkId} node=${nodeId ?? "legacy"}`);
-        return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: false, targetedGenerationQueued: false });
+        return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: false, targetedGenerationQueued: false, ...chestFields });
       }
       const existingJob = getMathGenerationStatus(childId, homeworkId);
       queueTargetedMathGeneration({ childId, homeworkId });
       if (!existingJob || existingJob.phase === "probe_ready") launchTargetedWorker(childId, homeworkId);
       console.log(` 🎮 [adaptive-math] [discovery-complete] [targeted-generation-queued] child=${childId} homework=${homeworkId}`);
-      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: true, targetedGenerationQueued: true, returnNextSession: true });
+      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: true, targetedGenerationQueued: true, returnNextSession: true, ...chestFields });
     } catch (error: unknown) {
       return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
     }
@@ -972,6 +1030,27 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
   });
 
+  // Her tries on a finished stop after its completion was sent (BUGS.md 2026-11-10 evening): saved as retries.
+  app.post("/api/learning-cycle/node-late-tries", (req: Request, res: Response) => {
+    const body = req.body as { childId?: unknown; homeworkId?: unknown; nodeId?: unknown; sessionId?: unknown; targetResults?: unknown };
+    const childId = String(body.childId ?? "").trim().toLowerCase(), homeworkId = String(body.homeworkId ?? "").trim();
+    const nodeId = String(body.nodeId ?? "").trim(), sessionId = String(body.sessionId ?? "").trim();
+    if (!childId || !homeworkId || !nodeId || !sessionId || !Array.isArray(body.targetResults)) {
+      return res.status(400).json({ error: "childId, homeworkId, nodeId, sessionId, and targetResults are required" });
+    }
+    if (!learningRouteShouldPersist()) return res.json({ ok: true, skippedPersistence: true });
+    try {
+      // Help her companion gave on a problem after the stop finished is noted the same way (audit 2026-11-13 b).
+      const updated = recordCanonicalLateTries({ childId, homeworkId, nodeId, sessionId, companionHelpItemIds: takeCompanionHelpItemIds(childId, nodeId),
+        targetResults: body.targetResults as Parameters<typeof recordCanonicalLateTries>[0]["targetResults"] });
+      if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
+      return res.json({ ok: true, revision: updated.revision });
+    } catch (error) {
+      console.error(` 🎮 [learning-cycle-route] [late-tries] [failed] child=${childId} node=${nodeId}`, error);
+      return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   app.post("/api/learning-cycle/node-complete", (req: Request, res: Response) => {
     const body = req.body as {
       childId?: unknown;
@@ -989,6 +1068,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       console.log(` 🎮 [learning-cycle-route] [completion] [preview-skipped] child=${childId} node=${nodeId}`);
       return res.json({ ok: true, skippedPersistence: true });
     }
+    // Her answers as sent: held, never lost, when the record refuses them (2026-11-10).
+    let completionInput: Parameters<typeof recordCanonicalNodeCompletion>[0] | undefined;
     try {
       const beforeCycle = getLearningCycle(childId, homeworkId);
       const beforeNode = beforeCycle?.nodes.find(node => node.nodeId === nodeId);
@@ -1008,7 +1089,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         if(!launch && process.env.SUNNY_CHART_DIR?.trim() && !process.env.SUNNY_CERTIFICATION_RUN_ID)throw new Error('spelling_completion_launch_required');
         if (launch && (beforeNode?.implementationType === 'word-radar' || beforeCycle.observations.some(row => row.sourceId === `activity:${nodeId}:recall` && row.confounds.includes(`launch_id:${launch.launchId}`)))) captureLaunchId = launch.launchId;
       }
-      const updated = recordCanonicalNodeCompletion({
+      completionInput = {
         childId,
         homeworkId,
         nodeId,
@@ -1021,8 +1102,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           earlyExit: body.result.earlyExit === true,
           accuracy: Number.isFinite(accuracy) ? accuracy : 0,
           timeSpent_ms: Math.max(0, Number(body.result.timeSpent_ms ?? 0) || 0),
+          // Code's own record of every try wins over a built game's summary (BUGS.md 2026-11-13, answers lost).
           targetResults: Array.isArray(body.result.targetResults)
-            ? body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>
+            ? (beforeCycle && beforeCycle.domain !== "spelling"
+              ? withServerTries(body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>, takeServerTries(childId, nodeId))
+              : body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>)
             : undefined,
           frustrationSignals: Array.isArray(body.result.frustrationSignals)
             ? body.result.frustrationSignals.map(String)
@@ -1032,8 +1116,10 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             ? body.result.companionInteractions.map(String)
             : undefined,
           pageTime: pageTimeFromKiosk(body.result.pageTime),
+          ...(beforeCycle && beforeCycle.domain !== "spelling" ? { companionHelpItemIds: takeCompanionHelpItemIds(childId, nodeId) } : {}),
         },
-      });
+      };
+      const updated = recordCanonicalNodeCompletion(completionInput);
       if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
       const nodeState = finalCycle.nodes.find(node => node.nodeId === nodeId)?.state ?? null;
@@ -1042,7 +1128,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         void (runtime.forecastSpelling??runOriginalSpellingForecast)(childId,homeworkId).catch(error=>console.error(' 🎮 [spelling-forecast] [checkpoint] [needs-attention]',error));
       }
       let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
-      if (becameCompleted && !practiceContinuation && finalCycle.lifecycle === "baseline_evaluating") {
+      if (becameCompleted && !practiceContinuation && boardFinishedForCall(finalCycle.lifecycle)) {
         try {
           const chart = getChildChart(childId);
           const earnedAt = new Date().toISOString();
@@ -1060,13 +1146,16 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           } catch {
             bonusUrl = undefined;
           }
-          const ticket = grantVideoCallTicket(chart.companionCare.plan, homeworkId, earnedAt, bonusUrl);
+          // Legacy cycles without board instances keep one call per list.
+          let boardId: string | undefined;
+          try { boardId = currentBoardInstance(finalCycle).boardId; } catch { boardId = undefined; }
+          const ticket = grantVideoCallTicket(chart.companionCare.plan, homeworkId, earnedAt, bonusUrl, boardId);
           if (ticket.granted) {
             saveCompanionCarePlan(chart, ticket.plan);
             mirrorCompanionCareToLearningProfile(chart, ticket.plan);
           }
           const savedTicket = ticket.plan.economy.videoCallTickets?.find(
-            (entry) => entry.homeworkId === homeworkId,
+            (entry) => (boardId ? entry.boardId === boardId : entry.homeworkId === homeworkId),
           );
           if (savedTicket) {
             videoCallTicket = {
@@ -1082,7 +1171,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const bossDrop = awardBossDropOnCompletion(finalCycle, nodeId);
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} state=${nodeState} transitioned=${becameCompleted} lifecycle=${finalCycle.lifecycle} revision=${finalCycle.revision}`);
       if (becameCompleted && !practiceContinuation && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
-        void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
+        // The retro of the session so far is written first, so the Planner judges this board with it (2026-11-10).
+        void retroThenDecide({ sessionDir: getActiveVoiceSessionManagerForChild(childId)?.getSessionDir?.(),
+          writeRetro: sessionDir => writeSessionHandoff({ childId, sessionDir, homeworkId }), decide: () => advanceCanonicalCycleFromEvidence({ childId, homeworkId }) })
           .then((decided) => {
             console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
             return ["baseline_generating", "quest_generating", "boss_generating"].includes(decided.lifecycle)
@@ -1096,7 +1187,17 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
           });
       }
-      const award = becameCompleted && body.result.completed === true && body.result.won !== false && body.result.earlyExit !== true
+      const finishedForReward = becameCompleted && stopEarnsChest(body.result);
+      if (becameCompleted && !finishedForReward) console.log(` 🎮 [learning-cycle-route] [node-chest] [not-earned] child=${childId} node=${nodeId} rewardBreak=${body.result.rewardBreak !== undefined} earlyExit=${body.result.earlyExit === true} won=${String(body.result.won)}`);
+      // Every finished stop opens a treasure chest that pays its coins; the Boss keeps its flat coins and loot card.
+      const nodeChest = finishedForReward ? awardNodeChestOnCompletion(finalCycle, nodeId) : undefined;
+      // A creature appears only where the Planner placed one (owner, 2026-11-08); boards count toward milestones.
+      if (becameCompleted && !practiceContinuation && boardFinishedForCall(finalCycle.lifecycle)) countBoardForCreatures(finalCycle, nodeId);
+      // Her birthday gift (owner, 2026-11-21): the first stop she finishes on her birthday opens Orb Catcher, once.
+      const creatureEncounter = finishedForReward
+        ? awardCreatureEncounterOnCompletion(finalCycle, nodeId) ?? awardBirthdayGiftOnCompletion(finalCycle, nodeId)
+        : undefined;
+      const award = finishedForReward && !nodeChest
         ? reconcileCompanionCareCurrencyAward({
             childId,
             amount: 25,
@@ -1110,13 +1211,104 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         nodeState,
         academicAccuracy: updated.evidence?.academic.find(item => item.evidenceId === `${sessionId}:${nodeId}:completion`)?.accuracy ?? null,
         ...(award?.ok ? { coinAward: { amount: 25, balance: award.balance } } : {}),
+        ...(nodeChest ? { coinAward: { amount: nodeChest.chest.coins, balance: nodeChest.balance }, nodeChest: nodeChest.chest } : {}),
         ...(videoCallTicket ? { videoCallTicket } : {}),
         ...(bossDrop ? { bossDrop } : {}),
+        ...(creatureEncounter ? { creatureEncounter } : {}),
       });
     } catch (error) {
       console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);
-      return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      // A malformed request (an unknown item, a missing launch) would be refused again on replay; only a record refusal is held.
+      const held = Boolean(completionInput) && !/^(learning_cycle_instrument_|spelling_completion_|canonical_completion_)/.test(message);
+      if (held && completionInput) {
+        holdCompletion({ ...completionInput, error: message });
+        void raiseParentAlert({ childId, kind: "save_failed", text: `A finished game could not be saved (${message}). Her answers are held, not lost.` });
+      }
+      return res.status(409).json({ error: message, held });
     }
+  });
+
+  // Her shop signals (owner, 2026-11-12): what she looks at, tries on, saves and buys, for rewards that follow her taste.
+  app.post("/api/child/:childId/wardrobe-signal", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!learningRouteShouldPersist()) return res.json({ ok: true, skippedPersistence: true });
+    try {
+      recordWardrobeSignal(childId, req.body ?? {});
+      return res.json({ ok: true });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(` 🎮 [wardrobe-signal] [refused] child=${childId} reason=${reason}`);
+      return res.status(400).json({ ok: false, error: reason });
+    }
+  });
+
+  // PR #59, 4.4: every coin purchase goes through her companion plan (the one balance), once per receipt.
+  app.post("/api/rewards/purchase", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const receiptId = typeof req.body?.receiptId === "string" ? req.body.receiptId.trim() : "";
+    const offer = req.body?.offer as CoinOffer | undefined;
+    const known = offer?.kind === "call_minutes" ? offer.minutes === 5 : (offer?.kind === "game_play" || offer?.kind === "outfit") && typeof offer.itemId === "string";
+    if (!childId || !receiptId || !offer || !known) return res.status(400).json({ ok: false, error: "purchase_request_invalid" });
+    return res.json(purchaseForChild(childId, { receiptId, offer }));
+  });
+
+  registerCreatureRoutes(app);
+
+  // Owner, 2026-11-07: the earned call burns saved minutes; the server owns the clock.
+  app.get("/api/rewards/call/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!childId) return res.status(400).json({ error: "childId required" });
+    return res.json(callClockForChild(childId));
+  });
+
+  app.get("/api/rewards/wallet/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!childId) return res.status(400).json({ error: "childId required" });
+    return res.json(walletForChild(childId));
+  });
+
+  // Owner, 2026-11-25: what she puts on a companion is saved on her chart, so every room shows it. Only the closet posts.
+  app.post("/api/rewards/wearing/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const companionId = typeof req.body?.companionId === "string" ? req.body.companionId.trim() : "";
+    const itemId = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
+    if (!childId || !companionId) return res.status(400).json({ ok: false, error: "wearing_request_invalid" });
+    const outfitItemId = itemId(req.body?.outfitItemId), accessoryItemId = itemId(req.body?.accessoryItemId);
+    try {
+      const result = setWearingForChild(childId, { companionId, ...(outfitItemId ? { outfitItemId } : {}), ...(accessoryItemId ? { accessoryItemId } : {}) });
+      return res.status(result.ok ? 200 : 409).json(result);
+    } catch (error: unknown) {
+      console.error(` 🎮 [wardrobe] [wearing] [failed] child=${childId} companion=${companionId}`, error);
+      return res.status(500).json({ ok: false, error: "wearing_save_failed" });
+    }
+  });
+
+  // Owner, 2026-11-08: reward games are timed on the same paid-minute meter as the call.
+  app.get("/api/rewards/arcade/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!childId) return res.status(400).json({ error: "childId required" });
+    return res.json(arcadeClockForChild(childId));
+  });
+
+  app.post("/api/rewards/arcade/minute", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const receiptId = typeof req.body?.receiptId === "string" ? req.body.receiptId.trim() : "";
+    if (!childId || !receiptId) return res.status(400).json({ ok: false, error: "arcade_minute_request_invalid" });
+    return res.json(spendArcadeMinuteForChild(childId, receiptId));
+  });
+
+  app.post("/api/rewards/call/minute", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const receiptId = typeof req.body?.receiptId === "string" ? req.body.receiptId.trim() : "";
+    if (!childId || !receiptId) return res.status(400).json({ ok: false, error: "call_minute_request_invalid" });
+    // A minute is spent only while the companion can talk (BUGS.md S26): while replies fail, the minute is free.
+    if (companionVoiceDown()) {
+      const clock = callClockForChild(childId);
+      console.log(` 🎮 [rewards] [call-minute] [free] child=${childId} reason=companion_voice_down left=${clock.secondsLeft}s`);
+      return res.json({ ok: true, minutesLeft: clock.minutesLeft, secondsLeft: clock.secondsLeft, secondsGranted: 60, coins: clock.coins, free: true });
+    }
+    return res.json(spendCallMinuteForChild(childId, receiptId));
   });
 
   app.post("/api/learning-cycle/reward/open", (req: Request, res: Response) => {
@@ -1323,7 +1515,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           message: "That assignment is no longer ready. Run homework ingestion before launching the board.",
         });
       }
-      res.json(buildChildExperiencePacket(chart));
+      // How close the FaceTime call is: stops left on this board (owner, 2026-11-07). Display only.
+      let stopsLeft: number | undefined;
+      try { stopsLeft = chart.learningCycle ? canonicalStopsLeft(chart.learningCycle) : undefined; }
+      catch (error) { console.warn(` 🎮 [AdventureBoard] [stops-left] [unavailable] child=${childId}`, error); }
+      res.json({ ...buildChildExperiencePacket(chart), ...(stopsLeft !== undefined ? { boardProgress: { stopsLeft } } : {}) });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });
@@ -1738,6 +1934,13 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     res.json({ ok: true, rewardId, tamagotchi: profile.tamagotchi });
   });
 
+  // The real weather for the start screen (owner 2026-11-15). Cached, refreshed at most every 30 minutes, never throws.
+  app.get("/api/weather", async (_req: Request, res: Response) => {
+    const weather = kioskLiveWeather();
+    await weather.refresh();
+    res.json({ weather: weather.current() });
+  });
+
   app.get("/api/companions", async (_req: Request, res: Response) => {
     const rows = await Promise.all(
       Object.entries(companions).map(async ([childName, config]) => {
@@ -1794,24 +1997,58 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     res.json(configs);
   });
 
+  // Games never choose a character: they ask whose companion this child has (her chart's preset, same as sessions).
+  app.get("/api/companion/current/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!/^[a-z0-9_-]{1,64}$/.test(childId)) {
+      console.warn(` 🎮 [companion] [current] [rejected] reason=bad_child_id`);
+      return res.status(400).json({ error: "bad_child_id" });
+    }
+    try {
+      const chart = getChildChart(childId);
+      const companionId = chart.companion.config.companionId;
+      let voiceId = "";
+      let name = chart.companion.displayName;
+      try {
+        const definition = CompanionRegistry.getById(companionId);
+        voiceId = definition.voiceId;
+        name = name || definition.name;
+      } catch (error: unknown) {
+        console.warn(
+          ` 🎮 [companion] [current] [no-registry-voice] child=${childId} companion=${companionId} reason=${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      // The companion card carries what she wears (owner, 2026-11-25), so every 3D room dresses her the same way.
+      const wearing = chart.companionCare.plan.inventory.wearing?.[companionId] ?? null;
+      const body = { companionId, name, vrmUrl: chart.companion.config.vrmUrl, voiceId, wearing };
+      console.log(` 🎮 [companion] [current] [ok] child=${childId} companion=${companionId} vrm=${body.vrmUrl} outfit=${wearing?.outfitItemId ?? "own"} accessory=${wearing?.accessoryItemId ?? "none"}`);
+      return res.json(body);
+    } catch (error: unknown) {
+      console.warn(
+        ` 🎮 [companion] [current] [unknown-child] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`,
+      );
+      return res.status(404).json({ error: "unknown_child" });
+    }
+  });
+
   app.post("/api/companions/:companionId/speak", async (req: Request, res: Response) => {
     const companionId =
       typeof req.params.companionId === "string"
         ? req.params.companionId.trim()
         : "";
-    const lineRaw = typeof req.body?.line === "string" ? req.body.line.trim() : "";
-    const line: ShowroomLine = lineRaw === "plead" ? "plead" : "intro";
     const banterText = shouldUseShowroomBanterSpeech({
       source: req.body?.source,
       text: req.body?.text,
     })
       ? normalizeShowroomBanterSpeechText(req.body?.text)
       : "";
-    const languageRaw =
-      typeof req.body?.language === "string" ? req.body.language.trim().toLowerCase() : "en";
-    const language = languageRaw || "en";
     if (!companionId) {
       return res.status(400).json({ ok: false, error: "companionId_required" });
+    }
+    // Audit 2026-11-22: this route voices only words she wrote (sent as text); there is no scripted intro or plead.
+    if (!banterText) {
+      console.log(` 🎮 [showroom-speak] [rejected] companion=${companionId} reason=text_required`);
+      return res.status(400).json({ ok: false, error: "text_required" });
     }
 
     let companion: {
@@ -1852,14 +2089,13 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
 
     try {
-      const text = banterText || readShowroomScript(companion.id, companion.name, line, language);
-      console.log(
-        ` 🎮 [showroom-speak] [tts] companion=${companion.id} source=${banterText ? String(req.body?.source) : line}`,
-      );
+      const text = banterText;
+      console.log(` 🎮 [showroom-speak] [tts] companion=${companion.id} source=${String(req.body?.source)}`);
       const client = new ElevenLabsClient({ apiKey });
       const locators = getPronunciationLocators();
+      // Her name the way her profile spells it for the voice (Ila 11/22: "they're saying my name wrong").
       const audio = await client.textToSpeech.convert(voiceId, {
-        text,
+        text: pronounceForTts(text),
         modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
         ...(locators && { pronunciationDictionaryLocators: locators }),
       });
@@ -1933,6 +2169,49 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
   });
 
+  // The first and last words of a call, written by her from live context; empty text means she stays quiet.
+  app.post("/api/companions/:companionId/call-moment", async (req: Request, res: Response) => {
+    const moment = resolveCallMoment(req.body?.moment);
+    if (!moment) return res.status(400).json({ ok: false, error: "unknown_moment" });
+    let companion: { id: string; name: string; personalityMarkdown?: string };
+    try {
+      companion = CompanionRegistry.getById(String(req.params.companionId ?? "").trim());
+    } catch {
+      const introOnly = tryLoadIntroOnlyShowroomCompanion(String(req.params.companionId ?? "").trim());
+      if (!introOnly) return res.status(404).json({ ok: false, error: "unknown_companion" });
+      companion = introOnly;
+    }
+    const childId = typeof req.body?.childId === "string" && req.body.childId.trim() ? req.body.childId.trim().toLowerCase() : "showroom";
+    const callSource = typeof req.body?.callSource === "string" ? req.body.callSource : undefined;
+    const startedAt = Date.now();
+    try {
+      const talkMode = isShowroomMoment(moment) ? "showroom" : "video_call";
+      const system = buildShowroomTalkSystemPrompt({
+        companionId: companion.id,
+        companionName: companion.name,
+        showroomTheme: typeof req.body?.showroomTheme === "string" ? req.body.showroomTheme : "crystal",
+        personality: companionTalkPersonality(companion, talkMode),
+        mode: talkMode,
+        callSource: callSource as CompanionCallSource | undefined,
+        relationshipState: req.body?.relationshipState as CompanionRelationshipState | undefined,
+        companionMemory: buildCompanionCallContext({ childId, companionId: companion.id, mode: talkMode, callSource }),
+      });
+      const message = await new Anthropic().messages.create({
+        model: COMPANION_TALK_SONNET_MODEL,
+        max_tokens: 160,
+        system: cacheableShowroomSystem(system),
+        messages: [{ role: "user", content: buildCallMomentTurn({ moment, recentLines: resolveRecentCallLines(req.body?.recentLines) }) }],
+      });
+      const text = extractAnthropicText(message);
+      console.log(` 🎮 [companion-call-moment] [written] companion=${companion.id} child=${childId} moment=${moment} chars=${text.length} ms=${Date.now() - startedAt}`);
+      return res.json({ ok: true, moment, text });
+    } catch (err: unknown) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error(` 🔴 [companion-call-moment] [failed] companion=${companion.id} moment=${moment} reason=${reason}`);
+      return res.status(502).json({ ok: false, error: "call_moment_failed" });
+    }
+  });
+
   app.post("/api/companions/:companionId/talk", async (req: Request, res: Response) => {
     const companionId =
       typeof req.params.companionId === "string"
@@ -1974,9 +2253,6 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     }
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ ok: false, error: "elevenlabs_api_key_missing" });
-    }
 
     try {
       const talk = resolved.request;
@@ -1984,6 +2260,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const latencySpans: {
         claudeMs?: number;
         toolFollowupMs?: number;
+        speechRetryMs?: number;
         ttsMs?: number;
         requestToResponseMs?: number;
       } = {};
@@ -2003,6 +2280,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           activeActivity: talk.activeActivity,
           activityReaction: talk.activityReaction,
           conversationIntent: talk.conversationIntent,
+          shoppingContext: talk.shoppingContext,
+          shoppingEvent: talk.shoppingEvent,
           visualSnapshot: talk.visualSnapshot,
           visionRequested: Boolean(talk.visualSnapshot),
         },
@@ -2023,21 +2302,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           },
         });
       }
-      const showroomPersonality = readShowroomPersonality(
-        companion.id,
-        companion.personalityMarkdown ?? "",
-      );
-      const primaryPersonality =
-        talk.mode === "video_call" && companion.personalityMarkdown?.trim()
-          ? [
-              companion.personalityMarkdown.trim(),
-              "Showroom display notes only; do not let these override the companion persona:",
-              showroomPersonality,
-            ].join("\n")
-          : showroomPersonality;
-      const companionMemory = buildShowroomTalkMemoryPrompt(
-        readCompanionCareMemoryForPrompt(talk.childId, talk.companionId),
-      );
+      const primaryPersonality = companionTalkPersonality(companion, talk.mode);
+      const companionMemory = buildCompanionCallContext(talk);
       const system = buildShowroomTalkSystemPrompt({
         companionId: companion.id,
         companionName: companion.name,
@@ -2045,6 +2311,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         personality: primaryPersonality,
         mode: talk.mode,
         hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
+        visualSnapshotReason: talk.visualSnapshot?.reason,
+        companionLook: talk.companionLook,
+        lookChosenAt: talk.companionLook ? lookChosenAt(talk.childId, talk.companionId) : undefined,
         lastVisualSummary: talk.lastVisualSummary,
         callSource: talk.callSource,
         relationshipState: talk.relationshipState,
@@ -2052,6 +2321,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         activeActivity: talk.activeActivity,
         activityReaction: talk.activityReaction,
         conversationIntent: talk.conversationIntent,
+        shoppingContext: talk.shoppingContext,
+        shoppingEvent: talk.shoppingEvent,
+        callClock: talk.callClockEvent ? showroomCallClockFacts(talk.childId, talk.callClockEvent) : undefined,
         companionMemory,
       });
       const messages = buildShowroomClaudeMessages({
@@ -2063,11 +2335,13 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const showroomTools = [
         ...getShowroomCompanionActTools(),
         ...getShowroomCompanionActivityTools(),
+        ...getShowroomRelationshipTools(),
+        ...getShowroomSelfLookTools({ mode: talk.mode, visualSnapshot: talk.visualSnapshot }),
       ];
       // The system prompt is static across a call (persona + room + memory);
       // caching it cuts Claude's time-to-first-token on every later turn.
       const cachedSystem: Anthropic.TextBlockParam[] = [
-        { type: "text", text: system, cache_control: { type: "ephemeral" } },
+        { type: "text", text: `${system}\n${companionAbilitiesLine(showroomTools.map(tool => tool.name))}`, cache_control: { type: "ephemeral" } },
       ];
       // Game beats (activity reactions, move packets) ride the fast model;
       // social turns keep Sonnet for persona and memory nuance.
@@ -2100,27 +2374,53 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         .slice(0, 2);
       const commandByToolUseId = new Map<string, ReturnType<typeof createShowroomCompanionActCommand>>();
       for (const block of companionActToolUseBlocks) {
-        commandByToolUseId.set(
-          block.id,
-          createShowroomCompanionActCommand({
+        const command = createShowroomCompanionActCommand({
+          childId: talk.childId,
+          rawInput: block.input,
+        });
+        commandByToolUseId.set(block.id, command);
+        if (!command) {
+          console.warn(
+            ` 🎮 [showroom-talk] companion_tool_rejected tool=companionAct companion=${talk.companionId}`,
+          );
+          safeRecordCompanionVideoCallTrace({
+            callTraceId: talk.callTraceId,
+            turnId: talk.turnId,
+            eventName: "companion_tool_rejected",
             childId: talk.childId,
-            rawInput: block.input,
-          }),
-        );
+            companionId: talk.companionId,
+            callSource: talk.callSource,
+            relationshipState: talk.relationshipState,
+            payload: { toolName: block.name, reason: "invalid_payload" },
+          });
+        }
       }
       const activityByToolUseId = new Map<
         string,
         ReturnType<typeof createShowroomCompanionActivityRequest>
       >();
       for (const block of activityToolUseBlocks) {
-        activityByToolUseId.set(
-          block.id,
-          createShowroomCompanionActivityRequest({
+        const activity = createShowroomCompanionActivityRequest({
+          childId: talk.childId,
+          companionId: talk.companionId,
+          rawInput: block.input,
+        });
+        activityByToolUseId.set(block.id, activity);
+        if (!activity) {
+          console.warn(
+            ` 🎮 [showroom-talk] companion_tool_rejected tool=openCompanionActivity companion=${talk.companionId}`,
+          );
+          safeRecordCompanionVideoCallTrace({
+            callTraceId: talk.callTraceId,
+            turnId: talk.turnId,
+            eventName: "companion_tool_rejected",
             childId: talk.childId,
             companionId: talk.companionId,
-            rawInput: block.input,
-          }),
-        );
+            callSource: talk.callSource,
+            relationshipState: talk.relationshipState,
+            payload: { toolName: block.name, reason: "invalid_payload" },
+          });
+        }
       }
       const companionCommands = [...commandByToolUseId.values()].filter(
         (command): command is NonNullable<typeof command> => Boolean(command),
@@ -2128,12 +2428,20 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const activityRequests = [...activityByToolUseId.values()].filter(
         (request): request is NonNullable<typeof request> => Boolean(request),
       );
+      const requireGeneratedSpeech =
+        talk.shoppingEvent?.type === "try_on_started";
+      const relationshipToolResults = applyCompanionRelationshipToolUses({
+        childId: talk.childId,
+        companionId: talk.companionId,
+        content: msg.content,
+      });
       let text = extractAnthropicText(msg);
       const shouldRunToolFollowup = shouldRunShowroomToolFollowup({
         isActivityReaction: Boolean(talk.activityReaction),
         rawText: text,
         companionActToolUseCount: companionActToolUseBlocks.length,
         activityToolUseCount: activityToolUseBlocks.length,
+        relationshipToolUseCount: relationshipToolResults.length,
         activityReactionEventType: talk.activityReaction?.eventType,
       });
       if (shouldRunToolFollowup) {
@@ -2149,7 +2457,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
                 accepted: Boolean(command),
                 commandType: command?.type ?? null,
                 instruction:
-                  talk.activityReaction
+                  requireGeneratedSpeech
+                    ? "Try-on reactions require one short in-character spoken opinion grounded in the code-owned shopping verdict. Do not include stage directions."
+                    : talk.activityReaction
                     ? `Activity reactions need audible companionship. Answer with one short in-character line the companion should say aloud about this ${getCompanionActivityDescriptor(talk.activityReaction.activityId).displayName} moment. Do not include stage directions.`
                     : "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
               }),
@@ -2172,7 +2482,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
               }),
             };
           });
-        const toolResults = [...companionToolResults, ...activityToolResults];
+        const toolResults = [...companionToolResults, ...activityToolResults, ...relationshipToolResults, ...selfLookToolResults(msg.content)];
         const toolFollowupStartedAt = Date.now();
         const afterTool = await client.messages.create({
           model: talkModel,
@@ -2200,7 +2510,15 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const spokenText = resolveShowroomSpokenText({
         rawText: text,
         companionCommandCount: companionCommands.length + activityRequests.length,
+        requireGeneratedSpeech,
+        shoppingContextPresent: Boolean(talk.shoppingContext),
       });
+      if (requireGeneratedSpeech && !spokenText) {
+        console.error(
+          ` 🎮 [showroom-talk] generated_try_on_reaction_missing child=${talk.childId} companion=${talk.companionId} item=${talk.shoppingEvent?.itemId ?? "unknown"}`,
+        );
+        return res.status(502).json({ error: "generated_try_on_reaction_missing" });
+      }
       let audioBase64: string | undefined;
       let audioContentType: string | undefined;
       // Video-call turns use the low-latency flash model; it does not support
@@ -2209,12 +2527,12 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const ttsModelId = isVideoCallTts
         ? process.env.SUNNY_VIDEO_CALL_TTS_MODEL || VIDEO_CALL_FLASH_TTS_MODEL
         : (companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL);
-      if (spokenText) {
+      if (shouldSynthesizeShowroomSpeech(spokenText, apiKey)) {
         const elevenlabs = new ElevenLabsClient({ apiKey });
         const locators = getPronunciationLocators();
         const ttsStartedAt = Date.now();
         const audio = await elevenlabs.textToSpeech.convert(talk.voiceId, {
-          text: spokenText,
+          text: pronounceForTts(spokenText),
           modelId: ttsModelId,
           ...(!isVideoCallTts && locators && { pronunciationDictionaryLocators: locators }),
         });
@@ -2224,6 +2542,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         audioContentType = "audio/mpeg";
       } else {
         latencySpans.ttsMs = 0;
+        if (spokenText && !apiKey) {
+          console.warn(
+            " 🎮 [showroom-talk] tts_skipped reason=elevenlabs_api_key_missing text_response=available",
+          );
+        }
       }
       latencySpans.requestToResponseMs = Date.now() - talkTraceStartedAt;
       const event = createShowroomTalkCompletedEvent({
@@ -2297,6 +2620,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ? spokenText.slice(0, 220)
           : undefined;
 
+      // BUGS.md S34: one line per look, so its time and cost (the [claude-usage] lines beside it) can be read.
+      const selfLook = selfLookRequested(msg.content);
+      if (selfLook) console.log(` 🎮 [self-look] [requested] child=${talk.childId} companion=${talk.companionId}`);
+      if (talk.visualSnapshot?.reason === SELF_LOOK_SNAPSHOT_REASON) console.log(` 🎮 [self-look] [answered] child=${talk.childId} companion=${talk.companionId} claudeMs=${latencySpans.claudeMs ?? "n/a"} totalMs=${latencySpans.requestToResponseMs ?? "n/a"}`);
+      noteCompanionVoiceOk(talk.childId);
       console.log(
         ` 🎮 [showroom-talk] completed child=${talk.childId} companion=${talk.companionId} room=${talk.showroomTheme} mode=${talk.mode ?? "showroom"} vision=${Boolean(talk.visualSnapshot)} companionCommands=${companionCommands.length} activityRequests=${activityRequests.length}`,
       );
@@ -2354,6 +2682,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         activityRequests,
         latencySpans,
         ...(visualSummary && { visualSummary }),
+        ...(selfLook && { selfLook: true }),
         event,
         phaseCommands: {
           speaking: createShowroomTalkPhaseCommand({
@@ -2369,8 +2698,12 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         },
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ ok: false, error: message });
+      const failure = resolveShowroomTalkRouteFailure(err);
+      noteCompanionVoiceFailed(String(req.body?.childId ?? ""), err);
+      console.error(
+        ` 🔴 [showroom-talk] [degraded] code=${failure.body.code} status=${failure.status}`,
+      );
+      res.status(failure.status).json(failure.body);
     }
   });
 
@@ -2477,6 +2810,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       };
 
       const latencySpans: {
+        contextMs?: number;
         claudeMs?: number;
         toolFollowupMs?: number;
         ttsMs?: number;
@@ -2537,22 +2871,16 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         speaker?.stop();
       });
 
+      // Open the voice socket first, while her facts are read and Claude thinks.
+      const speakerReady = speaker
+        ? speaker.connect().catch((err: unknown) => {
+            console.warn(" 🔴 [companion-talk-stream] tts_prewarm_failed", err);
+          })
+        : Promise.resolve();
+
       try {
-        const showroomPersonality = readShowroomPersonality(
-          companion.id,
-          companion.personalityMarkdown ?? "",
-        );
-        const primaryPersonality =
-          talk.mode === "video_call" && companion.personalityMarkdown?.trim()
-            ? [
-                companion.personalityMarkdown.trim(),
-                "Showroom display notes only; do not let these override the companion persona:",
-                showroomPersonality,
-              ].join("\n")
-            : showroomPersonality;
-        const companionMemory = buildShowroomTalkMemoryPrompt(
-          readCompanionCareMemoryForPrompt(talk.childId, talk.companionId),
-        );
+        const primaryPersonality = companionTalkPersonality(companion, talk.mode);
+        const companionMemory = buildCompanionCallContext(talk);
         const system = buildShowroomTalkSystemPrompt({
           companionId: companion.id,
           companionName: companion.name,
@@ -2560,6 +2888,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           personality: primaryPersonality,
           mode: talk.mode,
           hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
+          visualSnapshotReason: talk.visualSnapshot?.reason,
+          companionLook: talk.companionLook,
+          lookChosenAt: talk.companionLook ? lookChosenAt(talk.childId, talk.companionId) : undefined,
           lastVisualSummary: talk.lastVisualSummary,
           callSource: talk.callSource,
           relationshipState: talk.relationshipState,
@@ -2567,6 +2898,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           activeActivity: talk.activeActivity,
           activityReaction: talk.activityReaction,
           conversationIntent: talk.conversationIntent,
+          callClock: talk.callClockEvent ? showroomCallClockFacts(talk.childId, talk.callClockEvent) : undefined,
           companionMemory,
         });
         const messages = buildShowroomClaudeMessages({
@@ -2578,11 +2910,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         const showroomTools = [
           ...getShowroomCompanionActTools(),
           ...getShowroomCompanionActivityTools(),
+          ...getShowroomRelationshipTools(),
+          ...getShowroomSelfLookTools({ mode: talk.mode, visualSnapshot: talk.visualSnapshot }),
         ];
-        // Static per call; caching cuts time-to-first-token on later turns.
-        const cachedSystem: Anthropic.TextBlockParam[] = [
-          { type: "text", text: system, cache_control: { type: "ephemeral" } },
-        ];
+        // The stable part is cached (tools + persona/rules); this turn's facts follow uncached.
+        const cachedSystem = cacheableShowroomSystem(`${system}\n${companionAbilitiesLine(showroomTools.map(tool => tool.name))}`);
         const talkModel = talk.activityReaction
           ? process.env.SUNNY_COMPANION_GAME_MODEL || GAME_GRADE_HAIKU_MODEL
           : COMPANION_TALK_SONNET_MODEL;
@@ -2595,14 +2927,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           ttsEnabled,
         });
 
-        // Prewarm the TTS socket while Claude thinks.
-        const speakerReady = speaker
-          ? speaker.connect().catch((err: unknown) => {
-              console.warn(" 🔴 [companion-talk-stream] tts_prewarm_failed", err);
-            })
-          : Promise.resolve();
-
         const claudeStartedAt = Date.now();
+        latencySpans.contextMs = claudeStartedAt - talkTraceStartedAt;
         let firstTokenAt: number | undefined;
         let streamedText = "";
         const messageStream = client.messages.stream({
@@ -2636,6 +2962,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
 
         const msg = await messageStream.finalMessage();
         latencySpans.claudeMs = Date.now() - claudeStartedAt;
+        const usage = msg.usage;
+        console.log(` 🎮 [companion-talk-stream] [prompt-cache] [${(usage?.cache_read_input_tokens ?? 0) > 0 ? "hit" : "miss"}] model=${talkModel} read=${usage?.cache_read_input_tokens ?? 0} created=${usage?.cache_creation_input_tokens ?? 0} input=${usage?.input_tokens ?? 0} contextMs=${latencySpans.contextMs} firstTokenMs=${latencySpans.firstTokenMs ?? "none"}`);
         await speakerReady;
 
         const companionActToolUseBlocks = msg.content
@@ -2668,28 +2996,35 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           )
           .filter((request): request is NonNullable<typeof request> => Boolean(request));
 
+        const relationshipToolResults = applyCompanionRelationshipToolUses({
+          childId: talk.childId,
+          companionId: talk.companionId,
+          content: msg.content,
+        });
         let text = extractAnthropicText(msg) || streamedText.trim();
         const shouldRunToolFollowup = shouldRunShowroomToolFollowup({
           isActivityReaction: Boolean(talk.activityReaction),
           rawText: text,
           companionActToolUseCount: companionActToolUseBlocks.length,
           activityToolUseCount: activityToolUseBlocks.length,
+          relationshipToolUseCount: relationshipToolResults.length,
           activityReactionEventType: talk.activityReaction?.eventType,
         });
         if (shouldRunToolFollowup && !aborted) {
           const toolResults: Anthropic.ToolResultBlockParam[] = [
-            ...companionActToolUseBlocks,
-            ...activityToolUseBlocks,
-          ].map((block) => ({
-            type: "tool_result" as const,
-            tool_use_id: block.id,
-            content: JSON.stringify({
-              type: "showroom_companion_tool_result",
-              accepted: true,
-              instruction:
-                "Answer with the exact short words the companion should say aloud. Do not include stage directions.",
-            }),
-          }));
+            ...[...companionActToolUseBlocks, ...activityToolUseBlocks].map((block) => ({
+              type: "tool_result" as const,
+              tool_use_id: block.id,
+              content: JSON.stringify({
+                type: "showroom_companion_tool_result",
+                accepted: true,
+                instruction:
+                  "Answer with the exact short words the companion should say aloud. Do not include stage directions.",
+              }),
+            })),
+            ...relationshipToolResults,
+            ...selfLookToolResults(msg.content),
+          ];
           const toolFollowupStartedAt = Date.now();
           const afterTool = await client.messages.create({
             model: talkModel,
@@ -2718,11 +3053,6 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           rawText: text,
           companionCommandCount: companionCommands.length + activityRequests.length,
         });
-        if (spokenText && spokenText !== text.trim()) {
-          // Fallback line was synthesized (no text, no commands); speak it too.
-          speaker?.sendText(spokenText);
-        }
-
         const ttsFinishStartedAt = Date.now();
         if (spokenText && speaker) {
           await speaker.finish();
@@ -2813,6 +3143,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             activityReaction: talk.activityReaction,
           },
         });
+        // BUGS.md S34: one line per look, so its time and cost (the [claude-usage] lines beside it) can be read.
+        const selfLook = selfLookRequested(msg.content);
+        if (selfLook) console.log(` 🎮 [self-look] [requested] child=${talk.childId} companion=${talk.companionId}`);
+        if (talk.visualSnapshot?.reason === SELF_LOOK_SNAPSHOT_REASON) console.log(` 🎮 [self-look] [answered] child=${talk.childId} companion=${talk.companionId} claudeMs=${latencySpans.claudeMs ?? "n/a"} totalMs=${latencySpans.requestToResponseMs ?? "n/a"}`);
+        noteCompanionVoiceOk(talk.childId);
         console.log(
           ` 🎮 [companion-talk-stream] completed child=${talk.childId} companion=${talk.companionId} firstToken=${latencySpans.firstTokenMs ?? "n/a"}ms firstAudio=${latencySpans.firstAudioMs ?? "n/a"}ms total=${latencySpans.requestToResponseMs}ms`,
         );
@@ -2823,6 +3158,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           activityRequests,
           latencySpans,
           ...(visualSummary && { visualSummary }),
+          ...(selfLook && { selfLook: true }),
           phaseCommands: {
             speaking: createShowroomTalkPhaseCommand({
               childId: talk.childId,
@@ -2839,6 +3175,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(" 🔴 [companion-talk-stream] failed", message);
+        noteCompanionVoiceFailed(String(req.body?.childId ?? ""), err);
         speaker?.stop();
         sse("error", { ok: false, error: message });
       } finally {

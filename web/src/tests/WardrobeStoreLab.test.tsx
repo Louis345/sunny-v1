@@ -1,0 +1,832 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WardrobeStoreLab } from "../components/WardrobeStoreLab";
+import { WARDROBE_LOOK_CHANGED_EVENT } from "../lib/boardPortraitLook";
+import {
+  WARDROBE_STORE_CATALOG,
+  WARDROBE_STORE_STORAGE_KEY,
+  createCompanionShoppingVisit,
+  createInitialWardrobeStoreState,
+  getCompatibleWardrobeItems,
+} from "../lib/wardrobeStore";
+
+const companion = {
+  id: "elli",
+  name: "Elli",
+  modelUrl: "/companions/elli-wardrobe-identity-preserved-v1.vrm",
+};
+
+function createCallProps() {
+  return {
+    talkPhase: "idle" as const,
+    responseText: "That one definitely caught my eye.",
+    error: null,
+    onAskVoice: vi.fn(),
+  };
+}
+
+describe("WardrobeStoreLab shopping call", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(cleanup);
+
+  it("explains when a companion has no approved inventory", () => {
+    render(
+      <WardrobeStoreLab
+        companion={{
+          id: "future-companion",
+          name: "Future",
+          modelUrl: "/companions/not-certified.vrm",
+        }}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Outfits" }));
+    expect(screen.getByRole("status", { name: "No approved items" })).toHaveTextContent(
+      "No reviewed outfits are ready for Future yet.",
+    );
+  });
+
+  // Owner, asked several times (latest 2026-11-10): on the try-on rack, what she does not own yet is dark and says
+  // how to get it; what she owns is lit. The dark/lit collection existed only in the collection view and FaceTime
+  // Games; the rack, where she actually tries things on, showed every item the same.
+  it("shows items she does not own dark with how to get them, and her own items lit", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+    const crown = screen.getByRole("button", { name: "View Royal Crown, 50 coins" });
+    expect(crown.className).toContain("is-locked");
+    expect(crown).toHaveTextContent("🔒");
+    expect(crown).toHaveTextContent("50 coins");
+  });
+
+  it("opens at the entrance with the full companion and no selected product", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Shopping with Elli" })).toBeTruthy();
+    expect(screen.getByLabelText("Elli store entrance")).toContainElement(
+      screen.getByTestId("companion-vrm"),
+    );
+    expect(screen.queryByRole("heading", { name: "Royal Crown" })).toBeNull();
+    expect(screen.queryByLabelText("Elli live")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Talk to Elli" })).toBeNull();
+    expect(screen.queryByLabelText("Talk with Elli")).toBeNull();
+    expect(screen.getByRole("complementary", { name: "Shop items" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Royal Crown, 50 coins" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Blue Celtic Sweater/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Galaxy Hero Outfit/ })).toBeNull();
+    // Owner, 2026-11-10: garments with an automated visual pass are approved; she can preview them locked.
+    expect(screen.getByRole("button", { name: /Comet Hoodie/ }).className).toContain("is-locked");
+    expect(screen.getByRole("button", { name: /Constellation Blazer/ }).className).toContain("is-locked");
+    expect(screen.queryByRole("heading", { name: "The Lantern Room" })).toBeNull();
+  });
+
+  it("renders variant-specific garment thumbnails instead of duplicate emoji", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="thumbnail-variants"
+      />,
+    );
+
+    expect(screen.getByTestId("wardrobe-thumbnail-rose-ribbon-dress")).toHaveAttribute(
+      "data-thumbnail-color",
+      "#ff8fb2",
+    );
+    expect(screen.getByTestId("wardrobe-thumbnail-plum-ribbon-dress")).toHaveAttribute(
+      "data-thumbnail-color",
+      "#c878ff",
+    );
+    // The navy dress draws its fabric as is (white tint); its picture is navy, not white (owner audit 2026-11-12).
+    expect(screen.getByTestId("wardrobe-thumbnail-sleeveless-dress")).toHaveAttribute(
+      "data-thumbnail-color",
+      "#26315e",
+    );
+    expect(screen.getByTestId("wardrobe-thumbnail-teal-ribbon-dress")).toHaveAttribute(
+      "data-thumbnail-silhouette",
+      "dress",
+    );
+  });
+
+  it("moves one live companion renderer to try-on and waits for the child to start the conversation", () => {
+    const onWardrobeChange = vi.fn();
+    const call = createCallProps();
+    const renderCompanion = vi.fn((view: "full_body" | "portrait") => (
+      <div data-testid="companion-vrm">{view} VRM</div>
+    ));
+    const { rerender } = render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={renderCompanion}
+        call={call}
+        onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()}
+        visitSeed="ui-flow"
+      />,
+    );
+
+    expect(renderCompanion).toHaveBeenLastCalledWith("full_body");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
+    );
+    expect(renderCompanion).toHaveBeenLastCalledWith("portrait");
+    expect(screen.getByLabelText("Elli live")).toContainElement(
+      screen.getByTestId("companion-vrm"),
+    );
+    expect(screen.queryByLabelText("Elli is thinking")).toBeNull();
+    expect(screen.queryByText("That one definitely caught my eye.")).toBeNull();
+
+    rerender(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={renderCompanion}
+        call={{ ...call, talkPhase: "thinking" }}
+        onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()}
+        visitSeed="ui-flow"
+      />,
+    );
+    expect(screen.getByLabelText("Elli is thinking")).toBeTruthy();
+    expect(screen.queryByText("That one definitely caught my eye.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
+    expect(call.onAskVoice).toHaveBeenCalledTimes(0);
+
+    rerender(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={renderCompanion}
+        call={call}
+        onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()}
+        visitSeed="ui-flow"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
+    expect(call.onAskVoice).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+
+    expect(renderCompanion).toHaveBeenLastCalledWith("full_body");
+    expect(screen.getByLabelText("Elli try-on stage")).toContainElement(
+      screen.getByTestId("companion-vrm"),
+    );
+    expect(screen.queryByLabelText("Elli live")).toBeNull();
+    expect(screen.getAllByTestId("companion-vrm")).toHaveLength(1);
+    expect(call.onAskVoice).toHaveBeenCalledTimes(1);
+    expect(onWardrobeChange).toHaveBeenLastCalledWith({
+      accessoryId: "none",
+      outfitId: "sleeveless-dress",
+      outfitMaterialVariant: {
+        id: "sleeveless-dress",
+        tint: "#ffffff",
+      },
+    });
+    const tryOnTalkButton = screen.getByRole("button", {
+      name: "Talk to Elli by voice",
+    });
+    fireEvent.click(tryOnTalkButton);
+    expect(call.onAskVoice).toHaveBeenCalledTimes(2);
+
+    rerender(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={renderCompanion}
+        call={{
+          ...call,
+          talkPhase: "speaking",
+          responseText: "The navy ribbon is lovely, but it is not my mood today.",
+        }}
+        onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()}
+        visitSeed="ui-flow"
+      />,
+    );
+    expect(screen.getByLabelText("Elli is speaking")).toHaveTextContent("Speaking");
+    expect(screen.queryByLabelText("Elli’s generated opinion")).toBeNull();
+    expect(
+      screen.queryByText("The navy ribbon is lovely, but it is not my mood today."),
+    ).toBeNull();
+  });
+
+  it("shows an explicit provider failure on the try-on stage instead of looking canned", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={{
+          ...createCallProps(),
+          error: "Live companion voice is unavailable.",
+        }}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+
+    expect(screen.getByRole("alert")).toHaveAccessibleName("Elli is unavailable");
+    expect(screen.getByRole("alert")).toHaveTextContent("Unavailable");
+    expect(screen.queryByText("Live companion voice is unavailable.")).toBeNull();
+  });
+
+  it("keeps a real voice control available after the companion puts an item on", () => {
+    const call = createCallProps();
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={call}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="try-on-voice"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+    fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
+
+    expect(call.onAskVoice).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells the board portrait when the saved look changes (BUGS.md 2026-11-12, portrait kept old clothes)", () => {
+    const visitSeed = "purchase-flow";
+    const items = getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, companion.modelUrl, companion.id);
+    const visit = createCompanionShoppingVisit({ companionId: companion.id, items, state: createInitialWardrobeStoreState(), visitSeed });
+    const item = items.find((candidate) => visit.itemOpinions[candidate.id]?.companionConsentsToWear)!;
+    const heard = vi.fn();
+    window.addEventListener(WARDROBE_LOOK_CHANGED_EVENT, heard);
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed={visitSeed}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: `View ${item.name}, ${item.price} coins` }));
+    fireEvent.click(screen.getByRole("button", { name: `Try on ${item.name}` }));
+    fireEvent.click(screen.getByRole("button", { name: `Buy and wear ${item.name} for ${item.price} coins` }));
+    window.removeEventListener(WARDROBE_LOOK_CHANGED_EVENT, heard);
+    expect(heard).toHaveBeenCalled();
+  });
+
+  it("keeps the fitting room open while the child cycles directly through items", () => {
+    const onWardrobeChange = vi.fn();
+    const onDebugEvent = vi.fn();
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={onWardrobeChange}
+        onDebugEvent={onDebugEvent}
+        onExit={vi.fn()}
+        visitSeed="sticky-fitting-room"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+    expect(screen.getByLabelText("Elli try-on stage")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Royal Crown, 50 coins" }),
+    );
+
+    expect(screen.getByLabelText("Elli try-on stage")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Royal Crown" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try on Royal Crown" })).toBeNull();
+    // W9: the crown goes on with the dress she is already trying, so pieces combine into one outfit.
+    expect(onWardrobeChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      accessoryId: "crown",
+      outfitId: "sleeveless-dress",
+    }));
+    expect(
+      onDebugEvent.mock.calls.filter(
+        ([event]) => event.type === "wardrobe_try_on_started",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("preserves the product palette when cycling between variants of one silhouette", () => {
+    const onWardrobeChange = vi.fn();
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()}
+        visitSeed="palette-cycle"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Rose Ribbon Dress, 150 coins" }),
+    );
+
+    expect(onWardrobeChange).toHaveBeenLastCalledWith({
+      accessoryId: "none",
+      outfitId: "sleeveless-dress",
+      outfitMaterialVariant: {
+        id: "rose-ribbon-dress",
+        tint: "#ff8fb2",
+      },
+    });
+  });
+
+  it("anchors the state bubble to the live VRM head instead of a fixed stage percentage", () => {
+    const call = { ...createCallProps(), talkPhase: "listening" as const };
+    const { rerender } = render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        companionHeadAnchor={{ x: 0.28, y: 0.2 }}
+        call={call}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="head-anchor"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+
+    const rightBubble = screen.getByLabelText("Elli is listening");
+    expect(rightBubble).toHaveClass("is-head-anchored", "is-anchor-right");
+    expect(rightBubble).toHaveStyle({
+      "--companion-head-x": "28%",
+      "--companion-head-y": "20%",
+    });
+
+    rerender(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        companionHeadAnchor={{ x: 0.86, y: 0.18 }}
+        call={call}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="head-anchor"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+
+    expect(screen.getByLabelText("Elli is listening")).toHaveClass(
+      "is-head-anchored",
+      "is-anchor-left",
+    );
+  });
+
+  it("keeps purchase arithmetic and confirmation inside the same shopping screen", () => {
+    const visitSeed = "purchase-flow";
+    const state = createInitialWardrobeStoreState();
+    const items = getCompatibleWardrobeItems(
+      WARDROBE_STORE_CATALOG,
+      companion.modelUrl,
+      companion.id,
+    );
+    const visit = createCompanionShoppingVisit({
+      companionId: companion.id,
+      items,
+      state,
+      visitSeed,
+    });
+    const acceptedItem = items.find(
+      (item) => visit.itemOpinions[item.id]?.companionConsentsToWear,
+    );
+    expect(acceptedItem).toBeTruthy();
+    const onExit = vi.fn();
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={onExit}
+        exitLabel="Back to the showroom"
+        visitSeed={visitSeed}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `View ${acceptedItem?.name}, ${acceptedItem?.price} coins`,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `Try on ${acceptedItem?.name}` }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Buy and wear ${acceptedItem?.name} for ${acceptedItem?.price} coins`,
+      }),
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      `${acceptedItem?.name} added to Elli’s closet · 100 → ${100 - (acceptedItem?.price ?? 0)} coins`,
+    );
+    expect(screen.getByRole("heading", { name: "Shopping with Elli" })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: /receipt/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to the showroom" }));
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("lists another character's outfits once they passed the automated review (no human sign-off)", () => {
+    render(
+      <WardrobeStoreLab
+        companion={{
+          id: "kefla",
+          name: "Kefla",
+          modelUrl: "/companions/kefla-wardrobe-native-identity-v1.vrm",
+        }}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Navy Ribbon Dress/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Royal Crown, 50 coins" })).toBeTruthy();
+  });
+
+  it("publishes exact store truth for the companion conversation", async () => {
+    const onShoppingContextChange = vi.fn();
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onShoppingContextChange={onShoppingContextChange}
+        onExit={vi.fn()}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(onShoppingContextChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          mode: "entrance",
+          walletBalance: 100,
+          selectedItem: null,
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "View Royal Crown, 50 coins" }));
+
+    await waitFor(() =>
+      expect(onShoppingContextChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          mode: "review",
+          selectedItem: expect.objectContaining({ id: "royal-crown" }),
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Try on Royal Crown" }));
+
+    await waitFor(() =>
+      expect(onShoppingContextChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          mode: "try_on",
+          selectedItem: expect.objectContaining({ id: "royal-crown" }),
+        }),
+      ),
+    );
+  });
+
+  it("exposes an opt-in copyable debug trace and records the store-to-conversation lifecycle", async () => {
+    const call = createCallProps();
+    const onDebugEvent = vi.fn();
+    const onCopyDebugTraceLink = vi.fn();
+    const onExit = vi.fn();
+
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={call}
+        onWardrobeChange={vi.fn()}
+        onExit={onExit}
+        exitLabel="Back to the showroom"
+        visitSeed="debug-lifecycle"
+        debugTraceLink="http://127.0.0.1:5187/api/companions/video-call-traces/trace123"
+        debugTraceCopyStatus="Debug log copied"
+        onCopyDebugTraceLink={onCopyDebugTraceLink}
+        onDebugEvent={onDebugEvent}
+      />,
+    );
+
+    expect(screen.getByText("Debug log copied")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Copy debug log" }));
+    expect(onCopyDebugTraceLink).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(onDebugEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "wardrobe_store_mounted",
+          context: expect.objectContaining({ mode: "entrance", selectedItem: null }),
+        }),
+      ),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
+    );
+    await waitFor(() =>
+      expect(onDebugEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "wardrobe_item_reviewed",
+          context: expect.objectContaining({
+            mode: "review",
+            selectedItem: expect.objectContaining({ id: "sleeveless-dress" }),
+          }),
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
+    await waitFor(() =>
+      expect(onDebugEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "wardrobe_try_on_started",
+          context: expect.objectContaining({
+            mode: "try_on",
+            selectedItem: expect.objectContaining({ id: "sleeveless-dress" }),
+          }),
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
+    expect(onDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "wardrobe_voice_requested",
+        context: expect.objectContaining({ mode: "try_on" }),
+      }),
+    );
+    expect(call.onAskVoice).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to the showroom" }));
+    expect(onDebugEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "wardrobe_store_exited",
+        context: expect.objectContaining({ mode: "try_on" }),
+      }),
+    );
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it("turns provider failures into a safe portrait state instead of dialogue", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={{
+          ...createCallProps(),
+          error: "400 provider billing response that should never be shown to a child",
+        }}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed="provider-failure"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "View Royal Crown, 50 coins" }));
+
+    expect(
+      screen.getByRole("alert", { name: "Elli is unavailable" }),
+    ).toHaveTextContent("Unavailable");
+    expect(screen.queryByLabelText("Elli is thinking")).toBeNull();
+    expect(screen.queryByText(/provider billing response/)).toBeNull();
+  });
+
+  it("shows her refusal as an opinion and still offers Buy", () => {
+    const visitSeed = "strong-refusal";
+    const state = createInitialWardrobeStoreState();
+    const items = getCompatibleWardrobeItems(
+      WARDROBE_STORE_CATALOG,
+      companion.modelUrl,
+      companion.id,
+    );
+    const visit = createCompanionShoppingVisit({
+      companionId: companion.id,
+      items,
+      state,
+      visitSeed,
+    });
+    const rejectedItem = items.find(
+      (item) => visit.itemOpinions[item.id]?.verdict === "reject",
+    );
+    expect(rejectedItem).toBeTruthy();
+
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed={visitSeed}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: new RegExp(`View ${rejectedItem?.name}`),
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `Try on ${rejectedItem?.name}` }),
+    );
+
+    expect(screen.getByText("Not for me today")).toBeTruthy();
+    expect(screen.queryByText("Elli would rather keep looking.")).toBeNull();
+    expect(screen.queryByText("Saving it does not spend any coins.")).toBeNull();
+    // Owner 2026-11-12: her opinion never removes the child's choice.
+    expect(screen.getByRole("button", { name: /Buy and wear/ })).toBeTruthy();
+    expect(screen.getByText("100 demo coins")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Save .* for later/ })).toBeTruthy();
+  });
+
+  it("wears an owned item the companion is not keen on today, showing her opinion", () => {
+    const visitSeed = "owned-refusal";
+    const items = getCompatibleWardrobeItems(
+      WARDROBE_STORE_CATALOG,
+      companion.modelUrl,
+      companion.id,
+    );
+    const state = {
+      ...createInitialWardrobeStoreState(),
+      ownedItemIds: items.map((item) => item.id),
+    };
+    const visit = createCompanionShoppingVisit({
+      companionId: companion.id,
+      items,
+      state,
+      visitSeed,
+    });
+    const rejectedItem = items.find(
+      (item) => visit.itemOpinions[item.id]?.verdict === "reject",
+    );
+    expect(rejectedItem).toBeTruthy();
+    window.localStorage.setItem(WARDROBE_STORE_STORAGE_KEY, JSON.stringify(state));
+    const onWardrobeChange = vi.fn();
+
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()}
+        visitSeed={visitSeed}
+      />,
+    );
+    onWardrobeChange.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Elli’s closet" }));
+    fireEvent.click(screen.getByRole("button", { name: rejectedItem?.name }));
+
+    // Owner 2026-11-12: her opinion is shown, but the child still wears it.
+    expect(screen.queryByText(`Elli does not want to wear ${rejectedItem?.name} today.`)).toBeNull();
+    expect(screen.getByText("Not for me today")).toBeTruthy();
+    expect(onWardrobeChange).toHaveBeenCalled();
+  });
+});
+
+// Shopping behavior uses explicit synthetic approvals. Real assets stay quarantined;
+// wardrobe-certification.test.ts exercises the unmocked, version-bound gate.
+vi.mock("../lib/wardrobeBodyProfiles", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/wardrobeBodyProfiles")>();
+  return {...actual, isWardrobePairApproved: () => true, resolveWardrobeTemplateCertification: (companionId: string, templateId: string) => ({
+    companionId, templateId,
+    status: (["royal-crown", "cat-ears", "star-halo"].includes(templateId) || (templateId === "ribbon-dress" && ["elli", "matilda"].includes(companionId))) ? "approved" : "candidate",
+    reason: "TEST FIXTURE ONLY — synthetic human approval for shopping behavior",
+  })};
+});
+
+// 2026-11-14 (owner-caught on Saori): in testing mode (/companions/?wardrobeLab=true, no wallet) the closet was empty,
+// so a grown-up checking the dresses could not try anything on. Testing mode lends every item that fits; nothing is
+// bought, and it never touches a child's wallet or saved look.
+describe("WardrobeStoreLab testing mode", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(cleanup);
+
+  it("puts every item that fits the companion in her closet, with no coins spent", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onExit={vi.fn()}
+        onWardrobeChange={vi.fn()}
+        visitSeed="testing-closet"
+        testingCloset
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Elli’s closet" }));
+    const fits = getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, companion.modelUrl, companion.id);
+    expect(fits.length).toBeGreaterThan(0);
+    const closet = screen.getByRole("dialog", { name: "Elli’s closet" });
+    for (const item of fits) expect(closet.textContent).toContain(item.name);
+    expect(window.localStorage.getItem(WARDROBE_STORE_STORAGE_KEY)).toBeNull();
+  });
+
+  // Owner 2026-11-14: testing mode is for approving items, so every item is offered on every companion, including
+  // ones not yet approved or fitted for her; Saori tries each and reports what looks wrong.
+  it("offers every item on every companion in testing mode, even one with no approved fits", () => {
+    const kefla = { id: "kefla", name: "Kefla", modelUrl: "/companions/Kefla.vrm" };
+    expect(getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, kefla.modelUrl, kefla.id).length).toBeLessThan(WARDROBE_STORE_CATALOG.length);
+    render(
+      <WardrobeStoreLab companion={kefla} companionPreview={<div />} call={createCallProps()} onWardrobeChange={vi.fn()}
+        onExit={vi.fn()} visitSeed="testing-all" testingCloset />,
+    );
+    // The shelf she sees first (not only the closet) offers every item.
+    for (const item of WARDROBE_STORE_CATALOG) expect(document.body.textContent).toContain(item.name);
+    fireEvent.click(screen.getByRole("button", { name: "Kefla’s closet" }));
+    const closet = screen.getByRole("dialog", { name: "Kefla’s closet" });
+    for (const item of WARDROBE_STORE_CATALOG) expect(closet.textContent).toContain(item.name);
+  });
+});
+
+// Owner 2026-11-14 (watching Saori test): testing mode is a human try-on, so no check may refuse an item:
+// "Could not equip this item (incompatible)" on Melty and Kefla hid exactly what she was there to see.
+describe("testing mode never refuses an item", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(cleanup);
+  it("wears an accessory and an outfit on a companion with no approved fits", () => {
+    const melty = { id: "melty", name: "Melty", modelUrl: "/companions/4573661938486170180.vrm" };
+    const onWardrobeChange = vi.fn();
+    render(
+      <WardrobeStoreLab companion={melty} companionPreview={<div />} call={createCallProps()} onWardrobeChange={onWardrobeChange}
+        onExit={vi.fn()} visitSeed="testing-equip" testingCloset />,
+    );
+    for (const name of ["Cat Ears", "Navy Ribbon Dress"]) {
+      fireEvent.click(screen.getByRole("button", { name: "Melty’s closet" }));
+      const closet = screen.getByRole("dialog", { name: "Melty’s closet" });
+      const button = [...closet.querySelectorAll("button")].find(b => b.textContent?.includes(name))!;
+      fireEvent.click(button);
+      expect(document.body.textContent).not.toContain("Could not equip");
+    }
+    const looks = onWardrobeChange.mock.calls.map(call => call[0]);
+    expect(looks.some(look => look?.accessoryId === "cat-ears")).toBe(true);
+    expect(looks.some(look => look?.outfitId && look.outfitId !== "none")).toBe(true);
+  });
+});
+
+// Owner 2026-11-14: new items for Saori to test. They appear in testing mode only; the kids' shop shows an item
+// only once it is priced in the reward catalog, which happens after she approves it.
+describe("new items waiting for approval", () => {
+  it("are in testing mode's catalog but not in the kids' shop", async () => {
+    const { walletShopItems } = await import("../lib/wardrobeWallet");
+    const fresh = ["mint-ribbon-dress", "lavender-ribbon-dress", "ruby-ribbon-dress", "snow-ribbon-dress"];
+    for (const id of fresh) expect(WARDROBE_STORE_CATALOG.some(item => item.id === id)).toBe(true);
+    const kidsShop = walletShopItems(WARDROBE_STORE_CATALOG, []).map(item => item.id);
+    for (const id of fresh) expect(kidsShop).not.toContain(id);
+  });
+});

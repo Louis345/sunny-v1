@@ -1,3 +1,5 @@
+/** When this game opened: the fallback for how long it was played. */
+var CONTRACT_LOADED_AT = Date.now();
 /**
  * Standard iframe game ↔ parent (adventure map / voice canvas) contract.
  * Load: <script src="/games/_contract.js"></script>
@@ -28,6 +30,8 @@ window.GameBridge = (function () {
     return {
       words: csvList(rawWords),
       spellingItemBindings: JSON.parse(p.get("spellingItemBindings") || "[]"),
+      // Any subject's items, [{itemId, display}]: the game shows display, Sunny scores the answer.
+      itemBindings: JSON.parse(p.get("itemBindings") || "[]"),
       knownWords: csvList(p.get("knownWords")),
       weakWords: csvList(p.get("weakWords")),
       childId: p.get("childId") || "unknown",
@@ -81,6 +85,53 @@ window.GameBridge = (function () {
   })();
 
   var capturedSpellingTargets = Object.create(null);
+  // Code keeps her first answer per item and the screen when it opened; a game cannot rewrite either.
+  var firstAnswers = Object.create(null);
+  // Every try per item, in order: a retry is her own answer too (2026-11-10: three fast "34"s were folded into one).
+  var allAnswers = Object.create(null);
+  var MAX_TRIES_PER_ITEM = 20;
+  var screenAtOpen = Object.create(null);
+  // The problem open now: every state report carries it, so a step or heartbeat never hides which problem and its
+  // numbers are on screen (2026-11-10: reportStep replaced it with "Type where the kappa lands next").
+  var openItemState = null;
+  // A stop with bound problems finishes once each has a first answer, whatever the game shows next (a made-up
+  // rematch or bonus round is free extra play; BUGS.md 2026-11-08, Reina's Boss Battle). Sent once.
+  var itemCompletionSent = false;
+
+  // Code, not the game, hands over every try it saw for each reported item.
+  function withTries(rows) {
+    return rows.map(function (row) {
+      var tries = row && allAnswers[row.target];
+      return tries && tries.length ? Object.assign({}, row, { tries: tries.slice() }) : row;
+    });
+  }
+
+  // Bound problems in binding order: her first answer, the screen when it opened, and every try.
+  function boundItemResults() {
+    return withTries(GAME_PARAMS.itemBindings.map(function (item) {
+      var first = firstAnswers[item.itemId];
+      return Object.assign({ target: item.itemId, attemptedValue: first ? first.attemptedValue : "" },
+        first && typeof first.screenAtOpen === "string" ? { screenAtOpen: first.screenAtOpen } : {});
+    }));
+  }
+
+  function itemBinding(target) {
+    if (typeof target !== "string") return null;
+    var wanted = target.normalize("NFC").trim().toLowerCase();
+    var matches = GAME_PARAMS.itemBindings.filter(function (item) {
+      return item.itemId === target || String(item.display).normalize("NFC").trim().toLowerCase() === wanted;
+    });
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  function bindItemTarget(row) {
+    var binding = row && itemBinding(row.target);
+    return binding ? Object.assign({}, row, { target: binding.itemId }) : row;
+  }
+
+  function currentScreenText() {
+    return String((document.body && document.body.innerText) || "").slice(0, 500);
+  }
 
   function bindSpellingTarget(row) {
     var bindings = GAME_PARAMS.spellingItemBindings;
@@ -88,6 +139,36 @@ window.GameBridge = (function () {
     var matches = bindings.filter(function (item) { return item.itemId === row.target || item.word.normalize("NFC").toLowerCase() === row.target.normalize("NFC").toLowerCase(); });
     if (matches.length !== 1) return row; // Unknown/ambiguous identities remain rejectable by the server.
     return Object.assign({}, row, { target: matches[0].itemId });
+  }
+
+  // G8 (2026-11-10): letter-tap games reported the letters so far ("ornm" for ornament) after a wrong tap, saved as a
+  // misspelling. Letters so far are a word's beginning plus one more letter, shorter than the word; they are held until
+  // she answers the word (then dropped) or the word ends (then saved as an incomplete try, never right or wrong).
+  var heldLettersSoFar = null;
+  function spellingWordFor(target) {
+    var match = GAME_PARAMS.spellingItemBindings.filter(function (item) { return item.itemId === target; })[0];
+    return match ? String(match.word) : null;
+  }
+  function isLettersSoFar(value, word) {
+    var typed = String(value).normalize("NFC").trim().toLowerCase();
+    var whole = String(word).normalize("NFC").trim().toLowerCase();
+    return typed.length > 0 && typed.length < whole.length && whole.indexOf(typed.slice(0, -1)) === 0;
+  }
+  function asIncompleteTry(payload) {
+    var row = Object.assign({}, payload, { incomplete: true });
+    delete row.correct;
+    delete row.quality;
+    delete row.gaveUp;
+    delete row.itemEnded;
+    return row;
+  }
+  // The word ended with letters still held: save them once as an incomplete try. Clears the hold first, so it runs once.
+  function releaseHeldLetters(bridge) {
+    var held = heldLettersSoFar;
+    heldLettersSoFar = null;
+    if (!held) return;
+    logContract("spelling", "word ended with letters so far; saved as an incomplete try");
+    bridge.reportAttempt(Object.assign({}, held, { itemEnded: true }));
   }
 
   function showPreviewBanner(payload) {
@@ -323,6 +404,11 @@ window.GameBridge = (function () {
         showPreviewBanner(r);
         return;
       }
+      if (GAME_PARAMS.itemBindings.length) {
+        if (itemCompletionSent) return;
+        itemCompletionSent = true;
+      }
+      releaseHeldLetters(this);
       // Letter-selection/aggregate results cannot stand in for typed word answers.
       if (GAME_PARAMS.launchToken && GAME_PARAMS.spellingItemBindings.length &&
           GAME_PARAMS.spellingItemBindings.some(function (item) { return !capturedSpellingTargets[item.itemId]; })) {
@@ -330,7 +416,10 @@ window.GameBridge = (function () {
           attemptId: "completion-limitation:" + GAME_PARAMS.launchToken,
           rawChoice: null, aggregateAccuracy: typeof r.accuracy === "number" ? r.accuracy : null });
       }
+      // A built game that reports no time gets the time it was open (2026-11-10: "0 ms" was saved as fact).
+      var spent = Number(r.timeSpent_ms) > 0 ? Number(r.timeSpent_ms) : Date.now() - CONTRACT_LOADED_AT;
       var merged = Object.assign({}, r, {
+        timeSpent_ms: spent,
         nodeId: GAME_PARAMS.nodeId,
         childId: GAME_PARAMS.childId,
         sessionId: GAME_PARAMS.sessionId,
@@ -338,7 +427,8 @@ window.GameBridge = (function () {
         activityIntentId: GAME_PARAMS.activityIntentId,
         targetSelectorId: GAME_PARAMS.targetSelectorId,
       });
-      if (Array.isArray(r.targetResults)) merged.targetResults = r.targetResults.map(bindSpellingTarget);
+      if (Array.isArray(r.targetResults)) merged.targetResults = withTries(r.targetResults.map(bindSpellingTarget));
+      if (GAME_PARAMS.itemBindings.length) merged.targetResults = boundItemResults();
       post("game_complete", merged);
       logContract("post", postSummary("node_complete", merged));
       window.parent.postMessage(
@@ -366,6 +456,18 @@ window.GameBridge = (function () {
      * Minimum required: progress string.
      * Structured extras give the companion richer context without screenshots.
      */
+    openItem: function (itemId, progress) {
+      screenAtOpen[itemId] = currentScreenText();
+      var openBinding = itemBinding(itemId);
+      openItemState = { itemId: itemId, itemPrompt: openBinding ? String(openBinding.display) : undefined };
+      this.reportState(typeof progress === "string" && progress.trim() ? progress : "Item ready.", {
+        game: "generated-game",
+        itemOpened: true,
+        itemId: itemId,
+        phase: "playing",
+      });
+    },
+
     reportState: function (progress, extras) {
       if (!progress || typeof progress !== "string") return;
       if (extras && extras.spellingItemOpened === true && GAME_PARAMS.launchToken) {
@@ -373,6 +475,9 @@ window.GameBridge = (function () {
         if (GAME_PARAMS.spellingItemBindings.some(function (item) { return item.itemId === bound.target; })) {
           extras = Object.assign({}, extras, { itemId: bound.target, practiceCapture: true });
         }
+      }
+      if (openItemState && !itemCompletionSent && !(extras && extras.itemId && extras.itemId !== openItemState.itemId)) {
+        extras = Object.assign({ itemId: openItemState.itemId }, openItemState.itemPrompt ? { itemPrompt: openItemState.itemPrompt } : {}, extras || {});
       }
       post(
         "game_state_update",
@@ -520,13 +625,52 @@ window.GameBridge = (function () {
      * This is separate from companion events: companion_event drives feedback;
      * attempt_event drives SM-2, diagnostics, and future assignment selection.
      */
+    /** A new word opened: letters still held for a different word are saved as that word's incomplete try. */
+    openingSpellingWord: function (word) {
+      var opened = bindSpellingTarget({ target: String(word) }).target;
+      if (heldLettersSoFar && heldLettersSoFar.target !== opened) releaseHeldLetters(this);
+    },
+
     reportAttempt: function (attempt) {
       if (GAME_PARAMS.previewDryRun) return;
       if (!attempt || typeof attempt !== "object" || Array.isArray(attempt)) {
         return;
       }
-      var payload = Object.assign({}, bindSpellingTarget(attempt));
-      if (payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
+      var payload = Object.assign({}, bindItemTarget(bindSpellingTarget(attempt)));
+      var spellingWord = payload.domain === "spelling" && typeof payload.attemptedValue === "string" ? spellingWordFor(payload.target) : null;
+      if (spellingWord) {
+        var wordEnded = payload.itemEnded === true || payload.gaveUp === true;
+        if (heldLettersSoFar && (heldLettersSoFar.target !== payload.target)) releaseHeldLetters(this);
+        if (isLettersSoFar(payload.attemptedValue, spellingWord) && !wordEnded) {
+          heldLettersSoFar = payload;
+          logContract("spelling", "letters so far held until she answers or the word ends");
+          return;
+        }
+        if (heldLettersSoFar && heldLettersSoFar.target === payload.target) {
+          heldLettersSoFar = null;
+          logContract("spelling", "letters so far dropped: she went on to answer the word");
+        }
+        if (wordEnded && isLettersSoFar(payload.attemptedValue, spellingWord)) payload = asIncompleteTry(payload);
+      }
+      var answered = payload.incomplete !== true;
+      if (answered && itemBinding(payload.target) && typeof payload.attemptedValue === "string" && !firstAnswers[payload.target]) {
+        firstAnswers[payload.target] = { attemptedValue: payload.attemptedValue, screenAtOpen: screenAtOpen[payload.target] };
+      }
+      var lateTry = false;
+      if (answered && typeof payload.target === "string" && typeof payload.attemptedValue === "string") {
+        var tries = allAnswers[payload.target] || (allAnswers[payload.target] = []);
+        if (tries.length < MAX_TRIES_PER_ITEM) {
+          tries.push({ attemptedValue: payload.attemptedValue, at: Date.now() });
+          lateTry = itemCompletionSent && Boolean(itemBinding(payload.target));
+        }
+      }
+      // A try after the stop finished (BUGS.md 2026-11-10 evening): a follow-up record with every try so far; Sunny
+      // saves only the tries it does not have yet. Bounded by MAX_TRIES_PER_ITEM per problem.
+      if (lateTry) {
+        logContract("items", "try after the stop finished; sending a follow-up record");
+        post("late_tries", { nodeId: GAME_PARAMS.nodeId, sessionId: GAME_PARAMS.sessionId, launchToken: GAME_PARAMS.launchToken, targetResults: boundItemResults() });
+      }
+      if (answered && payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
       if (payload.word == null && payload.target != null) {
         payload.word = String(payload.target);
       }
@@ -556,6 +700,10 @@ window.GameBridge = (function () {
           timestamp: timestamp,
         }),
       );
+      if (GAME_PARAMS.itemBindings.length && !itemCompletionSent && GAME_PARAMS.itemBindings.every(function (item) { return firstAnswers[item.itemId]; })) {
+        logContract("items", "every problem answered; finishing the stop");
+        this.complete({ completed: true, ended: true });
+      }
     },
   };
 })();
@@ -580,6 +728,7 @@ window.fireAttemptEvent = function (attempt) {
  */
 window.openSpellingItem = function (word, progress) {
   if (typeof word !== "string" || !word.trim()) return;
+  window.GameBridge.openingSpellingWord(word);
   var screen = (document.body && document.body.innerText) || "";
   var escaped = word.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   var shown = new RegExp("(^|[^\\p{L}])" + escaped + "($|[^\\p{L}])", "iu").test(screen);
@@ -592,6 +741,42 @@ window.openSpellingItem = function (word, progress) {
     targetMasked: !shown,
   });
   window.parent.postMessage({ type: "narration_request", activityId: "generated-game", nodeId: window.GAME_PARAMS.nodeId, word: word, reason: "target_word" }, "*");
+};
+
+/**
+ * Any subject's built game opens each item here before she answers it. The contract owns the bookkeeping:
+ * it binds the item, keeps the screen as it was when the item opened, and keeps her first answer.
+ */
+window.openItem = function (itemIdOrDisplay, progress) {
+  var params = window.GAME_PARAMS || {};
+  var bindings = params.itemBindings || [];
+  var wanted = String(itemIdOrDisplay == null ? "" : itemIdOrDisplay).normalize("NFC").trim().toLowerCase();
+  var matches = bindings.filter(function (item) {
+    return item.itemId === itemIdOrDisplay || String(item.display).normalize("NFC").trim().toLowerCase() === wanted;
+  });
+  if (matches.length !== 1) return;
+  window.GameBridge.openItem(matches[0].itemId, progress);
+};
+
+/**
+ * Built games report each step she is on and its on-screen instruction (BUGS.md 2026-11-09: a hidden keyboard behind
+ * "Tap a stone" cost Ila 13 minutes while her companion could not see the step). Facts only: the companion and the
+ * session retro see the step and when she reached it; nothing here decides what to say or when.
+ */
+window.reportStep = function (step, instruction) {
+  if (typeof step !== "string" || !step.trim()) return;
+  var text = typeof instruction === "string" ? instruction.trim() : "";
+  window.GameBridge.reportState(text || step, { gameStep: step, currentChallenge: text || step, stepStartedAt: Date.now() });
+};
+
+/**
+ * Built games report each hint, worked example or part of the answer they show (BUGS.md 2026-11-08, owner 2026-11-13:
+ * an answer after three hints was saved as on her own). A fact only: Sunny marks her later tries on that problem helped.
+ */
+window.reportHint = function (itemId, shown) {
+  if (typeof itemId !== "string" || !itemId.trim()) return;
+  var text = typeof shown === "string" ? shown.trim().slice(0, 200) : "";
+  window.GameBridge.reportState("Hint shown", { hintShownItemId: itemId.trim(), hintText: text });
 };
 
 window.SunnyActivity = {

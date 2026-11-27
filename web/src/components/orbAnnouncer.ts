@@ -1,0 +1,224 @@
+import { announce, type AnnounceMoment, type AnnouncerBank, type AnnouncerMemory } from "../../../src/shared/announcer";
+import { voiceFloor, type VoiceFloor } from "../utils/voiceFloor";
+
+/** The slice of OrbAudio the announcer needs (a fake in tests). */
+export interface AnnouncerAudio {
+  loadExtra(sounds: Record<string, string>): Promise<number>;
+  play(key: string, options?: { volume?: number; jitter?: number }): void;
+  duration(key: string): number;
+  has(key: string): boolean;
+  duck(on: boolean): void;
+  msToNextBeat(): number;
+  /** The device voice, for a word this week's bank has no recording of. */
+  sayTestWord(word: string): void;
+  /** Stop the announcer's voice now (its clips and the device voice), leaving music and effects. */
+  stopVoice(): void;
+}
+
+const KEY = (id: string) => `ann:${id}`;
+/** Wait for the downbeat only when it is close; a long wait would make the call feel late. */
+const MAX_BEAT_WAIT_MS = 450;
+const GAP_S = 0.08;
+/** A clip asked for again within this long after it ends is a repeat, not a request. */
+const REPEAT_GUARD_MS = 800;
+/** About how long the device voice takes to say one word. */
+const SPOKEN_WORD_MS = 1100;
+
+/**
+ * Plays the week's recorded announcer bank: the shared picker chooses the clips, this lands them on
+ * the next beat, one after another, with the music dipped underneath. No bank means no announcer,
+ * and every call returns false so the game keeps its own lines.
+ */
+export class OrbAnnouncer {
+  private memory: AnnouncerMemory = { recent: [], lastSpokeAt: -Infinity, now: 0 };
+  private timers: number[] = [];
+  /** When the voice is free again (the clock of now()). */
+  private busyUntil = -Infinity;
+  /** When each clip last finished (or will finish, when queued). */
+  private lastEnds = new Map<string, number>();
+
+  /** Lines she needs (her word, Ready? Go!) that wait while the companion has the floor. */
+  private held: Array<() => void> = [];
+  /** Needed lines queued or playing, with when they finish, so a companion interruption can re-hold them. */
+  private inFlightNeeds: Array<{ endsAt: number; keys: string[]; replay: () => void }> = [];
+  private readonly unsubscribeFloor: () => void;
+
+  private readonly bank: AnnouncerBank;
+  private readonly audio: AnnouncerAudio;
+  private readonly now: () => number;
+  private readonly floor: VoiceFloor;
+
+  private constructor(bank: AnnouncerBank, audio: AnnouncerAudio, now: () => number, floor: VoiceFloor) {
+    this.bank = bank;
+    this.audio = audio;
+    this.now = now;
+    this.floor = floor;
+    this.unsubscribeFloor = floor.onChange((holder) => {
+      if (holder === "companion") this.yieldToCompanion();
+      else if (holder === "free") this.releaseHeld();
+    });
+  }
+
+  static async load(childId: string | undefined, audio: AnnouncerAudio, now: () => number = () => performance.now(), floor: VoiceFloor = voiceFloor): Promise<OrbAnnouncer | null> {
+    if (!childId) return null;
+    const base = `/generated/announcer/${childId}/`;
+    try {
+      const response = await fetch(`${base}bank.json`);
+      if (!response.ok) {
+        console.log(` 🎮 [announcer] [bank] [none] child=${childId} status=${response.status}: game lines only`);
+        return null;
+      }
+      const bank = (await response.json()) as AnnouncerBank;
+      const loaded = await audio.loadExtra(Object.fromEntries(bank.clips.map((clip) => [KEY(clip.id), base + clip.file])));
+      console.log(` 🎮 [announcer] [bank] [ready] child=${childId} week=${bank.week} clips=${loaded}/${bank.clips.length}`);
+      return new OrbAnnouncer(bank, audio, now, floor);
+    } catch (error) {
+      console.warn(` 🎮 [announcer] [bank] [failed] child=${childId}: game lines only`, error);
+      return null;
+    }
+  }
+
+  /** Call a moment. True when the announcer spoke (the game then skips its own line). */
+  call(moment: AnnounceMoment): boolean {
+    const picked = announce(this.bank, moment, { ...this.memory, now: this.now() });
+    if (!picked) return false;
+    const keys = picked.clips.map(KEY).filter((key) => this.audio.has(key));
+    if (!keys.length) return false;
+    if (this.floor.companionSpeaking()) {
+      // A reaction is about this moment; said later it would be wrong, so it is dropped (and the game stays quiet).
+      console.log(` 🎮 [announcer] [quiet] [companion-talking] call:${moment.event}`);
+      return true;
+    }
+    this.memory = picked.memory;
+    this.enqueue(keys, `call:${moment.event}`, true);
+    return true;
+  }
+
+  /**
+   * The companion says the practice word: her recorded voice, or the device voice when this week has no clip
+   * for it (a new week's word), in line like every other line. Returns how many ms until it has been said
+   * (the card times the chunks from then).
+   */
+  sayWord(word: string): number | false {
+    const spoken = word.toLowerCase();
+    if (this.floor.companionSpeaking()) {
+      this.held.push(() => this.sayWord(word));
+      console.log(` 🎮 [announcer] [held] [companion-talking] word:${spoken}`);
+      return 0;
+    }
+    const key = KEY(`slot-word-${spoken}`);
+    if (this.audio.has(key)) this.enqueue([key], `word:${spoken}`, false, () => this.sayWord(word));
+    else this.enqueueSpoken(spoken);
+    return Math.max(0, (this.lastEnds.get(this.audio.has(key) ? key : `say:${spoken}`) ?? this.now()) - this.now());
+  }
+
+  /** A word in the device voice, behind whatever the announcer is saying; a repeat is dropped like a clip. */
+  private enqueueSpoken(word: string): void {
+    const now = this.now();
+    const id = `say:${word}`;
+    const last = this.lastEnds.get(id);
+    if (last !== undefined && now <= last + REPEAT_GUARD_MS) {
+      console.log(` 🎮 [announcer] [repeat] [dropped] say:${word}`);
+      return;
+    }
+    const at = Math.max(now, this.busyUntil);
+    this.timers.push(window.setTimeout(() => {
+      this.floor.announcerStarted();
+      this.audio.sayTestWord(word);
+    }, at - now));
+    this.busyUntil = at + SPOKEN_WORD_MS;
+    this.lastEnds.set(id, this.busyUntil);
+    this.inFlightNeeds.push({ endsAt: this.busyUntil, keys: [id], replay: () => this.sayWord(word) });
+    this.scheduleFloorRelease(at + SPOKEN_WORD_MS - now);
+    console.log(` 🎮 [announcer] [say] [device-voice] word=${word} inMs=${Math.round(at - now)}`);
+  }
+
+  /** One of the game's own cues in the announcer's voice ("ready" = Ready? Go!). False when the bank lacks it. */
+  cue(name: string): boolean {
+    const key = KEY(`slot-${name}`);
+    if (!this.audio.has(key)) return false;
+    if (this.floor.companionSpeaking()) {
+      this.held.push(() => this.cue(name));
+      console.log(` 🎮 [announcer] [held] [companion-talking] cue:${name}`);
+      return true;
+    }
+    this.enqueue([key], `cue:${name}`, true, () => this.cue(name));
+    return true;
+  }
+
+  /**
+   * The one voice: every line waits for the line before it to finish, so nothing talks over anything.
+   * The same clip asked for again while it is queued, playing, or just finished is dropped (double taps,
+   * a card that mounts twice).
+   */
+  private enqueue(keys: string[], label: string, onBeat: boolean, replayIfInterrupted?: () => void): void {
+    const now = this.now();
+    const fresh = keys.filter((key) => {
+      const last = this.lastEnds.get(key);
+      return last === undefined || now > last + REPEAT_GUARD_MS;
+    });
+    if (fresh.length < keys.length) console.log(` 🎮 [announcer] [repeat] [dropped] ${label}`);
+    if (!fresh.length) return;
+    const wait = onBeat ? this.audio.msToNextBeat() : 0;
+    let at = Math.max(now + (wait <= MAX_BEAT_WAIT_MS ? wait : 0), this.busyUntil);
+    const first = at;
+    fresh.forEach((key, index) => {
+      this.timers.push(window.setTimeout(() => {
+        if (index === 0) {
+          this.floor.announcerStarted();
+          this.audio.duck(true);
+        }
+        this.audio.play(key, { volume: 1, jitter: 0 });
+      }, at - now));
+      at += (this.audio.duration(key) + GAP_S) * 1000;
+      this.lastEnds.set(key, at);
+    });
+    this.busyUntil = at;
+    if (replayIfInterrupted) this.inFlightNeeds.push({ endsAt: at, keys: fresh, replay: replayIfInterrupted });
+    this.timers.push(window.setTimeout(() => {
+      if (this.now() >= this.busyUntil - 1) this.audio.duck(false);
+    }, at - now));
+    this.scheduleFloorRelease(at - now);
+    console.log(` 🎮 [announcer] [say] [${label}] clips=${fresh.map((key) => key.slice(4)).join("+")} inMs=${Math.round(first - now)}`);
+  }
+
+  /** When the announcer's last queued line ends, it gives the floor back. */
+  private scheduleFloorRelease(inMs: number): void {
+    this.timers.push(window.setTimeout(() => {
+      if (this.now() >= this.busyUntil - 1) this.floor.announcerEnded();
+    }, inMs));
+  }
+
+  /** The companion started talking: stop now, drop the moment lines, and keep the lines she needs for later. */
+  private yieldToCompanion(): void {
+    const now = this.now();
+    const unfinished = this.inFlightNeeds.filter((need) => need.endsAt > now);
+    this.timers.forEach((timer) => window.clearTimeout(timer));
+    this.timers = [];
+    this.audio.stopVoice();
+    this.audio.duck(false);
+    this.busyUntil = -Infinity;
+    // The interrupted lines were never fully heard, so the repeat guard must not drop them when they come back.
+    unfinished.forEach((need) => need.keys.forEach((key) => this.lastEnds.delete(key)));
+    this.held.unshift(...unfinished.map((need) => need.replay));
+    this.inFlightNeeds = [];
+    console.log(` 🎮 [announcer] [yield] [companion-talking] held=${this.held.length}`);
+  }
+
+  /** The floor is free again: say the held lines, in order. */
+  private releaseHeld(): void {
+    if (!this.held.length) return;
+    const held = this.held;
+    this.held = [];
+    console.log(` 🎮 [announcer] [resume] [floor-free] lines=${held.length}`);
+    held.forEach((line) => line());
+  }
+
+  dispose(): void {
+    this.timers.forEach((timer) => window.clearTimeout(timer));
+    this.timers = [];
+    this.held = [];
+    this.unsubscribeFloor();
+    if (this.floor.current() === "announcer") this.floor.announcerEnded();
+  }
+}

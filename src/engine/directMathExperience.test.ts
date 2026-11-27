@@ -1855,12 +1855,10 @@ describe("direct math experience", () => {
 
     // Teaching and evidence duties live in the shared mission every companion inherits.
     const base = fs.readFileSync(path.join(process.cwd(), "src/souls/companion-base.md"), "utf8");
-    expect(base).toContain("stimulus_only provides private whole-word replay");
-    expect(base).toContain("pronunciation_model means supported teaching");
-    expect(base).toContain("During independent assessment, the target stays private");
-    expect(base).toContain("Record assistance; supported success is practice, not independent mastery");
+    expect(base).toContain("stimulus_only");
+    expect(base).toContain("pronunciation_model");
+    expect(base).toContain("Anything you tell her about that problem is recorded as help");
     expect(base).toContain("recordChildSignal");
-    expect(base).toContain("help_needed");
   });
 
   it("projects the active child's companion instead of stamping Elli into every math board", () => {

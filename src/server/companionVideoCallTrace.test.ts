@@ -1,14 +1,20 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
   readCompanionVideoCallTracePacket,
   recordCompanionVideoCallTraceEvent,
 } from "./companionVideoCallTrace";
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+
 function makeTraceRoot(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-video-call-trace-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-video-call-trace-test-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 function readTraceFolder(root: string, traceId: string): string {
@@ -31,6 +37,14 @@ describe("companion video call traces", () => {
     expect(routesSource).toContain('"activity_reaction_stale_dropped"');
     expect(routesSource).toContain('"conversation_mode_changed"');
     expect(routesSource).toContain('"activity_phase_changed"');
+    expect(routesSource).toContain('"wardrobe_store_mounted"');
+    expect(routesSource).toContain('"wardrobe_item_reviewed"');
+    expect(routesSource).toContain('"wardrobe_try_on_started"');
+    expect(routesSource).toContain('"wardrobe_voice_requested"');
+    expect(routesSource).toContain('"wardrobe_store_exited"');
+    expect(routesSource).toContain('"companion_tool_rejected"');
+    expect(routesSource).toContain('"shopping_speech_retry"');
+    expect(routesSource).toContain('"shopping_speech_guard_failed"');
   });
 
   it("appends sanitized trace rows under logs/sessions YYYY/MM folders", () => {
@@ -54,6 +68,24 @@ describe("companion video call traces", () => {
           },
           audioBase64: "raw-audio",
           providerPayload: { secret: "nope" },
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        traceId: "trace_test",
+        eventName: "wardrobe_try_on_started",
+        childId: "ila",
+        companionId: "elli",
+        timestamp: Date.parse("2026-05-28T16:00:03.000Z"),
+        payload: {
+          shoppingContext: {
+            mode: "try_on",
+            selectedItem: { id: "sleeveless-dress", name: "Navy Ribbon Dress" },
+            verdict: "reject",
+            companionConsentsToWear: false,
+          },
         },
       },
       { rootDir: root },
@@ -103,12 +135,14 @@ describe("companion video call traces", () => {
       fs.readFileSync(path.join(traceFolder, "trace-summary.json"), "utf8"),
     ) as Record<string, unknown>;
 
-    expect(traceText.trim().split("\n")).toHaveLength(3);
+    expect(traceText.trim().split("\n")).toHaveLength(4);
     expect(traceText).toContain("transcriptPreview");
     expect(traceText).toContain("transcriptHash");
     expect(traceText).toContain("responsePreview");
     expect(traceText).toContain("responseHash");
     expect(traceText).toContain("tic_tac_toe");
+    expect(traceText).toContain("wardrobe_try_on_started");
+    expect(traceText).toContain("sleeveless-dress");
     expect(traceText).not.toContain("raw-camera-frame");
     expect(traceText).not.toContain("raw-audio");
     expect(traceText).not.toContain("providerPayload");
@@ -117,7 +151,7 @@ describe("companion video call traces", () => {
       traceId: "trace_test",
       childId: "ila",
       companionId: "elli",
-      eventCount: 3,
+      eventCount: 4,
       likelyCause: "none",
     });
   });

@@ -50,19 +50,17 @@ describe("Elli's spoken-turn rule", () => {
   // a long reply. One reply also spoke Elli's private note aloud ("They seem
   // confused... Let me clarify gently").
 
-  it("prefers brief conversation with room to expand, without a sentence quota", () => {
-    expect(COMPANION_SPOKEN_TURN_PROMPT).toContain("Keep ordinary conversation brief");
-    expect(COMPANION_SPOKEN_TURN_PROMPT).toContain("Expand when useful or requested");
+  it("states the live-talk facts without a sentence quota", () => {
     expect(COMPANION_SPOKEN_TURN_PROMPT).not.toMatch(/one or two short sentences/i);
+    expect(COMPANION_SPOKEN_TURN_PROMPT).toContain("your voice starts as soon as your first sentence is written");
   });
 
   it("tells Elli that every word is spoken aloud, so private notes never reach the child", () => {
     expect(COMPANION_SPOKEN_TURN_PROMPT).toMatch(/every word you write is spoken aloud/i);
-    expect(COMPANION_SPOKEN_TURN_PROMPT).toMatch(/third person/i);
   });
 
-  it("tells Elli to answer what the child just said when interrupted", () => {
-    expect(COMPANION_SPOKEN_TURN_PROMPT).toMatch(/interrupt/i);
+  it("tells Elli the child can talk over her and her words come next", () => {
+    expect(COMPANION_SPOKEN_TURN_PROMPT).toContain("She can talk over you: your reply stops there, and her words come to you next.");
   });
 
   it("names no child or companion, since it serves every session", () => {

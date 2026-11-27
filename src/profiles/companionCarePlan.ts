@@ -2,10 +2,13 @@ import fs from "fs";
 import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import {
+  callSecondsOf,
   companionCareToTamagotchi,
   createStarterCompanionCarePlan,
 } from "../engine/companionCareEngine";
-import type { CompanionCarePlan } from "../shared/companionCareTypes";
+import type { CompanionCarePlan, CompanionWearing } from "../shared/companionCareTypes";
+import { normalizeCreatureState } from "../engine/creatureCareEngine";
+import { resolveMatildaReadPath } from "./legacyHikariRead";
 
 export type CompanionCareChartInput = {
   childId: string;
@@ -49,6 +52,17 @@ function writeJson(file: string, value: unknown): void {
   fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
 }
 
+function normalizeWearing(value: unknown): Record<string, CompanionWearing> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const text = (item: unknown) => (typeof item === "string" && item.trim() ? item.trim() : undefined);
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).flatMap(([companionId, entry]) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const raw = entry as Record<string, unknown>;
+    const outfitItemId = text(raw.outfitItemId), accessoryItemId = text(raw.accessoryItemId), changedAt = text(raw.changedAt);
+    return [[companionId, { ...(outfitItemId ? { outfitItemId } : {}), ...(accessoryItemId ? { accessoryItemId } : {}), ...(changedAt ? { changedAt } : {}) }]];
+  }));
+}
+
 function normalizeLoadedPlan(
   plan: CompanionCarePlan,
   chart: CompanionCareChartInput,
@@ -76,12 +90,41 @@ function normalizeLoadedPlan(
       bossDrops: Array.isArray(plan.economy?.bossDrops)
         ? plan.economy.bossDrops.map((drop) => ({ ...drop }))
         : [],
+      // Chest receipts keep "one chest per stop" true across restarts; minutes and pity are her balance.
+      nodeChests: Array.isArray(plan.economy?.nodeChests)
+        ? plan.economy.nodeChests.map((chest) => ({ ...chest, ...(chest.bonus ? { bonus: { ...chest.bonus } } : {}) }))
+        : [],
+      // Call time is saved in seconds (2026-11-10); legacy whole minutes are folded in here.
+      callSeconds: callSecondsOf(plan.economy ?? {}),
+      chestsSinceBonus: Math.max(0, Math.floor(Number(plan.economy?.chestsSinceBonus ?? 0) || 0)),
+      // Arcade minutes and their receipts are her paid game time; dropping them would steal it.
+      arcadeMinutes: Math.max(0, Math.floor(Number(plan.economy?.arcadeMinutes ?? 0) || 0)),
+      arcadeMinuteReceipts: Array.isArray(plan.economy?.arcadeMinuteReceipts)
+        ? plan.economy.arcadeMinuteReceipts.filter((id): id is string => typeof id === "string")
+        : [],
+      callMinuteReceipts: Array.isArray(plan.economy?.callMinuteReceipts)
+        ? plan.economy.callMinuteReceipts.filter((id): id is string => typeof id === "string")
+        : [],
+      // Purchase receipts keep a double tap after a restart from paying twice.
+      coinPurchases: Array.isArray(plan.economy?.coinPurchases)
+        ? plan.economy.coinPurchases.map((row) => ({ ...row, offer: { ...row.offer } }))
+        : [],
     },
+    // The pace her companion chose for its own talking; an out-of-range value is dropped, never the plan.
+    ...(typeof plan.speechPace === "number" && plan.speechPace >= 0.7 && plan.speechPace <= 1.2 ? { speechPace: plan.speechPace } : {}),
+    // Her creatures (den, seen, milestones, try lockouts); dropping them here would erase what she caught.
+    ...(plan.creatures ? { creatures: normalizeCreatureState(plan.creatures) } : {}),
     inventory: {
       food: Array.isArray(plan.inventory?.food) ? plan.inventory.food : [],
       careItems: Array.isArray(plan.inventory?.careItems)
         ? plan.inventory.careItems
         : [],
+      // Collection items found in chests; dropping them here would erase what she earned.
+      rewards: Array.isArray(plan.inventory?.rewards)
+        ? plan.inventory.rewards.filter((id): id is string => typeof id === "string")
+        : [],
+      // What each companion wears; a damaged entry is dropped, never the whole plan.
+      ...(plan.inventory?.wearing ? { wearing: normalizeWearing(plan.inventory.wearing) } : {}),
     },
   };
 }
@@ -91,7 +134,10 @@ export function loadCompanionCarePlanForChart(
   opts: { nowIso?: string; persistOnCreate?: boolean } = {},
 ): LoadedCompanionCarePlan {
   const filePath = carePlanPath(chart);
-  const existing = readJson<CompanionCarePlan>(filePath);
+  // Matilda's plan saved as hikari.json during the 11/10 merge is read as hers; saves go to matilda.json.
+  const existing = readJson<CompanionCarePlan>(
+    resolveMatildaReadPath(chart.childId, chart.companion.presetId, filePath),
+  );
   if (existing) {
     return {
       plan: normalizeLoadedPlan(existing, chart),
@@ -107,6 +153,11 @@ export function loadCompanionCarePlanForChart(
     seed: chart.learningProfile.tamagotchi,
     coinBalance: chart.economy.coinBalance,
   });
+  // A companion she already called keeps what it remembers when it becomes her own (relationship file, 2026-11-10).
+  const relationship = readJson<{ memory?: CompanionCarePlan["memory"] }>(
+    path.join(path.dirname(chart.links.companionCareDir), "companion_relationships", `${chart.companion.presetId}.json`),
+  );
+  if (relationship?.memory) plan.memory = { ...plan.memory, ...relationship.memory };
   if (opts.persistOnCreate !== false) {
     writeJson(filePath, plan);
   }

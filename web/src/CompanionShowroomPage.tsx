@@ -1,17 +1,5 @@
 import { useEffect, useState } from "react";
 import { CompanionShowroom } from "./components/CompanionShowroom";
-import { COMPANION_MANIFEST } from "./companion/companions.generated";
-
-// Voice-showdown sample texts matching the pasted voice-showdown source.
-// getText is intentionally naive here — in production, Claude streams text per companion.
-function getText(companionId: string): string {
-  const entry = COMPANION_MANIFEST.find((c) => c.id === companionId);
-  return entry?.showroom?.scripts.en.intro
-    ? entry.showroom.scripts.en.intro
-    : entry
-      ? `Hi! I'm ${entry.name}. ${entry.personality.join(", ")}. Pick me and we'll have so much fun learning together!`
-    : "Hey! I'm so excited to meet you!";
-}
 
 function shouldUseGrokBackground(): boolean {
   if (typeof window !== "undefined") {
@@ -83,7 +71,6 @@ export function CompanionShowroomPage() {
         console.log("[CompanionShowroom] selected:", id);
         // In production, persist to profile API then navigate.
       }}
-      getText={getText}
       useGeneratedBackground={useGrokBackground}
       generatedBackgroundUrl={grokBackgroundUrl}
       generatedBackgroundLoading={grokBackgroundLoading}

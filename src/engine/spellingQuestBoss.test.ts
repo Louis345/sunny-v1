@@ -109,13 +109,32 @@ it('runs a spelling cycle through Quest and Boss to the graded test',async()=>{
  expect(bossNode.role).toBe('boss');
  expect(kindOn(boss,bossNode.nodeId)).toBe('boss');
 
- // After Boss, Sunny waits for the graded test; the app's own score cannot close the cycle.
+ // After Boss the tutor keeps the full menu and may wait for the graded test; the app's own score cannot close the cycle.
+ // Reina 2026-11-26: her Boss was five days before her test and not passed on her own; offered only "wait", the
+ // Planner built a whole board and Sunny threw it away. Human caught it (the board in the parents' note did not
+ // exist); logs said errors=0; the lab only played a Boss followed by waiting.
  expect(f.play(bossNode.nodeId,'boss').lifecycle).toBe('boss_evaluating');
  f.requests.length=0;
  f.plan('await_calibration');
  const done=await runtime.advanceCanonicalCycleFromEvidence(f.request,f.opts);
- expect(f.requests[0].tools.find((tool:any)=>tool.name==='decide').input_schema.properties.progression_action.enum).toEqual(['await_calibration']);
+ expect(f.requests[0].tools.find((tool:any)=>tool.name==='decide').input_schema.properties.progression_action.enum).toEqual(expect.arrayContaining(['generate_support','generate_quest','generate_boss','await_calibration']));
  expect(done.lifecycle).toBe('awaiting_calibration');
+});
+
+it('builds the board the tutor plans after a Boss instead of waiting for grades that do not exist yet',async()=>{
+ const f=fixture();
+ f.play('radar-check','board-1');
+ f.plan('generate_quest','quest');
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,f.opts);
+ const quest=await f.build();
+ f.play(quest.nodes.find(row=>currentBoardInstance(quest).nodeIds.includes(row.nodeId))!.nodeId,'quest');
+ f.plan('generate_boss','boss');
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,f.opts);
+ const boss=await f.build();
+ expect(f.play(boss.nodes.find(row=>currentBoardInstance(boss).nodeIds.includes(row.nodeId))!.nodeId,'boss').lifecycle).toBe('boss_evaluating');
+ f.plan('generate_support');
+ const next=await runtime.advanceCanonicalCycleFromEvidence(f.request,f.opts);
+ expect(next.lifecycle).toBe('baseline_generating');
 });
 
 it('refuses a Quest step the decision did not authorize, and a game that shows her words',async()=>{
@@ -125,4 +144,21 @@ it('refuses a Quest step the decision did not authorize, and a game that shows h
  await expect(runtime.advanceCanonicalCycleFromEvidence(f.request,f.opts)).rejects.toThrow();
  const errors=f.requests.flatMap((row:any)=>row.messages.flatMap((message:any)=>Array.isArray(message.content)?message.content:[])).filter((block:any)=>block.type==='tool_result'&&block.is_error).map((block:any)=>String(block.content));
  expect(errors.some(error=>/needs progression_action generate_quest/.test(error))).toBe(true);
+});
+
+// Contract 54 (owner, 2026-11-07): the Planner decides when Quest is justified; code adds no evidence gate. Her
+// answers are still recorded exactly as they happened, so a Quest chosen on thin evidence shows in the record.
+it('offers Quest to the Planner with no evidence gate, even when no fresh answer was right',async()=>{
+ const f=fixture();
+ const file=path.join(resolveChildContextDir(childId,{rootDir:f.rootDir}),'homework','cycles',`${homeworkId}.json`);
+ const saved=JSON.parse(fs.readFileSync(file,'utf8'));
+ saved.observations=saved.observations.filter((row:any)=>row.observationId!=='discovery-1');
+ fs.writeFileSync(file,JSON.stringify(saved));
+ const radar=Object.values(getLearningCycle(childId,homeworkId,f.opts)!.nodes.find(row=>row.nodeId==='radar-check')!.evidenceContract.spellingItems!);
+ radar.forEach((item,index)=>runtime.recordSpellingDiscoveryAttempt({childId,homeworkId,attempt:{attemptId:`miss-${index}`,itemId:item.id,attemptedValue:'zzz',observedAt:new Date().toISOString()},support:{status:'unassisted',scaffolds:[]}},f.opts));
+ expect(runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:'radar-check',sessionId:'thin',result:{completed:true,accuracy:0,timeSpent_ms:100,targetResults:radar.map(item=>({target:item.id,correct:false,attemptedValue:'zzz'}))}},f.opts)!.lifecycle).toBe('baseline_evaluating');
+ f.plan('generate_quest','quest');
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,f.opts);
+ expect(f.requests[0].tools.find((tool:any)=>tool.name==='decide').input_schema.properties.progression_action.enum).toContain('generate_quest');
+ expect((await f.build()).lifecycle).toBe('quest_ready');
 });

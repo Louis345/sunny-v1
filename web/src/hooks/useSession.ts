@@ -37,6 +37,8 @@ import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
 import type { ChildProgressionSnapshot } from "../../../src/engine/progression";
 import { createPlaybackWatchdog } from "../utils/playbackWatchdog";
 import { createActionOutbox } from "../utils/actionOutbox";
+import { MIC_FRAME_SAMPLES, framesFor } from "../utils/micFrames";
+import { voiceFloor } from "../utils/voiceFloor";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -199,6 +201,8 @@ interface SessionState {
   reward: RewardEvent | null;
   error: string | null;
   errorFatal: boolean;
+  /** The server refused the session (fatal: true); retrying cannot help, a grown-up must fix it. */
+  errorNeedsGrownUp: boolean;
   warning: string | null;
   microphoneAvailable: boolean | null;
   loadingMessage: string | null;
@@ -271,7 +275,8 @@ function storyIllustrationPatch(
 const SILENT_MIC_DURATION_MS = 12000;
 const MICROPHONE_OPEN_TIMEOUT_MS = 5000;
 const AUDIBLE_MIC_RMS_THRESHOLD = 0.003;
-const AUDIBLE_MIC_FRAME_CONFIRMATION = 3;
+/** About 0.77 s of audible input confirms the mic works (was 3 × 256 ms frames). */
+const AUDIBLE_MIC_FRAME_CONFIRMATION = framesFor(768);
 
 function isVirtualMicrophoneLabel(label: string): boolean {
   return /\b(blackhole|virtual|loopback|soundflower|vb-audio|voicemeeter|aggregate)\b/i.test(label);
@@ -436,6 +441,7 @@ export function useSession(options?: UseSessionOptions) {
     playbackCanceledRef.current = true;
     audioQueueRef.current = [];
     isPlayingRef.current = false;
+    voiceFloor.companionEnded();
     serverDoneRef.current = false;
     activePlaybackRequestIdRef.current = null;
     completedPlaybackRef.current = false;
@@ -506,6 +512,7 @@ export function useSession(options?: UseSessionOptions) {
     reward: null,
     error: null,
     errorFatal: false,
+    errorNeedsGrownUp: false,
     warning: null,
     microphoneAvailable: null,
     loadingMessage: null,
@@ -731,7 +738,7 @@ export function useSession(options?: UseSessionOptions) {
         }));
         return;
       }
-      setStateRef.current((s) => ({ ...s, error: "Connection lost", errorFatal: true, warning: null }));
+      setStateRef.current((s) => ({ ...s, error: "Connection lost", errorFatal: true, errorNeedsGrownUp: false, warning: null }));
     };
 
     ws.onclose = () => {
@@ -753,6 +760,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Connection lost after three reconnect attempts",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           phase: "picker",
         }));
@@ -1082,16 +1090,20 @@ export function useSession(options?: UseSessionOptions) {
         break;
       }
 
-      case "audio_start":
+      case "audio_start": {
         cancelPlayback();
         playbackCanceledRef.current = false;
         activePlaybackRequestIdRef.current = typeof msg.requestId === "string" ? msg.requestId : null;
         playbackRequestIdRef.current = activePlaybackRequestIdRef.current;
         playbackItemIdRef.current = typeof msg.itemId === "string" ? msg.itemId : null;
         playbackRequiresAudioRef.current = msg.requiresAudio === true;
-        activityNarrationPendingRef.current = msg.source === "activity" || msg.requiresAudio === true;
+        // S10 + 11/23: only a test word (one she tapped to hear, or an assessment word) gets past the quiet button. Every
+        // game line arrives as a narration_request, so a request is not a tap: the server marks the test word.
+        activityNarrationPendingRef.current = msg.testWord === true || msg.requiresAudio === true;
+        if (companionSpeechMutedRef.current) console.log(` 🎮 [session-audio] [mute] [${activityNarrationPendingRef.current ? "test-word-plays" : "silenced"}] source=${String(msg.source ?? "")}`);
         if (activePlaybackRequestIdRef.current) playbackWatchdogRef.current.arm(activePlaybackRequestIdRef.current);
         break;
+      }
 
       case "audio_cancel":
         playbackWatchdogRef.current.disarm();
@@ -1566,10 +1578,13 @@ export function useSession(options?: UseSessionOptions) {
           // Only an explicit dead end stops the session; any other error is a warning and the board stays.
           const fatal = msg.fatal === true;
           const message = (msg.message as string) ?? "Unknown error";
+          if (fatal) console.error(` 🎮 [session-connection] [server-error] [fatal] reason=${message}`);
           setStateRef.current((s) => ({
             ...s,
             error: fatal ? message : null,
             errorFatal: fatal,
+            // A refusal needs a grown-up; a start failure the server marks retryable keeps Try again.
+            errorNeedsGrownUp: fatal && msg.retryable !== true,
             warning: fatal ? null : message,
             diagGameSessionReady: fatal ? false : s.diagGameSessionReady,
             phase:
@@ -1627,7 +1642,7 @@ export function useSession(options?: UseSessionOptions) {
         await ensureAudioContextRunning(audioCtx);
 
         const source = audioCtx.createMediaStreamSource(stream);
-        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        const processor = audioCtx.createScriptProcessor(MIC_FRAME_SAMPLES, 1, 1);
         processorRef.current = processor;
 
         const silence = audioCtx.createGain();
@@ -1749,6 +1764,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Microphone access denied",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           microphoneAvailable: false,
         }));
@@ -1804,12 +1820,15 @@ export function useSession(options?: UseSessionOptions) {
           void playNextChunkRunnerRef.current().catch(error => console.error(" 🎮 [session-audio] [gap-resume] [failed]", error));
           return;
         }
+        // Her reply is over: the floor is free for the announcer again.
+        voiceFloor.companionEnded();
         finalizePlaybackRef.current();
       }, 150);
       return;
     }
 
     isPlayingRef.current = true;
+    voiceFloor.companionStarted();
     const chunk = audioQueueRef.current.shift()!;
 
     try {
@@ -1874,6 +1893,7 @@ export function useSession(options?: UseSessionOptions) {
       currentSourceRef.current = null;
     }
     isPlayingRef.current = false;
+    voiceFloor.companionEnded();
     if (browserTtsDebounceRef.current) {
       clearTimeout(browserTtsDebounceRef.current);
       browserTtsDebounceRef.current = null;
@@ -1897,6 +1917,7 @@ export function useSession(options?: UseSessionOptions) {
       currentSourceRef.current = null;
     }
     isPlayingRef.current = false;
+    voiceFloor.companionEnded();
     if (browserTtsDebounceRef.current) {
       clearTimeout(browserTtsDebounceRef.current);
       browserTtsDebounceRef.current = null;
@@ -1996,6 +2017,7 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           error: "Connection timeout",
           errorFatal: true,
+          errorNeedsGrownUp: false,
           warning: null,
           phase: "picker",
           debugMode: false,
@@ -2085,6 +2107,7 @@ export function useSession(options?: UseSessionOptions) {
       reward: null,
       error: null,
       errorFatal: false,
+      errorNeedsGrownUp: false,
       warning: null,
       microphoneAvailable: null,
       loadingMessage: null,

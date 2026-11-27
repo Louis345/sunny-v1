@@ -22,6 +22,8 @@ vi.mock("./session-manager", () => ({
     receiveAudio: receiveAudioMock,
     handleGameEvent: handleGameEventMock,
     setCompanionPresence: setCompanionPresenceMock,
+    recordDebugEvent: vi.fn(),
+    chartChildId: "ila",
   })),
 }));
 
@@ -31,6 +33,7 @@ vi.mock("../profiles/childChart", () => ({
 
 import { handleWsConnection } from "./ws-handler";
 import { SessionManager } from "./session-manager";
+import { noteCompanionHelpOnItem, takeCompanionHelpItemIds } from "./companionItemHelp";
 
 class FakeWs extends EventEmitter {
   sent: unknown[] = [];
@@ -93,6 +96,20 @@ describe("ws handler", () => {
       code: "homework_assignment_identity_required",
       message: "Choose a ready assignment before starting Sunny.",
     });
+  });
+
+  // Owner 2026-11-08: in Ila's earned FaceTime the companion never heard her. The call's speech-only connection
+  // (sttOnly) carries no homework, and the homework-mode kiosk rejected it. Logs showed
+  // "assignment-validation [rejected] requested=missing"; the lab never ran a call on a homework-mode kiosk.
+  it("lets the call's speech-only connection start without a homework assignment", async () => {
+    vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
+      subject: "homework", sessionMode: "real", previewMode: "off", voiceMode: "normal", childId: null, homeworkDomain: "spelling",
+    }));
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+    await sendJson(ws, { type: "start_session", child: "Ila", chartChildId: "ila", silentTts: true, sttOnly: true });
+    expect(ws.sent).not.toContainEqual(expect.objectContaining({ code: "homework_assignment_identity_required" }));
+    expect(startMock).toHaveBeenCalled();
   });
 
   it("starts homework voice only for the exact chart-backed assignment", async () => {
@@ -243,6 +260,32 @@ describe("ws handler", () => {
     expect(setCompanionPresenceMock).toHaveBeenCalledWith("summoned", "client");
   });
 
+  // Saori 11/22–11/25: help she could not hear was saved as help. Her mute button is what the server knows.
+  it("stops counting companion replies as help while her screen has the companion muted", async () => {
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+    await sendJson(ws, { type: "start_session", child: "Ila" });
+    await sendJson(ws, { type: "client_audio_status", event: "companion_speech_mute", muted: true });
+    noteCompanionHelpOnItem("ila", "ws-quest", "p1");
+    await sendJson(ws, { type: "client_audio_status", event: "companion_speech_mute", muted: false });
+    noteCompanionHelpOnItem("ila", "ws-quest", "p2");
+    expect(takeCompanionHelpItemIds("ila", "ws-quest")).toEqual(["p2"]);
+  });
+
+  // BUGS.md 2026-11-07: any throw inside a message became an unhandled rejection and Node exited the kiosk.
+  it("keeps the kiosk running when one message handler throws", async () => {
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+    await sendJson(ws, { type: "start_session", child: "Ila" });
+    handleGameEventMock.mockImplementationOnce(() => { throw new Error("chart_assignment_missing"); });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const listener = ws.listeners("message")[0] as (raw: Buffer) => Promise<void>;
+    await expect(listener(Buffer.from(JSON.stringify({ type: "game_state_update", phase: "response" })))).resolves.toBeUndefined();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("[ws] [message] [failed] type=game_state_update"), expect.any(Error));
+    expect(ws.sent).toContainEqual(expect.objectContaining({ type: "error", fatal: false }));
+    error.mockRestore();
+  });
+
   it("reports session start failures without crashing the websocket handler", async () => {
     startMock.mockRejectedValueOnce(new Error("DEEPGRAM_API_KEY not set in .env"));
     const ws = new FakeWs();
@@ -260,6 +303,7 @@ describe("ws handler", () => {
     expect(ws.sent).toContainEqual({
       type: "error",
       fatal: true,
+      retryable: false,
       code: "voice_connection_unavailable",
       message: "Voice connection is having trouble. You can still type.",
     });

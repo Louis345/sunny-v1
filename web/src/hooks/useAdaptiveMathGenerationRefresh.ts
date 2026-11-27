@@ -20,6 +20,12 @@ const GENERATION_WATCH_DELAYS_MS = [
   300_000,
 ] as const;
 const UNCHANGED_POLL_WINDOW_MS = 15 * 60_000;
+/**
+ * After the quick checks, the screen keeps checking once a minute and pauses only after three hours (BUGS.md S45,
+ * 2026-11-20: a 17-minute build outlasted the old 15-minute stop and her ready board never appeared).
+ */
+const SLOW_POLL_MS = 60_000;
+const SLOW_POLLS = Math.ceil((3 * 60 * 60_000) / SLOW_POLL_MS);
 
 export function useAdaptiveMathGenerationRefresh(input: {
   childId: string | null;
@@ -27,6 +33,8 @@ export function useAdaptiveMathGenerationRefresh(input: {
   enabled: boolean;
   intervalMs?: number;
   onStatusChanged: (status: GenerationStatus) => unknown | Promise<unknown>;
+  /** A published board still has an unbuilt activity: keep checking until it is built (BUGS.md S28). */
+  keepPollingWhilePublished?: boolean;
 }) {
   const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}`;
   const [snapshot, setSnapshot] = useState<{
@@ -38,6 +46,8 @@ export function useAdaptiveMathGenerationRefresh(input: {
     checkedAt:number|null;
   }>({scope,status:null,error:null,paused:false,checking:false,checkedAt:null});
   const checkRef = useRef<(() => void) | null>(null);
+  const keepPolling = useRef(Boolean(input.keepPollingWhilePublished));
+  keepPolling.current = Boolean(input.keepPollingWhilePublished);
   const checkNow = useCallback(() => checkRef.current?.(), []);
   useEffect(() => {
     const childId = input.childId?.trim().toLowerCase() ?? "";
@@ -48,8 +58,10 @@ export function useAdaptiveMathGenerationRefresh(input: {
     let pollCount = 0;
     // Bounded by time, not by count: a fast interval must survive a long unchanged
     // planning step (about 15 minutes) and still stop eventually.
-    const maxUnchangedPolls = input.intervalMs ? Math.max(10, Math.ceil(UNCHANGED_POLL_WINDOW_MS / input.intervalMs)) : 10;
+    const fastPolls = input.intervalMs ? Math.max(10, Math.ceil(UNCHANGED_POLL_WINDOW_MS / input.intervalMs)) : 10;
+    const maxUnchangedPolls = fastPolls + SLOW_POLLS;
     let lastUpdatedAt: string | null = null;
+    let lastNodesKey: string | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let running = false;
     let controller: AbortController | null = null;
@@ -75,7 +87,9 @@ export function useAdaptiveMathGenerationRefresh(input: {
         const status = await response.json() as GenerationStatus;
         if (cancelled || requestId !== requestSequence) return;
         setSnapshot(prev=>({scope,status,error:null,paused:false,checking:prev.checking,checkedAt:prev.checkedAt}));
-        const statusChanged = status.updatedAt !== lastUpdatedAt;
+        const nodesKey = JSON.stringify(status.nodes ?? []);
+        const statusChanged = status.updatedAt !== lastUpdatedAt || nodesKey !== lastNodesKey;
+        lastNodesKey = nodesKey;
         if (statusChanged) {
           if (await input.onStatusChanged(status) === null) throw new Error("generation_board_refresh_unavailable");
         }
@@ -83,7 +97,7 @@ export function useAdaptiveMathGenerationRefresh(input: {
         if (lastUpdatedAt !== null && statusChanged) pollCount = 0;
         lastUpdatedAt = status.updatedAt;
         succeeded = true;
-        if (status.phase === "board_ready" || status.phase === "probe_ready" || status.phase === "successor_published") return;
+        if ((status.phase === "board_ready" || status.phase === "probe_ready" || status.phase === "successor_published") && !keepPolling.current) return;
       } catch (error: unknown) {
         if (cancelled || requestId !== requestSequence) return;
         console.warn(" 🎮 [adaptive-math-status] [poll] [unavailable]", error);
@@ -105,7 +119,9 @@ export function useAdaptiveMathGenerationRefresh(input: {
         console.log(" 🎮 [adaptive-math-status] [poll] [bounded-exit]");
         setSnapshot(prev=>({...prev,paused:true}));
       } else if (!cancelled) {
-        const delayMs = input.intervalMs ?? GENERATION_WATCH_DELAYS_MS[Math.min(Math.max(pollCount - 1, 0), GENERATION_WATCH_DELAYS_MS.length - 1)]!;
+        if (pollCount === fastPolls) console.log(" 🎮 [adaptive-math-status] [poll] [slowed] every=60s");
+        const delayMs = pollCount >= fastPolls ? SLOW_POLL_MS
+          : input.intervalMs ?? GENERATION_WATCH_DELAYS_MS[Math.min(Math.max(pollCount - 1, 0), GENERATION_WATCH_DELAYS_MS.length - 1)]!;
         timer = setTimeout(() => { void poll(false).catch(error=>console.error(" 🎮 [adaptive-math-status] [poll] [failed]",error)); }, delayMs);
       }
     };

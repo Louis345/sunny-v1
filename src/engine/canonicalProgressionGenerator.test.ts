@@ -3,7 +3,7 @@ import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, transitionLearningCycle } from "./learningCycleRepository";
 import { buildSpellingRecallItems } from "./learningCycleIngest";
 import { runDirectBrowserSmokeCheck, buildAdaptiveProgressionCreatorPrompt } from "./directMathExperience";
@@ -18,11 +18,18 @@ vi.mock("./childFacingVisualGate",()=>({
   },
   judgeChildFacingScreens:vi.fn(async()=>({decision:"approve",observations:[]})),
 }));
-import { generateCanonicalProgressionArtifact, repairNotReadyActivities, repairNotReadyActivity } from "./canonicalProgressionGenerator";
+import { autoRepairNotReadyStops, generateCanonicalProgressionArtifact, repairNotReadyActivities, repairNotReadyActivity } from "./canonicalProgressionGenerator";
 import { canonicalJourneyLaunchable } from "./learningCycleRepository";
 import { currentBoardInstance } from "./learningBoardInstances";
 
-function root(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-")); }
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+function root(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-"));
+  tempRoots.push(dir);
+  return dir;
+}
 
 beforeEach(() => {
   vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
@@ -648,6 +655,75 @@ describe("repairing a Not ready activity in place", () => {
     }, { rootDir });
     return { blocked, generateHtml, questId };
   }
+
+  // BUGS.md S29 (Ila, 2026-11-18): two practice games on her test-eve board were refused while the Anthropic credit
+  // was empty (provider_request_rejected), and no command could rebuild them, so her board stayed half-built. A refused
+  // request was never billed, so one owner-approved rebuild is allowed, the same as a cut-off build.
+  it("lets the owner approve one rebuild of a stop the provider refused", async () => {
+    const rootDir = root();
+    try {
+      const created = createLearningCycle(baseInput(), { rootDir });
+      const questId = decideQuest(rootDir, created.revision).nodes.find(node => node.role === "quest")!.nodeId;
+      const generateHtml = vi.fn(async () => { throw Object.assign(new Error("Your credit balance is too low"), { status: 400 }); });
+      await generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml }, { rootDir }).catch(() => undefined);
+      const failed = getLearningCycle("reina", "hw-progression", { rootDir })!;
+      const refused = transitionLearningCycle("reina", "hw-progression", failed.revision, { type: "artifact_generation_attention_required", nodeId: questId,
+        reason: "successor_node_failed:provider_request_rejected:/lab/provider-receipts/" + "a".repeat(64) + ".json: 400 credit", notReady: true }, { rootDir });
+      const approved = transitionLearningCycle("reina", "hw-progression", refused.revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "Owner: rebuild after credit was added" }, { rootDir });
+      expect(approved.nodes.find(node => node.nodeId === questId)?.notReadyReason).toMatch(/^paid_retry_in_progress/);
+      expect(() => transitionLearningCycle("reina", "hw-progression", approved.revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "again" }, { rootDir })).toThrow(/not_eligible/);
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+
+  // Ila, 2026-11-24 (board 16): the owner approved rebuilds after adding credit, and every rebuild was cut off because
+  // the kiosk's connection kept dropping (VPN). The one-approval rule then refused all three stops forever, though the
+  // network was fixed. Why logs did not help: they said not_eligible without the reason. Why the lab missed it: the
+  // test above approved once and stopped. A rebuild cut off by the connection may be approved once more; never a third.
+  it("lets the owner approve one more rebuild when the approved one was cut off by the connection, and never a third", async () => {
+    const rootDir = root();
+    try {
+      const created = createLearningCycle(baseInput(), { rootDir });
+      const questId = decideQuest(rootDir, created.revision).nodes.find(node => node.role === "quest")!.nodeId;
+      const failed = getLearningCycle("reina", "hw-progression", { rootDir })!;
+      const cutOff = (revision: number) => transitionLearningCycle("reina", "hw-progression", revision, { type: "not_ready_paid_retry_failed", nodeId: questId,
+        reason: "provider_outcome_uncertain:/lab/provider-receipts/" + "b".repeat(64) + ".json" }, { rootDir });
+      const refused = transitionLearningCycle("reina", "hw-progression", failed.revision, { type: "artifact_generation_attention_required", nodeId: questId,
+        reason: "successor_node_failed:provider_request_rejected:/lab/provider-receipts/" + "a".repeat(64) + ".json: 400 credit", notReady: true }, { rootDir });
+      const first = transitionLearningCycle("reina", "hw-progression", refused.revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "Owner: credit added" }, { rootDir });
+      const second = transitionLearningCycle("reina", "hw-progression", cutOff(first.revision).revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "Owner: VPN off" }, { rootDir });
+      expect(second.nodes.find(node => node.nodeId === questId)?.notReadyReason).toMatch(/^paid_retry_in_progress/);
+      expect(() => transitionLearningCycle("reina", "hw-progression", cutOff(second.revision).revision, { type: "not_ready_paid_retry_authorized", nodeId: questId, reason: "third" }, { rootDir }))
+        .toThrow(/not_eligible:.*already_approved_twice/);
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+
+  // Owner, 2026-11-25 ("it's just a game that fails and it needs to be repaired"; "we need less interventions"): on
+  // 11/24 the owner approved rebuilds by hand twice, and Ila waited on a half-built board. A failed game now repairs
+  // itself once, by the same routine the owner ran; a stop that was already rebuilt once still waits for a person.
+  it("repairs a refused or cut-off stop once by itself, and never a stop already rebuilt", async () => {
+    const rootDir = root();
+    try {
+      const created = createLearningCycle(baseInput(), { rootDir });
+      const questId = decideQuest(rootDir, created.revision).nodes.find(node => node.role === "quest")!.nodeId;
+      const failed = getLearningCycle("reina", "hw-progression", { rootDir })!;
+      transitionLearningCycle("reina", "hw-progression", failed.revision, { type: "artifact_generation_attention_required", nodeId: questId,
+        reason: "successor_node_failed:provider_request_rejected:/lab/provider-receipts/" + "a".repeat(64) + ".json: 400 credit", notReady: true }, { rootDir });
+      const retry = vi.fn(async (input: { nodeId: string; reason: string }) => {
+        const now = getLearningCycle("reina", "hw-progression", { rootDir })!;
+        return { cycle: transitionLearningCycle("reina", "hw-progression", now.revision, { type: "not_ready_paid_retry_authorized", nodeId: input.nodeId, reason: input.reason }, { rootDir }), rebuilt: false, setAside: [] };
+      });
+      const log = vi.spyOn(console, "log");
+      await autoRepairNotReadyStops({ childId: "reina", homeworkId: "hw-progression" }, { rootDir }, retry as never);
+      expect(retry).toHaveBeenCalledTimes(1);
+      expect(retry.mock.calls[0]![0]).toMatchObject({ nodeId: questId, reason: expect.stringMatching(/automatic/i) });
+      expect(log.mock.calls.flat().join("\n")).toContain(`[board] [auto-repair] [started] child=reina homework=hw-progression node=${questId}`);
+      // Rebuilt once already (approved above, now cut off again): no second automatic rebuild.
+      const after = getLearningCycle("reina", "hw-progression", { rootDir })!;
+      transitionLearningCycle("reina", "hw-progression", after.revision, { type: "not_ready_paid_retry_failed", nodeId: questId, reason: "provider_outcome_uncertain:/lab/provider-receipts/" + "b".repeat(64) + ".json" }, { rootDir });
+      await autoRepairNotReadyStops({ childId: "reina", homeworkId: "hw-progression" }, { rootDir }, retry as never);
+      expect(retry).toHaveBeenCalledTimes(1);
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
 
   it("binds the first saved attempt that passes the text check, with no provider call and nothing else changed", async () => {
     const rootDir = root();

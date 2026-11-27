@@ -110,3 +110,32 @@ export const ReplayWholeWait: StoryObj<{ path: Path; speed: number; size: keyof 
   argTypes: { path: { control: "radio", options: ["happy", "slow", "failed", "stop"] }, speed: { control: "radio", options: [1, 10] }, size: { control: "radio", options: ["kiosk", "tablet", "phone"] } },
   render: args => <Replay key={`${args.path}:${args.speed}:${args.size}`} {...args} />,
 };
+
+/** Owner 2026-11-12: the same screen after a finished math board; each tile is her answer, read aloud as the problem. */
+const mathItems: PreparationItem[] = [
+  { face: "7", spoken: "Reina has 42 stickers. Each sheet holds 6. How many sheets?", correct: true, improved: true },
+  { face: "8", spoken: "56 apples go into 7 bags equally. How many in each bag?", correct: true },
+  { face: "6", spoken: "A coach splits 54 wrestlers into 9 equal teams. How many on each team?", correct: true },
+  { face: "8", spoken: "63 cards are shared by 9 friends. How many does each friend get?", correct: false },
+  { face: "9", spoken: "72 laps in 8 days, the same each day. How many laps a day?", correct: true },
+  { face: "8", spoken: "48 medals in 6 rows. How many in each row?", correct: true },
+];
+const mathStops = [{ activityType: "generated-game" }, { activityType: "generated-game" }];
+export const S13MathLookingAtWhatYouDid: Story = { render: () => <Frame size="kiosk"><AdventurePreparationScreen {...screenFor("look", { items: mathItems, reviewed: [0, 1, 2, 3, 4, 5] })} /></Frame> };
+export const S14MathBuildingNextBoard: Story = { render: () => <Frame size="kiosk"><AdventurePreparationScreen {...screenFor("build", { items: mathItems, stops: mathStops, ready: 1 })} /></Frame> };
+export const S15MathPhoneLooking: Story = { render: () => <Frame size="phone"><AdventurePreparationScreen {...screenFor("look", { items: mathItems, reviewed: [0, 1, 2, 3, 4, 5] })} /></Frame> };
+
+// Ila's real board 5 (2026-11-15) as a report card: on her own, fixed it, with help, still growing; progress on top.
+const ilaBoard5: PreparationItem[] = [
+  { face: "60", spoken: "Round 64 to the nearest ten.", correct: true, own: true },
+  { face: "70", spoken: "Round 67 to the nearest ten.", correct: true, own: true },
+  { face: "60", spoken: "Round 58 to the nearest ten.", correct: true, own: true },
+  { face: "500", spoken: "Round 462 to the nearest hundred.", correct: true, own: true },
+  { face: "36", spoken: "A number problem.", correct: true, improved: true },
+  { face: "70", spoken: "A number problem.", correct: true, improved: true },
+  { face: "31", spoken: "A pattern problem.", correct: true, helped: true },
+  { face: "50", spoken: "A number problem.", correct: true, helped: true },
+  { face: "45", spoken: "A pattern problem.", correct: false },
+];
+export const S11ReportCardIlaBoard5 = kiosk("look", { items: ilaBoard5, reviewed: [], progress: { before: 3, now: 4 } });
+export const S12ReportCardTray = kiosk("build", { items: ilaBoard5 });

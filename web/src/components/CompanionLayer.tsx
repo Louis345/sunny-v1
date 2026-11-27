@@ -17,6 +17,9 @@ import type {
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
+import { COMPANION_LOOK_SHOWN_EVENT, WARDROBE_LOOK_CHANGED_EVENT, companionLookNames, loadBoardPortraitLook, type BoardPortraitLook } from "../lib/boardPortraitLook";
+import { postChartWearing } from "../lib/wardrobeWallet";
+import { captureXwearAvatarBindPose, dressCompanionVrm } from "../lib/dressCompanion";
 import { CompanionMotor } from "../companion/CompanionMotor";
 import { CompanionVfxLayer } from "../companion/CompanionVfxLayer";
 import {
@@ -27,6 +30,9 @@ import {
   deriveCompanionBehavior,
   type CompanionBehavior,
 } from "../context/companionCareBehavior";
+import { releaseCompanionRenderer } from "../lib/releaseCompanionRenderer";
+import { playSynth, tone } from "../utils/gameSfx";
+import { portraitLiftStyle, usePortraitLift } from "../lib/portraitCorner";
 
 /** Interim animate→expression pulse keys (Opus will replace with procedural bones). */
 export const ANIMATE_TO_EXPRESSION_KEY = COMPANION_ANIMATE_TO_EXPRESSION_KEY;
@@ -96,71 +102,20 @@ interface FeedComboState {
   eventId: string;
 }
 
-let companionFeedAudioContext: AudioContext | null = null;
-
-function getCompanionFeedAudioContext(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  const AudioContextCtor =
-    window.AudioContext ??
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext;
-  if (!AudioContextCtor) return null;
-  companionFeedAudioContext ??= new AudioContextCtor();
-  return companionFeedAudioContext;
-}
-
-function playTone(
-  ctx: AudioContext,
-  at: number,
-  fromHz: number,
-  toHz: number,
-  duration: number,
-  volume: number,
-  type: OscillatorType = "sine",
-) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(fromHz, at);
-  osc.frequency.exponentialRampToValueAtTime(toHz, at + duration);
-  gain.gain.setValueAtTime(volume, at);
-  gain.gain.exponentialRampToValueAtTime(0.001, at + duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(at);
-  osc.stop(at + duration + 0.025);
-}
-
 function playCompanionFeedSfx(reference: string, comboCount: number) {
-  const ctx = getCompanionFeedAudioContext();
-  if (!ctx) return;
-  void ctx.resume?.().catch(() => undefined);
-  const now = ctx.currentTime;
-
-  if (reference === "animation-b") {
-    [523, 659, 784, 1046].forEach((hz, index) => {
-      playTone(ctx, now + index * 0.055, hz, hz * 1.32, 0.18, 0.055, "triangle");
-    });
-    playTone(ctx, now + 0.18, 196, 330, 0.32, 0.035, "sine");
-    return;
-  }
-
-  playTone(ctx, now, 180, 95, 0.075, 0.055, "triangle");
-  playTone(ctx, now + 0.075, 420, 760, 0.13, 0.035, "sine");
-  if (comboCount >= 2) {
+  playSynth("companion-feed", (ctx, out) => {
+    if (reference === "animation-b") {
+      [523, 659, 784, 1046].forEach((hz, index) => tone(ctx, out, hz, index * 0.055, 0.18, 0.055, "triangle", hz * 1.32));
+      tone(ctx, out, 196, 0.18, 0.32, 0.035, "sine", 330);
+      return;
+    }
+    tone(ctx, out, 180, 0, 0.075, 0.055, "triangle", 95);
+    tone(ctx, out, 420, 0.075, 0.13, 0.035, "sine", 760);
+    if (comboCount < 2) return;
     const start = comboCount >= 5 ? 620 : 520;
-    [0, 1, 2].forEach((step) => {
-      playTone(
-        ctx,
-        now + 0.16 + step * 0.055,
-        start * (1 + step * 0.22),
-        start * (1.25 + step * 0.22),
-        0.13,
-        comboCount >= 4 ? 0.045 : 0.03,
-        "sine",
-      );
-    });
-  }
+    [0, 1, 2].forEach((step) =>
+      tone(ctx, out, start * (1 + step * 0.22), 0.16 + step * 0.055, 0.13, comboCount >= 4 ? 0.045 : 0.03, "sine", start * (1.25 + step * 0.22)));
+  });
 }
 
 /**
@@ -199,6 +154,8 @@ export function CompanionLayer({
   }, [micMuted, mode]);
 
   const wrapRef = useRef<HTMLDivElement>(null);
+  // S41: her portrait stays bottom-right and slides up the right edge only if her circle would cover a game control.
+  const portraitLift = usePortraitLift(mode === "portrait", wrapRef, 16);
   const mountRef = useRef<HTMLDivElement>(null);
   const toggledOffRef = useRef(toggledOff);
   /** Head bone world position sampled at VRM load; used for portrait camera framing. */
@@ -223,6 +180,40 @@ export function CompanionLayer({
   const layerZIndex = feedEffect ? 12050 : 15;
   const [feedCombo, setFeedCombo] = useState<FeedComboState | null>(null);
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  // The board portrait wears the look she saved in the closet (BUGS.md 2026-11-12: Matilda went back to old clothes).
+  const [portraitLook, setPortraitLook] = useState<(BoardPortraitLook & { companionId: string }) | null>(null);
+  const companionLook: BoardPortraitLook = portraitLook && portraitLook.companionId === companion?.companionId
+    ? { modelUrl: portraitLook.modelUrl, look: portraitLook.look }
+    : { modelUrl: companion?.vrmUrl ?? "", look: { accessoryId: "none", outfitId: "none" } };
+  const companionLookKey = JSON.stringify(companionLook);
+  const companionLookRef = useRef(companionLook);
+  companionLookRef.current = companionLook;
+  useEffect(() => {
+    const companionId = companion?.companionId;
+    const defaultModelUrl = companion?.vrmUrl;
+    if (!childId || !companionId || !defaultModelUrl) return;
+    let current = true;
+    const resolve = () => {
+      loadBoardPortraitLook({
+        childId, companionId, defaultModelUrl, storage: window.localStorage, postWearing: postChartWearing,
+        fetchWallet: (id) => fetch(`/api/rewards/wallet/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(5000) })
+          .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`status ${response.status}`)))),
+      })
+        .then((look) => {
+          if (!current) return;
+          setPortraitLook({ ...look, companionId });
+          // Tell the screen report what she is drawn wearing, so Elli can be told (2026-11-15, W8).
+          window.dispatchEvent(new CustomEvent(COMPANION_LOOK_SHOWN_EVENT, { detail: companionLookNames(look.look) }));
+        })
+        .catch((error: unknown) => console.error(" 🎮 [board-portrait] [look] [failed]", error));
+    };
+    resolve();
+    window.addEventListener(WARDROBE_LOOK_CHANGED_EVENT, resolve);
+    return () => {
+      current = false;
+      window.removeEventListener(WARDROBE_LOOK_CHANGED_EVENT, resolve);
+    };
+  }, [childId, companion?.companionId, companion?.vrmUrl]);
   const feedComboRef = useRef<{ count: number; lastAt: number; eventId: string | null }>({
     count: 0,
     lastAt: 0,
@@ -562,7 +553,7 @@ export function CompanionLayer({
       console.log("CompanionLayer: [finishSetup] enter", { materialPipeline: "WebGL classic MToon", cancelled });
       if (cancelled) {
         console.log("CompanionLayer: [finishSetup] cancelled, disposing renderer");
-        renderer.dispose();
+        releaseCompanionRenderer(renderer, "companion-layer");
         return;
       }
       rendererRef.current = renderer;
@@ -581,7 +572,8 @@ export function CompanionLayer({
       scene.add(amb, dir);
       console.log("CompanionLayer: [finishSetup] lights added, loading VRM...");
 
-      const modelUrl = resolveModelUrl(companion.vrmUrl);
+      const { modelUrl: lookModelUrl, look } = companionLookRef.current;
+      const modelUrl = resolveModelUrl(lookModelUrl || companion.vrmUrl);
       console.log("CompanionLayer: [finishSetup] calling loadCompanionVrm", modelUrl, {
         webgpu: false,
       });
@@ -591,8 +583,10 @@ export function CompanionLayer({
           vrm.scene.removeFromParent();
           return;
         }
+        if (look.outfitId !== "none") captureXwearAvatarBindPose(vrm.scene);
         const { w: mw, h: mh } = readMountSize();
         motor.attachVrm(vrm, scene, mw, mh);
+        void dressCompanionVrm(vrm, look, lookModelUrl, () => cancelled, "board-portrait");
         applyBehaviorToMotor(behaviorRef.current);
 
         if (modeRef.current === "portrait") {
@@ -658,13 +652,13 @@ export function CompanionLayer({
 
       if (cancelled || !renderer) {
         console.log("CompanionLayer: [init] stop after create", { cancelled, hasRenderer: Boolean(renderer) });
-        renderer?.dispose();
+        if (renderer) releaseCompanionRenderer(renderer, "companion-layer");
         return;
       }
 
       if (!mount) {
         console.error("CompanionLayer: [init] mount ref missing, cannot append canvas");
-        renderer.dispose();
+        releaseCompanionRenderer(renderer, "companion-layer");
         return;
       }
 
@@ -707,15 +701,23 @@ export function CompanionLayer({
       timerRef.current?.dispose();
       timerRef.current = null;
       if (rendererRef.current) {
-        const c = rendererRef.current.domElement;
-        if (c.parentNode) {
-          c.parentNode.removeChild(c);
-        }
-        rendererRef.current.dispose();
+        releaseCompanionRenderer(rendererRef.current, "companion-layer");
         rendererRef.current = null;
       }
     };
-  }, [childId, companion?.companionId, companion?.vrmUrl, mode, startLoop, stopLoop]);
+  }, [childId, companion?.companionId, companion?.vrmUrl, companionLookKey, mode, startLoop, stopLoop]);
+
+  // The companion's raised hand (2026-11-10): shown until she calls her companion, or for two minutes.
+  const latestRaise = companionCommands.filter(command => command.type === "check_back_in" && (command.payload as { how?: string })?.how === "raise_hand").reduce((latest, command) => Math.max(latest, command.timestamp), 0);
+  const [raisedHandAt, setRaisedHandAt] = useState(0);
+  const answeredRaiseRef = useRef(0);
+  useEffect(() => {
+    if (summoned && raisedHandAt) { answeredRaiseRef.current = raisedHandAt; setRaisedHandAt(0); return; }
+    if (!latestRaise || latestRaise <= answeredRaiseRef.current || Date.now() - latestRaise > 120_000) return;
+    setRaisedHandAt(latestRaise);
+    const timer = window.setTimeout(() => { answeredRaiseRef.current = latestRaise; setRaisedHandAt(0); }, Math.max(0, 120_000 - (Date.now() - latestRaise)));
+    return () => window.clearTimeout(timer);
+  }, [latestRaise, summoned, raisedHandAt]);
 
   if (!childId || !companion) {
     return null;
@@ -723,6 +725,7 @@ export function CompanionLayer({
 
   if (mode === "portrait") {
     const portraitSize = summoned ? 188 : 68;
+    const showRaisedHand = Boolean(raisedHandAt) && !summoned;
     const activatePortrait = () => (summoned ? onDismiss : onSummon)?.();
     return (
       <>
@@ -734,14 +737,13 @@ export function CompanionLayer({
           data-companion-care-mood={behavior.mood}
           data-companion-care-state={behavior.presentationState}
           data-companion-care-low={behavior.low ? "true" : "false"}
+          data-companion-portrait-lift={portraitLift}
           style={{
             position: "fixed",
-            bottom: 16,
-            right: 16,
+            ...portraitLiftStyle(portraitLift, 16),
             zIndex: 9999,
             display: "flex",
             flexDirection: "column",
-            alignItems: "flex-end",
             gap: 8,
             pointerEvents: "none",
           }}
@@ -791,6 +793,12 @@ export function CompanionLayer({
             }}
           >
             <div ref={mountRef} style={{ width: "100%", height: "100%", pointerEvents: "none" }} />
+            {showRaisedHand ? (
+              <div data-testid="companion-raised-hand" aria-label="Your companion raised a hand: tap if you want help"
+                style={{ position: "absolute", top: 2, left: 2, fontSize: 26, lineHeight: 1, pointerEvents: "none", animation: "companionHandWave 1.6s ease-in-out infinite" }}>
+                ✋<style>{"@keyframes companionHandWave{0%,100%{transform:rotate(0)}50%{transform:rotate(-14deg)}}"}</style>
+              </div>
+            ) : null}
             {micMuted ? (
               <div
                 data-testid="companion-muted-overlay"
@@ -1057,3 +1065,4 @@ export function CompanionLayer({
     </div>
   );
 }
+

@@ -233,6 +233,8 @@ export interface PronunciationGameCanvasProps {
   /** Profile-driven flow wrapper (presentation only). */
   flowHooks?: PronunciationFlowHook[];
   interimTranscript: string;
+  /** The kiosk board waits this long for a spoken word to settle before crediting it (BUGS.md 2026-11-08). */
+  settleTailMs?: number;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   backgroundImageUrl?: string;
   accentColor?: string;
@@ -412,6 +414,7 @@ export function PronunciationGameCanvas({
   pronunciationConfig,
   flowHooks: flowHooksProp,
   interimTranscript,
+  settleTailMs = 0,
   sendMessage,
   backgroundImageUrl: _backgroundImageUrl, // eslint-disable-line @typescript-eslint/no-unused-vars
   accentColor: _accentColor, // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -730,6 +733,7 @@ export function PronunciationGameCanvas({
     resetKey: `${challengeMode}:${replaySeed}`,
     matchMode: "pronunciation",
     sequentialMatchScope: "tail",
+    settleTailMs,
   });
   const rhythmRound =
     isRhythmMode && activeWordPool.length > 0

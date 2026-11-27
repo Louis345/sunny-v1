@@ -49,15 +49,5 @@
       "label": "Candy - Young and Sweet",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "Hi! I'm Towa. I love glowing earrings, cute outfits, night walks, and making dark places feel friendly.",
-      "plead": "Pick me and we'll shine together. I'll help every lesson feel stylish, brave, and a little magical."
-    },
-    "ja": {
-      "intro": "トワだよ。かわいいアクセサリーと、光るものが大好き。",
-      "plead": "わたしを選んでね。一緒にきらきらしよう。"
-    }
-  }
+  ]
 }

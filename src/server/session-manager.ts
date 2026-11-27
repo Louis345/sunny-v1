@@ -1,4 +1,11 @@
+import { setCompanionPaceForChild } from "./currencyAward";
+import { liveItemNode } from "./liveItemBinding";
+import { openAnswerItem, type OpenAnswerItem } from "./answerRevealGate";
+import { isOnlyStopWords } from "../shared/stopWords";
+import { itemAnsweredRight } from "./itemAttemptFacts";
 import { canonicalJourneyLaunchable } from '../engine/learningCycleRepository';
+import { reactToRewardDrop } from "./bossDropAward";
+import { unnamedPetFacts } from "./creatureCare";
 import {presentOriginalSpellingItem,withOriginalSpellingChart,recordPresentedEngagement} from '../chart/spelling/originalResponses';
 import fs from "fs";
 import path from "path";
@@ -25,8 +32,10 @@ import {
   legacyAttemptsNote,
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
+import { ServerVoiceFloor, type HeldLine } from "./voiceFloor";
+import { GameNarrationRouter, requestGameNarrationForSession } from "./gameNarrationRoute";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
-import { interruptedExchange, isBackchannel, isListeningNoise, isSelfEcho, isVerbatimEchoOfCompanion, normalizeUtterance, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
+import { interruptedExchange, isBackchannel, isListeningNoise, selfEchoSource, isVerbatimEchoOfCompanion, normalizeUtterance, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
 
 /** Sunny's own speech (narration or a reply) can come back through the room mic this long after it played. */
 const SELF_ECHO_WINDOW_MS = 15_000;
@@ -49,9 +58,10 @@ import {
 import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { type ModelMessage } from "ai";
-import { markCurrentSpellingSupport, recordSpellingAudio, replyGivesSpelling, snapshotOnSpellingItem } from "./spellingSpeechEvidence";
+import { grantSpellingHelpOnRequest, markCurrentSpellingSupport, recordSpellingAudio, replyGivesSpelling, snapshotOnSpellingItem } from "./spellingSpeechEvidence";
 import { createSpeechTools, speechScopeFor } from "./companionSpeechTools";
 import { createReplayWordTools } from "./companionReplayTool";
+import { RoomTalkBuffer, summarizeAndSaveRoomTalk } from "./roomTalk";
 import type { HomeworkExtractionResult } from "../agents/psychologist/psychologist";
 import { GameBridge } from "./game-bridge";
 import {
@@ -99,12 +109,12 @@ import {
 import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import {
   buildCurrentBoardSnapshot,
-  canonicalSpellingPractice, retainSpellingItemState,
+  canonicalSpellingPractice, noteSupportModeChange, noteUnfinishedExit, retainSpellingItemState,
   companionBoardSnapshot,
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
-import { normalizeScreenReport, type ScreenReport } from "./screenReport";
+import { normalizeScreenReport, screenReportLogLine, type ScreenReport } from "./screenReport";
 import { compressGameScreenshotBase64 } from "./compressGameScreenshot";
 import { REWARD_CHARACTER_SVG } from "./canvas/registry";
 import { canvasStatePersistsThroughBargeIn } from "../shared/canvasRenderability";
@@ -153,11 +163,8 @@ import {
   setCreatorDiagSessionForReadingTest,
 } from "./creatorDiagControls";
 import {
-  detectUrgentLearningRoute,
   activeLearningSuppressionReason,
-  recordUrgentLearningEvidenceForOrganicTurn,
   recordPronunciationReadingStruggleSignal,
-  runSessionLearningSignalAudit,
   shouldSuppressTranscriptDuringActiveLearningGame,
 } from "./urgentLearningRuntime";
 import {
@@ -197,7 +204,7 @@ export class SessionManager {
   public readonly chartChildId: string;
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
-  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
+  private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string}; readonly voiceFloor = new ServerVoiceFloor(); readonly gameNarration = new GameNarrationRouter();
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
   private mathDiscoverySupport?: MathDiscoverySupportState;
   private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
@@ -210,6 +217,8 @@ export class SessionManager {
   private activeGameNarrationRequestId: string | null = null;
   private gameNarrationPlaybackTimer: ReturnType<typeof setTimeout> | null = null;
   private companionPresence: "collapsed" | "summoned" = "collapsed";
+  /** What the mic hears while her companion is minimized; one digest goes to her record at session end (2026-11-23). */
+  private roomTalk = new RoomTalkBuffer();
   private companionDispositionAfterSpeech:
     | "standby_after_speech"
     | "await_child_response" = "standby_after_speech";
@@ -634,13 +643,13 @@ export class SessionManager {
       (state) => {
         this.send("session_state", { state });
         this.debugRecorder.recordEvent("turn", "state_changed", { state });
-        if (state === "SPEAKING") {
-          this.speakingStartedAt = Date.now();
-        } else if (state === "IDLE") {
-          this.speakingStartedAt = 0;
-        }
+        if (state === "SPEAKING") this.speakingStartedAt = Date.now();
+        else if (state === "IDLE") this.speakingStartedAt = 0;
+        const held = this.voiceFloor?.companionTurn(state); // her turn ended: the narrator's waiting line plays now
+        if (held) this.playHeldNarration(held);
       },
     );
+    this.voiceFloor.onRelease(held => this.playHeldNarration(held)); // a stuck turn never strands the game's word
 
     this.activeCanvasController = new ActiveCanvasActivityController({
       readCanvasState: () => this.currentCanvasState,
@@ -758,8 +767,9 @@ export class SessionManager {
       this.recordDebugEvent("spelling", "stale_context_ignored", { itemId: state.itemId });
       return;
     }
+    this.gameNarration?.noteScreen(state);
     const previous = this.currentBoardSnapshot;
-    state = retainSpellingItemState(state, previous, this.spellingAssessment, this.spellingLaunch);
+    state = noteUnfinishedExit(retainSpellingItemState(state, previous, this.spellingAssessment, this.spellingLaunch), previous);
     if (previous?.itemId && (state.itemId && state.itemId !== previous.itemId
       || state.nodeId && state.nodeId !== previous.nodeId || state.phase === "closed")) {
       const audio = this.ttsBridge?.currentPlaybackIdentity?.();
@@ -792,11 +802,11 @@ export class SessionManager {
         current: this.spellingAssessment, history: this.spellingAssessmentHistory, launch:this.spellingLaunch });
       const assessment=this.spellingAssessment;
       if((state.phase === "response" || (state.practiceCapture === true && (state.phase === "flash" || state.spellingItemOpened === true))) && assessment?.launchId && !assessment.chartItemId){
-        const presentation=withOriginalSpellingChart(this.chartChildId,db=>presentOriginalSpellingItem(db,{
+        try { const presentation=withOriginalSpellingChart(this.chartChildId,db=>presentOriginalSpellingItem(db,{
           assignmentId:assessment.homeworkId,sessionId:this.sessionId,nodeId:assessment.nodeId,launchId:assessment.launchId!,sourceItemId:assessment.itemId,word:assessment.word.normalize('NFC').toLowerCase(),instrument:assessment.instrument,
           shown:{lettersVisible:assessment.lettersVisible,hint:assessment.instrument=== "practice" ? null : false,companionHelp:assessment.supportIds.length>0 ? true : assessment.instrument=== "practice" ? null : false},
         }));
-        if(presentation)assessment.chartItemId=String(presentation.payload.itemId);
+        if(presentation)assessment.chartItemId=String(presentation.payload.itemId); } catch(error) { console.error(` 🎮 [spelling-presentation] [chart-write] [failed] item=${assessment.itemId}`,error); }
       }
 
     }
@@ -816,11 +826,9 @@ export class SessionManager {
       return;
     }
     const cycle = getChildChart(this.chartChildId).learningCycle;
-    const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice: canonicalSpellingPractice(cycle, this.spellingLaunch, this.spellingAssessment, state), plannerRead: cycle?.academicTheory?.hypothesis });
-    this.currentBoardSnapshot = snapshot;
-    if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
-      this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
-    }
+    const canonicalPractice = canonicalSpellingPractice(cycle, this.spellingLaunch, this.spellingAssessment, state); const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice, plannerRead: cycle?.academicTheory?.hypothesis, helpGranted: this.spellingAssessment?.helpRequested === true && this.spellingAssessment.itemId === state.itemId });
+    this.currentBoardSnapshot = noteSupportModeChange(this.currentBoardSnapshot, snapshot, { canonicalPractice, answerVisibility: state.answerVisibility });
+    if (snapshot.nodeId && snapshot.itemId && !["complete", "closed", "won", "lost"].includes(String(snapshot.phase))) this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
     this.currentActivityState = {
       ...companionBoardSnapshot(snapshot),
       currentWord: snapshot.spellingSupportMode === "stimulus_only" ? undefined : snapshot.currentTarget,
@@ -879,6 +887,7 @@ export class SessionManager {
   }
 
   private lastJourneyChoiceRequest?:string;
+  private readonly rewardDropsReacted = new Set<string>();
 
   public async requestJourneyChoiceSupport(choiceId:string,requestId:string):Promise<void> {
     if (this.lastJourneyChoiceRequest===requestId) return;
@@ -898,6 +907,19 @@ export class SessionManager {
     await this.runCompanionResponse('[System event: displayed path choice opened] Available options are in the live board snapshot. No option has been selected.', 'system');
   }
 
+  /** She just caught a pet (Ila 11/22: "I didn't get to name her"): the companion hears the facts, asks in its own words. */
+  public async reactToCaughtPet(): Promise<void> {
+    const facts = unnamedPetFacts(this.chartChildId);
+    if (!facts) return;
+    // Summoned, like a path choice: the name she says next is heard without a wake phrase (11/22 log: ambient-ignored).
+    this.setCompanionPresence("summoned", "client");
+    this.resetCompanionDispositionAfterSpeech();
+    if (this.turnSM.getState() !== "IDLE" || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
+    await this.runCompanionResponse(`[System event: she just caught a pet]\n${facts}`, "system");
+  }
+
+  /** A chest she opened held a bonus: the companion reacts to what the server saved (bossDropAward.ts). */
+  public reactToRewardDrop(input: { homeworkId: string; nodeId: string }): Promise<void> { return reactToRewardDrop({ chartChildId: this.chartChildId, reacted: this.rewardDropsReacted, bargeIn: () => this.bargeIn(), respond: text => this.runCompanionResponse(text, "system"), busy: () => this.turnSM.getState() !== "IDLE" || Boolean(this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) }, input); }
   public async requestInstructionReadAloud(input: {
     nodeId: string;
     activityId: string;
@@ -947,8 +969,8 @@ export class SessionManager {
       console.warn(" 🎮 [screen] [report] [rejected] malformed");
       return;
     }
-    this.screenReport = report;
-    console.log(` 🎮 [screen] [report] [received] screen=${report.screen} board=${report.boardId ?? "none"} node=${report.nodeId ?? "none"}`);
+    this.screenReport = report; this.debugRecorder?.recordEvent?.("screen", "report", { ...report }); // saved for learning vs play minutes (2026-11-10)
+    console.log(screenReportLogLine(report));
   }
 
   public buildCurrentBoardContextForTurn(childSpeech?: string): string {
@@ -964,18 +986,16 @@ export class SessionManager {
     });
   }
 
-  public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
-    // A measured word is assisted only when Elli's reply gives its spelling, not when she chats.
+  /** Any reply of hers, child-asked or game-invited: a measured word is assisted only when it gives its spelling. */
+  public recordCompanionReplySupport(companionText: string): void {
     const assessment = this.spellingAssessment;
     if (assessment && (assessment.instrument === "practice" || replyGivesSpelling(companionText, assessment.word))) markCurrentSpellingSupport(assessment, this.currentBoardSnapshot);
-    recordActivityCompanionHelp({
-      childId: this.chartChildId,
-      companionId: this.companion.name,
-      userMessage,
-      companionText,
-      snapshot: this.currentBoardSnapshot,
-      presence: this.companionPresence,
-    });
+  }
+
+  public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
+    this.recordCompanionReplySupport(companionText);
+    recordActivityCompanionHelp({ childId: this.chartChildId, companionId: this.companion.name, userMessage, companionText,
+      snapshot: this.currentBoardSnapshot, presence: this.companionPresence });
   }
 
   public recordCompanionTruthContradictions(response: string): string[] {
@@ -1118,10 +1138,18 @@ export class SessionManager {
     });
   }
 
+  private playHeldNarration(held: HeldLine): void {
+    void this.speakGameNarration(held.text, held.metadata).catch((error: unknown) => console.error(" 🎮 [game-narration] [released] [failed]", error));
+  }
+  public requestGameNarration(text: string, metadata: Record<string, unknown> = {}): Promise<void> { return requestGameNarrationForSession(this as never, text, metadata); }
+  /** Her own words from an earlier turn (a check-in she scheduled), spoken in her voice, never the narrator's. */
+  public runCompanionCheckIn(facts: string): Promise<void> { return this.runCompanionResponse(facts, "system"); }
+
+  /** The narrator: reads on-screen game text and test words in the narrator voice (callers go through requestGameNarration). */
   public async speakGameNarration(
     text: string,
     metadata: Record<string, unknown> = {},
-  ): Promise<void> {
+  ): Promise<void> { if (this.voiceFloor?.narratorMayStart(text, metadata) === false) return; // she has the floor: it waits
     if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) {
       this.debugRecorder.recordEvent("game_narration", "request_suppressed", {
         reason: "playback_in_progress",
@@ -1137,7 +1165,7 @@ export class SessionManager {
     this.activeGameNarrationRequestId = requestId;
     const assessment = metadata.assessmentMode === true ? this.spellingAssessment : undefined;
     let spoken = false;
-    this.ttsBridge?.beginPlayback(requestId, String(metadata.itemId ?? assessment?.itemId ?? ""), Boolean(assessment), true, typeof metadata.launchToken === "string" ? metadata.launchToken : this.currentBoardSnapshot?.launchToken ?? this.spellingLaunch?.launchToken);
+    this.ttsBridge?.beginPlayback(requestId, String(metadata.itemId ?? assessment?.itemId ?? ""), Boolean(assessment), true, typeof metadata.launchToken === "string" ? metadata.launchToken : this.currentBoardSnapshot?.launchToken ?? this.spellingLaunch?.launchToken, Boolean(assessment) || metadata.narration === "test_word");
     try {
       spoken = await gev.narrateGameStimulus({ text, metadata, childName: this.childName, ttsLabel: this.sessionTtsLabel,
         bridge: this.ttsBridge, assessment,
@@ -1145,7 +1173,7 @@ export class SessionManager {
     } catch (error) {
       // Every audio_start gets exactly one audio_done, even when the voice fails; otherwise the
       // browser keeps the microphone closed waiting for speech that will never come.
-      this.activeGameNarrationRequestId = null;
+      this.activeGameNarrationRequestId = null; this.voiceFloor?.narratorEnded();
       const reason = error instanceof Error ? error.message : String(error);
       this.send("audio_done", { requestId, failed: true, reason, ...(assessment ? { requiresAudio: true } : {}), ...(metadata.itemId ?? assessment?.itemId ? { itemId: String(metadata.itemId ?? assessment?.itemId) } : {}) });
       console.warn(` 🎮 [session-audio] [playback] [failed-released] request=${requestId} reason=${reason}`);
@@ -1176,18 +1204,15 @@ export class SessionManager {
       }
       gev.armGameNarrationPlaybackTimer(this, requestId, String(metadata.itemId ?? assessment?.itemId ?? ""));
     } else {
-      this.activeGameNarrationRequestId = null;
+      this.activeGameNarrationRequestId = null; this.voiceFloor?.narratorEnded();
       this.send("audio_done", { requestId, failed: true, reason: "no_speech", ...(assessment ? { requiresAudio: true } : {}), ...(metadata.itemId ?? assessment?.itemId ? { itemId: String(metadata.itemId ?? assessment?.itemId) } : {}) });
       console.warn(` 🎮 [session-audio] [playback] [failed-released] request=${requestId} reason=no_speech`);
     }
   }
 
   private bindMathDiscoverySupport(nodeId: string, itemId: string): MathDiscoverySupportState | undefined {
-    const cycle = getChildChart(this.chartChildId).learningCycle;
-    const node = cycle?.domain === "math"
-      ? cycle.nodes.find((candidate) => candidate.role === "evaluation" && candidate.nodeId === nodeId)
-      : undefined;
-    if (!cycle || !node?.artifactBinding || !itemId.trim()) return undefined;
+    const cycle = getChildChart(this.chartChildId).learningCycle, node = liveItemNode(cycle, nodeId, itemId); // any node holding the problem (2026-11-10)
+    if (!cycle || !node) return undefined;
     this.mathDiscoverySupportHistory ??= new Map();
     const key = `${nodeId}:${itemId}`;
     const next = this.mathDiscoverySupportHistory.get(key) ?? {
@@ -1199,11 +1224,28 @@ export class SessionManager {
     };
     this.mathDiscoverySupportHistory.set(key, next);
     this.mathDiscoverySupport = next;
-    console.log(`  🎮 [math-discovery] [live-context] [bound] item=${itemId}`);
+    console.log(`  🎮 [live-item] [live-context] [bound] node=${nodeId} role=${node.role} item=${itemId}`);
     return next;
   }
 
-  public getSpellingLaunch() { return this.spellingLaunch ? {...this.spellingLaunch} : undefined; }
+  /** The problem open on her screen, so a stated answer can be recorded as help (answerRevealGate.ts). */
+  public openAnswerItem(): OpenAnswerItem | undefined {
+    const bound = this.mathDiscoverySupport;
+    if (!bound) return undefined;
+    return openAnswerItem(getChildChart(this.chartChildId).learningCycle, bound, itemAnsweredRight(this.chartChildId, bound.nodeId, bound.itemId));
+  }
+
+  /** A reply sentence stated the open problem's answer: withheld on a check, or allowed and recorded as help on practice. */
+  /** Elli stated the open answer: her words went out unchanged, and the item is recorded as helped. */
+  public noteAnswerReveal(sentence: string, item: OpenAnswerItem): void {
+    console.log(` 🎮 [answer-reveal] [recorded-assisted] item=${item.itemId} role=${item.role ?? "unknown"}`);
+    this.debugRecorder.recordEvent("answer_reveal", "recorded_assisted", { itemId: item.itemId, nodeId: item.nodeId, role: item.role, sentence });
+    const support = this.mathDiscoverySupport;
+    const id = `answer_revealed:${this.sessionId}:${item.itemId}`;
+    if (support?.itemId === item.itemId && !support.supportIds.includes(id)) support.supportIds.push(id);
+  }
+
+  public getSpellingLaunch() { return this.spellingLaunch ? {...this.spellingLaunch} : undefined; } public getSessionDir(): string | undefined { return this.debugRecorder?.sessionDir; }
 
   public getDiscoveryAttemptContext(homeworkId: string, itemId: string, launchToken?:string): { chartItemId?:string; practice?:boolean; spellingShown?:boolean|null; audioReplays?:number|null; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
     const candidates = [...(this.spellingAssessmentHistory?.values() ?? [])].filter(c => c.homeworkId === homeworkId && c.itemId === itemId && (launchToken === undefined || c.launchToken === launchToken));
@@ -1284,6 +1326,7 @@ export class SessionManager {
       this.pendingGameNarrationPlayback = null;
     }
     this.activeGameNarrationRequestId = null;
+    if (cause === "child_speech") this.voiceFloor?.childSpoke(); else this.voiceFloor?.narratorEnded();
 
     const stateBefore = this.turnSM.getState();
     const interrupted = this.inFlightReply;
@@ -1395,7 +1438,7 @@ export class SessionManager {
         },
       );
       this.pendingGameNarrationPlayback = null;
-      this.activeGameNarrationRequestId = null;
+      this.activeGameNarrationRequestId = null; this.voiceFloor?.narratorEnded();
     }
     this.turnSM.onPlaybackComplete();
     this.flushPendingRoundComplete();
@@ -1437,14 +1480,12 @@ export class SessionManager {
 
     const ts = new Date().toISOString();
     console.log(`  🏁 [${ts}] Ending session for ${this.childName}`);
-    await runSessionLearningSignalAudit({
-      childId: endChildId,
-      sessionId: this.sessionId,
-      conversationHistory: this.conversationHistory,
-      recentActivityState: this.currentActivityState,
-      hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
-      hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
-    });
+    if (shouldPersistSessionData()) {
+      const lines = this.roomTalk.lines();
+      this.roomTalk = new RoomTalkBuffer();
+      void summarizeAndSaveRoomTalk({ childId: endChildId, sessionId: this.sessionId, lines })
+        .catch((error: unknown) => console.error(" 🔴 [room-talk] [digest] [failed]", error));
+    }
 
     if (this.clearSessionTimer) {
       this.clearSessionTimer();
@@ -1696,8 +1737,9 @@ export class SessionManager {
       });
     }
 
-    if (!opts?.fromReadingComplete && isSelfEcho(transcript, this.ttsBridge?.recentlySpoken?.(SELF_ECHO_WINDOW_MS) ?? [])) {
-      console.log(` 🎮 [transcript] [self-echo-dropped] words=${transcript.split(/\s+/).length} replay=${isReplay}`);
+    const echoOf = opts?.fromReadingComplete ? undefined : selfEchoSource(transcript, this.ttsBridge?.recentlySpoken?.(SELF_ECHO_WINDOW_MS) ?? []);
+    if (echoOf !== undefined) {
+      console.log(` 🎮 [transcript] [self-echo-dropped] words=${transcript.split(/\s+/).length} replay=${isReplay} heard=${JSON.stringify(transcript)} echo_of=${JSON.stringify(echoOf.slice(0, 200))}`);
       auditLog("transcript", { action: "dropped", reason: "self_echo", turnState: this.turnSM.getState(), tts, childName: auditChild, round: auditRound });
       this.debugRecorder.recordEvent("transcript", "dropped", { reason: "self_echo", round: auditRound, transcriptLength: transcript.length });
       this.voiceLatency?.discardLatest("ignored");
@@ -1769,19 +1811,9 @@ export class SessionManager {
     if (this.companionPresence === "collapsed" && presenceRoute.action === "summon_and_respond") {
       this.setCompanionPresence("summoned", "voice");
     }
-    const urgentRoute = !opts?.fromReadingComplete
-      && (this.companionPresence === "summoned" || presenceRoute.action === "summon_and_respond")
-      ? detectUrgentLearningRoute({
-          transcript,
-          childName: this.childName,
-          companionName: this.companion.name,
-          currentActivityState: this.currentActivityState,
-          currentCanvasState: this.currentCanvasState,
-        })
-      : null;
     const companionConversationOpen = this.companionPresence === "summoned"
       && this.companionInteractionMode === "conversation";
-    if ((presenceRoute.action === "dismiss" || (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen)) && handleCompanionPresenceTranscript({
+    if ((presenceRoute.action === "dismiss" || !companionConversationOpen) && handleCompanionPresenceTranscript({
       enabled: !opts?.fromReadingComplete &&
         (presenceRoute.action === "dismiss" || this.companionPresence === "collapsed" || generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
@@ -1791,78 +1823,25 @@ export class SessionManager {
       nodeId: this.currentBoardSnapshot?.nodeId,
       sendFinal: (text) => this.send(/^[a-z]$/i.test(text.trim()) ? "interim" : "final", { text }),
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
-      recordEvent: (component, action, fields) =>
-        this.debugRecorder.recordEvent(component, action, fields),
+      recordEvent: (component, action, fields) => {
+        if (action === "ambient_ignored") this.roomTalk.add(new Date().toISOString(), transcript);
+        this.debugRecorder.recordEvent(component, action, fields);
+      },
     })) return void this.voiceLatency?.discardLatest("ignored");
 
     let state = this.turnSM.getState();
     if (state === "IDLE") this.preAudioRestarts = 0;
-    if (urgentRoute && !checkUserGoodbye(transcript)) {
-      if (
-        state === "PROCESSING" ||
-        state === "SPEAKING" ||
-        state === "CANVAS_PENDING"
-      ) {
-        this.bargeIn();
-        state = this.turnSM.getState();
-      }
-      if (isReplay) {
-        this.debugRecorder.recordEvent("transcript", "urgent_replayed", { intent: urgentRoute.intent.type });
-        console.log(` 🎮 [transcript] [urgent-replayed] intent=${urgentRoute.intent.type}`);
-      } else {
-        void recordUrgentLearningEvidenceForOrganicTurn({
-          transcript,
-          stateBefore: state,
-          auditRound,
-          auditChild,
-          tts,
-          context: urgentRoute.context,
-          intent: urgentRoute.intent,
-          sessionId: this.sessionId,
-          debugRecorder: this.debugRecorder,
-          hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
-          hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
-        }).catch((err: unknown) => {
-          console.error("  🔴 [urgent-learning] organic evidence failed:", err);
-        });
-      }
-      if (
-        urgentRoute.context.activityId === "pronunciation" &&
-        (urgentRoute.intent.type === "help_request" ||
-          urgentRoute.intent.type === "frustration")
-      ) {
-        const cue = pronunciationCueFor(urgentRoute.context.currentWord);
-        const currentWord = urgentRoute.context.currentWord ?? "this word";
-        const supportText = cue
-          ? `I can help. Try breaking ${currentWord} into ${cue}, then say it slowly once.`
-          : "I can help. Say it slowly once, then try it again.";
-        this.turnSM.clearPendingTranscript("urgent_pronunciation_support");
-        this.debugRecorder.recordTranscript("user", transcript);
-        this.debugRecorder.recordEvent("urgent_learning", "pronunciation_support", {
-          intent: urgentRoute.intent.type,
-          currentWord: urgentRoute.context.currentWord,
-          cue,
-        });
-        this.send("game_message", {
-          forward: {
-            type: "pronunciation_support",
-            currentWord: urgentRoute.context.currentWord,
-            cue,
-            source: "companion",
-            timestamp: Date.now(),
-          },
-        });
-        console.log(
-          `  🎮 [urgent-learning] [pronunciation_support] word=${currentWord} cue=${cue ?? "none"}`,
-        );
-        await this.handleCompanionTurn(supportText);
-        return;
-      }
+    // Her bare stop ends her companion's turn in a game too (a5811f4c did the call screen); it is never a question.
+    if (isOnlyStopWords(transcript) && (this.companionPresence === "summoned" || state === "PROCESSING" || state === "SPEAKING")) {
+      if (state === "PROCESSING" || state === "SPEAKING" || state === "CANVAS_PENDING") this.bargeIn("child_speech");
+      this.turnSM.clearPendingTranscript("child_said_stop");
+      this.debugRecorder.recordTranscript("user", transcript);
+      this.send("final", { text: transcript });
+      console.log(` 🎮 [companion] [stopped] [by-child] reason=bare_stop state=${state}`);
+      return void this.voiceLatency?.discardLatest("ignored");
     }
-
     if (
       !opts?.fromReadingComplete &&
-      !urgentRoute?.intent.shouldInterrupt &&
       state === "IDLE" &&
       this.shouldSuppressTranscriptDuringKaraoke(transcript)
     ) {
@@ -1995,8 +1974,8 @@ export class SessionManager {
           `${ev.correct ? "✅" : "❌"} (${ev.note})`,
       );
       userMessage =
-        `[Spelling verdict: Ila said "${transcript}" for "${this.activeWord}" — ` +
-        `${ev.correct ? "this is CORRECT, celebrate and move on" : "this is INCORRECT, encourage and give a hint"}]\n\n` +
+        `[Spelling verdict: ${this.childName} said "${transcript}" for "${this.activeWord}" — ` +
+        `${ev.correct ? "correct" : `not correct (${ev.note})`}. Respond in your own words.]\n\n` +
         transcript;
     }
 
@@ -2046,15 +2025,23 @@ export class SessionManager {
     const replayTools = createReplayWordTools({ speechRate: () => this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)) ?? 1, snapshot: () => this.currentBoardSnapshot,
       playbackBusy: () => Boolean(this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback),
       assessmentItemId: () => this.spellingAssessment?.itemId,
+      grantHelp: () => { const granted = grantSpellingHelpOnRequest(this.spellingAssessment, this.currentBoardSnapshot); if (granted) this.voiceFloor?.companionClaimed(); return granted; },
       requestNarration: payload => this.handleGameEvent({ type: "narration_request", payload }) });
     const screenshotTools = {
       takeGameScreenshot: createTakeGameScreenshotTool(this),
       ...replayTools,
-      ...createSpeechTools(this.ttsBridge, receipt => this.recordDebugEvent("companion-speech", "rate_configured", receipt), () => speechScopeFor(this.currentBoardSnapshot)),
+      ...createSpeechTools(this.ttsBridge, receipt => {
+        this.recordDebugEvent("companion-speech", "rate_configured", receipt);
+        // The pace she needed is kept for her next games and sessions (Reina, 2026-11-25); a save failure never stops talk.
+        try { setCompanionPaceForChild(this.chartChildId, receipt.speed); }
+        catch (error) { console.error(` 🎮 [companion-speech] [pace] [save-failed] child=${this.chartChildId}`, error); }
+      }, () => speechScopeFor(this.currentBoardSnapshot)),
     };
     if (slimVoice) {
-      const { canvasShow, canvasClear, canvasStatus, sessionLog, ...boardTools } = baseTools;
-      return { ...boardTools, dateTime, ...screenshotTools };
+      // Kiosk companion: 5 tools at most (owner, 2026-11-25; companionToolBudget.test.ts). Saori 11/18–11/25 used only these.
+      const { companionAct, recordChildSignal, recordProductIssue } = baseTools;
+      const { takeGameScreenshot: _unusedOnKiosk, ...voiceTools } = screenshotTools;
+      return { companionAct, recordChildSignal, recordProductIssue, ...voiceTools };
     }
     if (this.worksheetSession && this.worksheetMode) {
       return {

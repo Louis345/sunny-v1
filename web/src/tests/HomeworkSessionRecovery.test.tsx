@@ -15,6 +15,23 @@ describe("homework connection recovery", () => {
     expect(onRetry).toHaveBeenCalledOnce();
   });
 
+  it("asks for a grown-up and offers no retry when the server refused the session", () => {
+    const onRetry = vi.fn();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<HomeworkSessionRecovery error="That assignment is no longer ready." needsGrownUp onRetry={onRetry} />);
+
+    expect(screen.getByRole("heading", { name: /get a grown-up/i })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+    expect(screen.queryByText(/lost the connection/i)).toBeNull();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("[homework-session] [recovery] [needs-grown-up]"));
+    log.mockRestore();
+  });
+
+  it("routes a server refusal to the grown-up screen from App", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    expect(source).toContain("needsGrownUp={state.errorNeedsGrownUp}");
+  });
+
   it("routes fatal homework failures to recovery before rendering the board", () => {
     const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
     const fatalBranch = source.indexOf("homeworkBoardMode && state.errorFatal");

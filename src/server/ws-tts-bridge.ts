@@ -1,6 +1,8 @@
 import WebSocket from "ws";
 import { sanitizeForTTS } from "./session-state";
 import type { VoiceLatencyMark } from "./voiceTurnLatency";
+import { pronounceForTts } from "./ttsPronunciation";
+import { FAST_START_GENERATION_CONFIG, endsSentence } from "./elevenLabsFastStart";
 
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
@@ -12,8 +14,8 @@ type StreamTerminal = { outcome?: StreamOutcome; done: Promise<StreamOutcome>; s
 
 function normalizeForTTS(text: string): string {
   let t = text.replace(/-(?=[A-Z])/g, " ");
-  t = t.replace(/\bIla\b/gi, "EYE-lah");
-  return t;
+  // Names from each child's profile and theme words, from one lexicon shared by every speech path.
+  return pronounceForTts(t);
 }
 
 function getPronunciationLocators(): object[] | undefined {
@@ -39,6 +41,8 @@ export class WsTtsBridge {
   private readonly terminals = new WeakMap<WebSocket, StreamTerminal>();
   private browserWs: WebSocket;
   private voiceId: string;
+  private readonly companionVoiceId: string;
+  private narratorVoiceId?: string;
   private elevenWs: WebSocket | null = null;
   private apiKey: string;
   /** When true, skip ElevenLabs — console-only TTS lines; no audio to browser. */
@@ -52,14 +56,31 @@ export class WsTtsBridge {
   private audioChunksThisTurn = 0;
   private requiresCompleteAudio = false;
   private speechRate = 1;
+  private companionPace = 1;
   private speechRateScope: SpeechScope = {};
   private activeSpeechRate = 1;
   private audioRatesThisTurn = new Set<number>();
   private playbackOwner?: { requestId: string; itemId?: string; launchToken?: string };
 
-  beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false, launchToken?: string): void {
+  /** Game speech (activity playback) is read in this voice; her replies keep the companion's own voice. */
+  useNarratorVoice(voiceId: string): void { this.narratorVoiceId = voiceId; }
+
+  beginPlayback(requestId: string, itemId?: string, requiresAudio = false, activity = false, launchToken?: string, testWord = false): void {
+    const voice = activity && this.narratorVoiceId ? this.narratorVoiceId : this.companionVoiceId;
+    if (voice !== this.voiceId) {
+      // A socket is bound to one voice: the narrator never speaks through a socket warmed in her voice, or back.
+      if (this.elevenWs || this.connectingPromise) this.stop();
+      this.voiceId = voice;
+      console.log(` 🎮 [session-audio] [voice] [${activity ? "narrator" : "companion"}] request=${requestId}`);
+    }
     if (this.playbackOwner?.requestId !== requestId) {
-      if (this.playbackOwner || this.wsReady && this.activeSpeechRate !== this.getSpeechRate({itemId,launchToken})) this.stop();
+      // A socket warmed up after the last reply finished has said nothing yet: the new reply keeps it (Reina's 11/21
+      // log showed two opens per turn). One that already carried words belongs to the old reply and is cut off.
+      const warmedForThisReply = this.elevenWs !== null && !this.hasFlushedThisTurn && this.audioChunksThisTurn === 0
+        && this.trackTerminal(this.elevenWs).outcome === undefined;
+      const rateChanged = this.wsReady && this.activeSpeechRate !== this.getSpeechRate({itemId,launchToken});
+      if (rateChanged || (this.playbackOwner && !warmedForThisReply)) this.stop();
+      else if (this.playbackOwner) console.log(` 🎮 [session-audio] [owner] [kept-warm-socket] request=${requestId}`);
       this.audioChunksThisTurn = 0;
       this.audioRatesThisTurn = new Set();
     }
@@ -67,7 +88,8 @@ export class WsTtsBridge {
     if (this.elevenWs) this.trackTerminal(this.elevenWs).atomicWord = requiresAudio;
     this.playbackOwner = { requestId, ...(itemId ? { itemId } : {}), ...(launchToken ? { launchToken } : {}) };
     if (this.browserWs.readyState === WebSocket.OPEN) {
-      this.browserWs.send(JSON.stringify({ type: "audio_start", ...this.playbackOwner, requiresAudio, source: activity ? "activity" : "companion" }));
+      // testWord: the one narrator line that plays while she has the companion muted (the browser owns the quiet button).
+      this.browserWs.send(JSON.stringify({ type: "audio_start", ...this.playbackOwner, requiresAudio, testWord, source: activity ? "activity" : "companion" }));
     }
     console.log(` 🎮 [session-audio] [owner] [started] request=${requestId}`);
   }
@@ -83,6 +105,7 @@ export class WsTtsBridge {
   constructor(browserWs: WebSocket, voiceId: string, private readonly streamDeadlineMs = STREAM_DEADLINE_MS) {
     this.browserWs = browserWs;
     this.voiceId = voiceId;
+    this.companionVoiceId = voiceId;
     this.disabled = process.env.TTS_ENABLED === "false";
     if (this.disabled) {
       this.apiKey = "";
@@ -95,18 +118,29 @@ export class WsTtsBridge {
   }
 
   isSpeechEnabled(): boolean { return !this.disabled; }
+  // The pace Elli chose holds for her own talking on every next problem in the same game (11/22: Ila asked twice; it reset
+  // per problem). A word the game plays is a measured stimulus, so its pace stays with its own item; another game or a
+  // check starts at normal pace.
+  // Reina, 2026-11-25: her own talking keeps the chosen pace across games and sessions (saved for the child).
   getSpeechRate(scope: SpeechScope = this.playbackOwner ?? {}): number {
     const selected = this.speechRateScope ?? {};
-    return scope.itemId === selected.itemId && scope.launchToken === selected.launchToken ? this.speechRate ?? 1 : 1;
+    const companionTalking = String(this.playbackOwner?.requestId ?? "").startsWith("companion");
+    if (companionTalking) return this.companionPace;
+    return scope.launchToken === selected.launchToken && scope.itemId === selected.itemId ? this.speechRate ?? 1 : 1;
+  }
+  /** The pace saved for this child, used for the companion's own talking until she chooses again. */
+  useCompanionPace(speed: number): void {
+    if (Number.isFinite(speed) && speed >= 0.7 && speed <= 1.2) this.companionPace = speed;
   }
   getAudioRatesThisTurn(): number[] { return [...(this.audioRatesThisTurn ?? [])]; }
 
-  /** A provider capability, selected by Elli for the current item and launch. */
+  /** A provider capability chosen by Elli; it applies now and stays for every next problem in this game. */
   async setSpeechRate(speed: number, scope: SpeechScope = this.playbackOwner ?? {}): Promise<{ speed: number }> {
     if (!Number.isFinite(speed) || speed < 0.7 || speed > 1.2) throw new Error("speech_rate_out_of_range");
     if (speed === this.getSpeechRate(scope)) return { speed };
     this.speechRate = speed;
     this.speechRateScope = { itemId: scope.itemId, launchToken: scope.launchToken };
+    this.companionPace = speed;
     if (this.playbackOwner?.itemId !== scope.itemId || this.playbackOwner?.launchToken !== scope.launchToken) return { speed };
     if (this.connectingPromise) { await this.connectingPromise; return { speed: this.getSpeechRate(scope) }; }
     // The live provider forbids changing settings mid-socket. Drain any speech
@@ -193,7 +227,7 @@ export class WsTtsBridge {
       ws.on("open", () => {
         clearTimeout(handshakeDeadline);
         opened = true;
-        console.log("  🔊 TTS model: eleven_flash_v2_5");
+        console.log(` 🎮 [tts] [connect] [open] model=eleven_flash_v2_5 first_chunk_chars=${FAST_START_GENERATION_CONFIG.chunk_length_schedule[0]}`);
         if (this.elevenWs !== ws) {
           ws.close();
           resolve();
@@ -207,6 +241,7 @@ export class WsTtsBridge {
             text: " ",
             voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: this.activeSpeechRate },
             xi_api_key: this.apiKey,
+            generation_config: FAST_START_GENERATION_CONFIG,
             ...(previousText && { previous_text: previousText }),
             ...(locators && {
               pronunciation_dictionary_locators: locators,
@@ -274,6 +309,7 @@ export class WsTtsBridge {
       JSON.stringify({
         text: toSend,
         ...(trigger && { try_trigger_generation: true }),
+        ...(trigger && endsSentence(trimmed) && { flush: true }),
       })
     );
     this.buffer = "";

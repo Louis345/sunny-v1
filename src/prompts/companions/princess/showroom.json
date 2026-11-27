@@ -57,11 +57,5 @@
       "label": "Gigi - Energetic",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "Hello, I am Princess. I turn hard practice into brave little quests, and I always notice a real try.",
-      "plead": "Pick me and we shall make every correction sparkle. The royal rule is simple: brave tries first, crowns after."
-    }
-  }
+  ]
 }

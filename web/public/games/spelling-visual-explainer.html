@@ -78,6 +78,13 @@
     .choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
     .choice { min-height:68px; border:2px solid rgba(255,255,255,.18); border-radius:17px; color:white; background:rgba(255,255,255,.08); font-size:22px; font-weight:900; cursor:pointer; }
     .choice.selected { border-color:var(--sun); background:rgba(255,214,90,.18); }
+    /* Her pick answers at once: right pops green, wrong shakes red, and the right one glows. */
+    .choice.right { border-color:var(--mint); background:rgba(143,241,210,.3); animation:pop .45s ease-out; }
+    .choice.wrong { border-color:#ff7a8a; background:rgba(255,122,138,.25); animation:shake .45s ease-in-out; }
+    .choice:disabled { cursor:default; }
+    .choice:disabled:not(.right):not(.wrong) { opacity:.45; }
+    @keyframes pop { 0% { transform:scale(1); } 45% { transform:scale(1.12); } 100% { transform:scale(1); } }
+    @keyframes shake { 0%,100% { transform:translateX(0); } 20%,60% { transform:translateX(-9px); } 40%,80% { transform:translateX(9px); } }
     .feedback { min-height:24px; margin:15px 0 0; color:var(--mint); text-align:center; font-weight:800; }
     .reveal { width:100%; margin-top:10px; border:0; border-radius:16px; padding:13px; color:#20113e; background:var(--sun); font-weight:950; cursor:pointer; }
     [hidden] { display:none !important; }
@@ -163,6 +170,7 @@
         choices: Array.from(document.querySelectorAll(".choice")),
       };
       let modelNodes = [];
+      let check = null, answered = false;
       // What she did on the page, for the Planner: engagement facts, never a score.
       const clock = { word: null, last: null, questionAt: null, answeredAt: null };
       function tickClock(progress, current) {
@@ -171,8 +179,27 @@
         clock.last = now;
         clock.word = progress >= LESSON_START && progress < RECAP_START ? modelNodes[current] ?? null : null;
         if (progress >= CHECK_AT && clock.questionAt === null) clock.questionAt = now;
+        // A replay from the start opens the check again.
+        if (answered && progress < CHECK_AT - 2) {
+          answered = false;
+          el.choices.forEach((button) => { button.disabled = false; button.classList.remove("right", "wrong"); });
+        }
       }
-      el.choices.forEach((choice) => choice.addEventListener("click", () => { if (clock.answeredAt === null) clock.answeredAt = performance.now(); }));
+      el.choices.forEach((choice) => choice.addEventListener("click", () => {
+        if (clock.answeredAt === null) clock.answeredAt = performance.now();
+        // Her first pick stands and answers at once.
+        const isRight = (option) => option.id === check?.correctOptionId || option.correct === true;
+        const picked = (check?.options || []).find((option) => option.id === choice.dataset.choice);
+        if (!picked) return;
+        answered = true;
+        el.choices.forEach((button) => {
+          const option = check.options.find((row) => row.id === button.dataset.choice);
+          button.disabled = true;
+          button.classList.toggle("right", Boolean(option && isRight(option) && (button === choice || !isRight(picked))));
+        });
+        if (!isRight(picked)) choice.classList.add("wrong");
+        console.log(" 🎮 [spelling-visual-explainer] [check-feedback] [" + (isRight(picked) ? "right" : "wrong") + "]");
+      }));
       function pageTime() {
         const now = performance.now();
         return { pageTime: { words: modelNodes.map((entry) => ({ word: entry.word.text, shownMs: Math.round(entry.shownMs), chunkTaps: entry.chunkTaps })),
@@ -252,7 +279,7 @@
             chunk.disabled = !visible;
             if (visible && !entry.exposureRecorded && window.GameBridge) {
               entry.exposureRecorded = true;
-              window.GameBridge.reportState("Spelling model shown", { spellingItemOpened:true, currentWord:entry.word.text, phase:"presentation", answerVisibility:"visible" });
+              window.GameBridge.reportState("Spelling model shown", { spellingItemOpened:true, currentWord:entry.word.text, phase:"presentation", answerVisibility:"visible", itemIndex:rowIndex, totalItems:modelNodes.length });
             }
             chunk.classList.toggle("focus", shownNow && local >= .55 && chunk.dataset.focus === "true");
           });
@@ -279,11 +306,10 @@
         getPhase(progress) { return progress < LESSON_START ? "intro" : progress < CHECK_AT ? "model" : progress < CHECK_AT + 1 ? "practice-check" : progress < 96 ? "strategy" : "complete"; },
         renderScene,
         checkEvidence,
-        onConfigApplied({ config }) { renderModel(config); },
-        formatPredictionFeedback({ state, selectedOption, progress }) {
+        onConfigApplied({ config, question }) { check = question; renderModel(config); },
+        formatPredictionFeedback({ state, selectedOption, question }) {
           if (!state.predictionMade) return "Choose what you notice.";
-          if (progress < CHECK_AT + 1) return "Choice saved. Tap Keep going.";
-          return selectedOption && selectedOption.correct ? "Yes, you spotted it!" : "Look again at the bright letters.";
+          return selectedOption && (selectedOption.correct === true || selectedOption.id === question.correctOptionId) ? "Yes, you spotted it!" : "Look at the bright one.";
         },
       });
       window.SunnySpellingVisualExplainer = shell;

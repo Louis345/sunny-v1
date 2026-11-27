@@ -98,6 +98,8 @@ export type CompanionTalkStreamDoneData = {
   companionCommands?: unknown[];
   activityRequests?: unknown[];
   visualSummary?: string;
+  /** BUGS.md S34: she asked to see herself; the kiosk sends her picture next. */
+  selfLook?: boolean;
   latencySpans?: {
     claudeMs?: number;
     toolFollowupMs?: number;
@@ -113,6 +115,8 @@ export type CompanionTalkStreamDoneData = {
 };
 
 export type CompanionTalkStreamResult = {
+  /** She stopped it (onStart's stop) before it finished arriving: nothing more plays, nothing is a failure. */
+  interrupted?: boolean;
   data: CompanionTalkStreamDoneData;
   hadAudio: boolean;
   /** Resolves once every scheduled audio chunk has finished playing. */
@@ -132,9 +136,22 @@ export async function streamCompanionTalk(opts: {
   sink: AudioNode;
   onFirstAudio?: (latencyMs: number) => void;
   onTextDelta?: (delta: string) => void;
+  /** The stop handle, as soon as the request starts (Ila 11/22: a stop before the last frame used to do nothing). */
+  onStart?: (stop: () => void) => void;
 }): Promise<CompanionTalkStreamResult> {
   const startedAt = performance.now();
   const abortController = new AbortController();
+  let stoppedByCaller = false;
+  let stopPlayback: () => void = () => undefined;
+  opts.onStart?.(() => {
+    stoppedByCaller = true;
+    abortController.abort();
+    stopPlayback();
+  });
+  const interruptedResult = (): CompanionTalkStreamResult => {
+    console.log(" 🎮 [companion-talk-stream] [client] [interrupted]");
+    return { interrupted: true, data: {}, hadAudio: false, waitForPlaybackEnd: () => Promise.resolve(), stop: () => undefined };
+  };
   let response: Response;
   try {
     response = await fetch(opts.url, {
@@ -144,6 +161,7 @@ export async function streamCompanionTalk(opts: {
       signal: abortController.signal,
     });
   } catch (err: unknown) {
+    if (stoppedByCaller) return interruptedResult();
     throw new CompanionTalkStreamUnavailableError(
       err instanceof Error ? err.message : "stream_fetch_failed",
     );
@@ -213,6 +231,11 @@ export async function streamCompanionTalk(opts: {
     pendingSources = 0;
     resolvePlaybackEnd();
   };
+  stopPlayback = stop;
+  if (stoppedByCaller) {
+    stop();
+    return interruptedResult();
+  }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -253,6 +276,7 @@ export async function streamCompanionTalk(opts: {
     }
   } catch (err: unknown) {
     stop();
+    if (stoppedByCaller) return interruptedResult();
     if (hadAudio) {
       throw new CompanionTalkStreamFailedError(
         err instanceof Error ? err.message : "stream_read_failed",
@@ -263,6 +287,7 @@ export async function streamCompanionTalk(opts: {
     );
   }
 
+  if (stoppedByCaller) return interruptedResult();
   if (errorMessage || !doneData || doneData.ok === false) {
     stop();
     const message = errorMessage ?? "stream_missing_done_frame";

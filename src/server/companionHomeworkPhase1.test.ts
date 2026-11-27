@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { stream, compact } = vi.hoisted(() => ({ stream: vi.fn(), compact: vi.fn() }));
 vi.mock("ai", async original => ({ ...(await original<typeof import("ai")>()), streamText: stream }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: () => "synthetic-model" }));
+vi.mock("@ai-sdk/anthropic", () => ({ anthropic: () => "synthetic-model", createAnthropic: () => () => "synthetic-model" }));
 vi.mock("@anthropic-ai/sdk", () => ({ default: class { messages = { create: compact }; } }));
 vi.mock("../agents/elli/tools/generateToolDocs", async original => ({
   ...(await original<typeof import("../agents/elli/tools/generateToolDocs")>()), ALL_TOOLS: {},
@@ -23,8 +23,10 @@ import { createSessionContext } from "./session-context";
 import { TurnStateMachine } from "./session-state";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { maybeCompactCompanionInteractionMemory, recordCompanionInteractionEvent } from "./companionInteractionMemory";
+import { COMPANION_SPOKEN_TURN_PROMPT } from "./companionTurnTaking";
 
-const brevity = "Be warm and attentive. Keep ordinary conversation brief and leave room for the child. Expand when useful or requested. Respond meaningfully to direct requests, through speech or an appropriate action.";
+// 11/24 prompt sweep: the live-talk facts replaced the old brevity rule.
+const liveTalk = COMPANION_SPOKEN_TURN_PROMPT;
 let root: string;
 const child = "arrival-demo";
 const context = (policy = "context_start_short") => ({
@@ -99,10 +101,10 @@ describe("one factual homework turn path", () => {
     expect(request.messages.at(-1).content).toContain("[Runtime context — not child speech]");
     expect(text).toContain("The demo likes drawing.");
     expect(text).not.toMatch(/LEGACY_REUNION_PERFORMANCE|LEGACY_IMPOSED_TONE|LEGACY_FOCUS|forced.agenda|current focus|brief hello is enough/i);
-    expect(request.messages[0].content).toContain(brevity);
+    expect(request.messages[0].content).toContain(liveTalk);
     expect(request.messages[0].content).not.toMatch(/one or two short sentences|gets genuinely excited|never re-introduces/i);
     expect(request.tools).toHaveProperty("companionAct");
-    expect(request.tools).toHaveProperty("sessionStatus");
+    expect(request.tools).toHaveProperty("recordProductIssue");
     expect(stream).toHaveBeenCalledTimes(1);
 
   });
@@ -138,6 +140,17 @@ describe("one factual homework turn path", () => {
     expect(s.recordCompanionHelpTurn).not.toHaveBeenCalled();
   });
 
+  it("checks a game-invited reply for spelling help without saving it as her help request", async () => {
+    // Measurement audit 2026-11-13 (c): Elli's letters in a system turn were never checked.
+    const s = await session();
+    provider(["It starts with n, i, g."]);
+    s.recordCompanionHelpTurn = vi.fn();
+    s.recordCompanionReplySupport = vi.fn();
+    await s.runCompanionResponse("[System event: the game asked for help on this word]", "system");
+    expect(s.recordCompanionHelpTurn).not.toHaveBeenCalled();
+    expect(s.recordCompanionReplySupport).toHaveBeenCalledWith("It starts with n, i, g.");
+  });
+
   it("retains factual status without legacy tutor agenda even after a tool call", async () => {
     const s = await session();
     const status = await hostSessionStatus(s);
@@ -145,11 +158,11 @@ describe("one factual homework turn path", () => {
     for(const key of ["sessionPhase","canvasOwner","correctStreak","roundNumber"]) expect(status).not.toHaveProperty(key);
   });
 
-  it("keeps the same brevity default on a child-addressed turn", async () => {
+  it("keeps the same live-talk facts on a child-addressed turn", async () => {
     provider(["Here is some help."]);
     const s = await session();
     await s.runCompanionResponse("Please help me.");
-    expect(stream.mock.calls[0][0].messages[0].content).toContain(brevity);
+    expect(stream.mock.calls[0][0].messages[0].content).toContain(liveTalk);
   });
 
   it("executes an expression-only choice without speaking or purchasing a repair", async () => {

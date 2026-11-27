@@ -2,8 +2,11 @@ import { sessionEventBus, type SessionEvent } from "./session-event-bus";
 import { broadcastCompanionEventToMapChild } from "./map-coordinator";
 import type { CompanionEventPayload } from "../shared/companionTypes";
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
+import { scheduleCompanionCheckIn } from "./companionCheckIn";
+import { getActiveVoiceSessionManagerForChild } from "./voice-session-registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { isCompanionEmote } from "../shared/companionEmotes";
+import * as creatureCare from "./creatureCare";
 
 const EVENT_TO_EMOTE: Partial<Record<SessionEvent["type"], string>> = {
   game_started: "excited",
@@ -136,13 +139,28 @@ export class ServerCompanionBridge {
       return { ok: false, error: "invalid_or_unknown_companion_command" };
     }
     const send = this.send;
-    if (send) {
-      send("companion_command", { command: cmd });
+    const deliver = (command: typeof cmd) => {
+      if (send) send("companion_command", { command });
+      broadcastCompanionEventToMapChild(childId, { type: "companion_command", command });
+    };
+    // Her companion's own check-in: code keeps the appointment, the companion chose when and how (2026-11-10).
+    if (cmd.type === "check_back_in") {
+      const payload = cmd.payload as { after_seconds: number; how: "raise_hand" | "ask"; words?: string; why: string };
+      const manager = getActiveVoiceSessionManagerForChild(childId);
+      scheduleCompanionCheckIn({ childId, afterSeconds: payload.after_seconds, how: payload.how, words: payload.words ?? "", why: payload.why }, {
+        send: () => deliver({ ...cmd, timestamp: Date.now() }),
+        checkIn: facts => { void Promise.resolve(manager?.runCompanionCheckIn?.(facts)).catch(error => console.error(" 🎮 [companion-checkin] [turn-failed]", error)); },
+        trace: row => manager?.recordGameTrace?.(row),
+      });
+      return { ok: true, type: cmd.type, scheduled: true };
     }
-    broadcastCompanionEventToMapChild(childId, {
-      type: "companion_command",
-      command: cmd,
-    });
+    // Her pet by voice (2026-11-22): the den's rules decide; the kiosk shows it only when it really came out or went home.
+    if (cmd.type === "pet") {
+      const result = creatureCare.summonPetForChild(childId, cmd.payload as { action: "bring" | "dismiss" | "name"; name?: string; newName?: string });
+      if (result.ok) deliver(cmd);
+      return { type: cmd.type, ...result };
+    }
+    deliver(cmd);
     console.log(`  [companion] companionAct type=${cmd.type} childId=${childId}`);
     return { ok: true, type: cmd.type };
   }

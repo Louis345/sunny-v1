@@ -4,7 +4,8 @@ export interface ExternalContextEvent {
     | "map_node_started"
     | "worksheet_event"
     | "game_narration"
-    | "game_state_update";
+    | "game_state_update"
+    | "answer_reveal";
   /** Human-readable, <= 500 chars. */
   summary: string;
   /** Epoch ms. */

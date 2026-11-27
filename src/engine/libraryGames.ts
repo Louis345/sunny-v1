@@ -1,0 +1,169 @@
+// Library games: four hand-built three.js games served as static files from web/public/games/cookoff/<id>/.
+// A Quest or Boss stop can be one of them: the board writes libraryGameHtml(...) into the child's games folder and
+// binds it like any generated game. The <base> tag makes the game's relative files load from /games/cookoff/<id>/;
+// the injected config gives it the stop's frozen items; the inlined bridge (web/public/games/cookoff/_library.js)
+// maps the game's targets to those itemIds and reports through the same contract as a generated game.
+// Elli's Classroom (owner, 2026-11-27) is the one "teach" game: the engine page lives here, and each lesson it plays is
+// saved in that child's own context folder (child data, never in git) and placed on an ordinary practice step.
+import fs from "fs";
+import path from "path";
+import { resolveChildContextDir } from "../utils/contextRoot";
+
+export type LibraryGameId = "opus-reina" | "fable-reina" | "opus-ila" | "fable-ila" | "elli-classroom";
+export type LibraryGameRole = "quest" | "boss" | "teach";
+
+/** title is the game's own opening <h1> (normalized it is what openingIdentityFailures compares to the node title). */
+export const LIBRARY_GAMES: Record<LibraryGameId, { id: LibraryGameId; title: string; childId: string; subject: "spelling" | "math"; role: LibraryGameRole; entryPath: string }> = {
+  "opus-reina": { id: "opus-reina", title: "Squad Gym", childId: "reina", subject: "math", role: "quest", entryPath: "/games/cookoff/opus-reina/index.html" },
+  "fable-reina": { id: "fable-reina", title: "Split Second", childId: "reina", subject: "math", role: "boss", entryPath: "/games/cookoff/fable-reina/index.html" },
+  "opus-ila": { id: "opus-ila", title: "Spirit Night", childId: "ila", subject: "spelling", role: "quest", entryPath: "/games/cookoff/opus-ila/index.html" },
+  "fable-ila": { id: "fable-ila", title: "Midnight Spirit Toast", childId: "ila", subject: "spelling", role: "boss", entryPath: "/games/cookoff/fable-ila/index.html" },
+  "elli-classroom": { id: "elli-classroom", title: "Elli's Classroom", childId: "any", subject: "math", role: "teach", entryPath: "/games/cookoff/elli-classroom/index.html" },
+};
+
+/** One product rule for where a library game may stand: a teach game on an ordinary step, a Quest or Boss game on its encounter. */
+export function libraryGameForStep(id: string | undefined, role: string): LibraryGameId | undefined {
+  const game = id ? LIBRARY_GAMES[id as LibraryGameId] : undefined;
+  if (!game) return undefined;
+  if (game.role === "teach") return role === "baseline" ? game.id : undefined;
+  return game.role === role ? game.id : undefined;
+}
+
+export type ClassroomLesson = { lessonId: string; title: string; subject: string; concept: string; madeOn: string; dir: string };
+/** The Classroom lessons saved for this child and subject, newest first: <child context>/classroom/<lessonId>/{meta,lesson}.json. */
+export function classroomLessons(childId: string, subject: string, opts: { rootDir?: string } = {}): ClassroomLesson[] {
+  const root = path.join(resolveChildContextDir(childId, { rootDir: opts.rootDir }), "classroom");
+  if (!fs.existsSync(root)) return [];
+  return fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory() && /^[\w-]+$/.test(entry.name)).flatMap(entry => {
+    const dir = path.join(root, entry.name);
+    try {
+      if (!fs.existsSync(path.join(dir, "lesson.json"))) return [];
+      const meta = JSON.parse(fs.readFileSync(path.join(dir, "meta.json"), "utf8")) as Partial<ClassroomLesson>;
+      if (meta.subject !== subject || !meta.title) return [];
+      return [{ lessonId: entry.name, title: String(meta.title), subject, concept: String(meta.concept ?? ""), madeOn: String(meta.madeOn ?? ""), dir }];
+    } catch (error) {
+      console.warn(` 🎮 [classroom] [lesson] [unreadable] child=${childId} lesson=${entry.name} ${error instanceof Error ? error.message : String(error)}`);
+      return [];
+    }
+  }).sort((a, b) => b.madeOn.localeCompare(a.madeOn));
+}
+
+/** The lesson JSON with every voice and clip path moved to her homework's own file route, plus the files to copy there. */
+function classroomLessonForStop(childId: string, homeworkId: string, lesson: ClassroomLesson): { json: string; assets: Array<{ from: string; name: string }> } {
+  const raw = JSON.parse(fs.readFileSync(path.join(lesson.dir, "lesson.json"), "utf8")) as { voice?: Record<string, string>; clips?: Record<string, string> } & Record<string, unknown>;
+  const assets: Array<{ from: string; name: string }> = [];
+  const move = (rel: string) => {
+    const from = path.resolve(lesson.dir, rel);
+    if (!from.startsWith(`${lesson.dir}${path.sep}`) || !fs.existsSync(from)) { console.warn(` 🎮 [classroom] [asset] [missing] lesson=${lesson.lessonId} file=${rel}`); return ""; }
+    const name = `classroom-${lesson.lessonId}-${path.basename(from)}`;
+    if (!assets.some(asset => asset.name === name)) assets.push({ from, name });
+    return `/api/homework/game/${encodeURIComponent(childId)}/${encodeURIComponent(homeworkId)}/${encodeURIComponent(name)}`;
+  };
+  const voice = Object.fromEntries(Object.entries(raw.voice ?? {}).map(([text, rel]) => [text, move(rel)]).filter(([, url]) => url));
+  const clips = Object.fromEntries(Object.entries(raw.clips ?? {}).map(([id, rel]) => [id, move(rel)]).filter(([, url]) => url));
+  return { json: JSON.stringify({ ...raw, lessonId: lesson.lessonId, title: lesson.title, voice, clips }), assets };
+}
+
+
+/** The targets each game presents from its own built-in content, used only when no items are injected (free play). */
+const BUILT_IN_TARGETS: Record<LibraryGameId, string[]> = {
+  "opus-reina": ["16÷4", "24÷3", "18÷3", "28÷4", "30÷5", "36÷4", "42÷6", "48÷6"],
+  "fable-reina": ["16 ÷ 4 equal groups: how many in each group", "24 ÷ 3 equal groups: how many in each group", "(tier facts and championship rounds)"],
+  "opus-ila": ["pardon", "carnivore", "charge", "dormant"],
+  "fable-ila": ["pardon", "carnivore", "charge", "dormant"],
+  "elli-classroom": [],
+};
+
+const BRIDGE_TAG = '<script src="/games/cookoff/_library.js"></script>';
+
+/** Same normalization as the runtime bridge (_library.js): one rule decides a match at build time and at play time. */
+function normalize(value: string, subject: "spelling" | "math"): string {
+  const s = value.normalize("NFC").toLowerCase().trim();
+  if (subject === "spelling") return s.replace(/[^\p{L}]+/gu, "");
+  return s.replace(/[×*]/g, "x").replace(/[÷/]/g, "÷").replace(/[^\p{L}\p{N}x÷=?+\-]+/gu, "");
+}
+
+/** Whether the game can put this item on screen and score it (the games skip anything else, with a log line). */
+function presentable(id: LibraryGameId, answer: string): boolean {
+  if (id === "fable-reina") return /^\d{1,2}$/.test(answer.trim());
+  if (id === "opus-reina" || id === "elli-classroom") return Number.isFinite(Number(answer.trim())) && Number(answer) > 0;
+  return /^[a-z][a-z'-]*$/i.test(answer.trim());
+}
+
+/** HTML for one stop: the game's index.html with <base href="/games/cookoff/<id>/"> and window.SUNNY_GAME_CONFIG injected, plus the evidence bridge. */
+export function libraryGameHtml(input: { id: LibraryGameId; childId: string; nodeId: string; homeworkId?: string; items: Array<{ itemId: string; prompt: string; answer: string }>; rootDir?: string }): { html: string; matchedItemIds: string[]; unmatchedTargets: string[]; assets: Array<{ from: string; name: string }> } {
+  const game = LIBRARY_GAMES[input.id];
+  if (!game) throw new Error(`library_game_unknown:${input.id}`);
+  const publicDir = path.join(input.rootDir ?? process.cwd(), "web", "public", "games", "cookoff");
+  const source = fs.readFileSync(path.join(publicDir, input.id, "index.html"), "utf8");
+  const bridge = fs.readFileSync(path.join(publicDir, "_library.js"), "utf8");
+  if (!source.includes(BRIDGE_TAG)) throw new Error(`library_game_bridge_tag_missing:${input.id}`);
+  if (/<\/script/i.test(bridge)) throw new Error("library_game_bridge_unsafe_inline");
+
+  const items = input.items
+    .filter((item) => item && typeof item.itemId === "string" && item.itemId.trim() && String(item.answer ?? "").trim())
+    .map((item) => ({ itemId: item.itemId, prompt: String(item.prompt ?? ""), answer: String(item.answer).trim() }));
+  const skipped = items.filter((item) => !presentable(input.id, item.answer));
+  for (const item of skipped) console.warn(` 🎮 [library-game] [content] [skipped] game=${input.id} item=${item.itemId} reason=answer_not_presentable`);
+  const shown = items.filter((item) => presentable(input.id, item.answer));
+
+  // A shown item is matched when its text is unique among the stop's items: two items with the same text cannot be told apart.
+  const key = (item: { prompt: string; answer: string }) => normalize(game.subject === "spelling" ? item.answer : (item.prompt || item.answer), game.subject);
+  const counts = new Map<string, number>();
+  for (const item of items) counts.set(key(item), (counts.get(key(item)) ?? 0) + 1);
+  const matchedItemIds = shown.filter((item) => counts.get(key(item)) === 1).map((item) => item.itemId);
+  const unmatchedTargets = shown.length
+    ? shown.filter((item) => counts.get(key(item))! > 1).map((item) => game.subject === "spelling" ? item.answer : (item.prompt || item.answer))
+    : BUILT_IN_TARGETS[input.id];
+  for (const target of unmatchedTargets) console.warn(` 🎮 [library-game] [evidence] [unmatched] target=${target} game=${input.id} node=${input.nodeId}`);
+
+  const config = { childId: input.childId, nodeId: input.nodeId, gameId: input.id, subject: game.subject, items: shown };
+  // JSON in an inert script tag: "<" escaped so no item text can close the tag.
+  const configTag = `<script type="application/json" id="sunny-game-config">${JSON.stringify(config).replace(/</g, "\\u003c")}</script>`;
+  // A teach game plays the newest lesson saved for her; its voice and clips are copied beside the stop's page.
+  let lessonTag = "", assets: Array<{ from: string; name: string }> = [];
+  if (game.role === "teach") {
+    const lesson = classroomLessons(input.childId, game.subject, { rootDir: input.rootDir })[0];
+    if (!lesson) throw new Error(`classroom_no_lesson:${input.childId}`);
+    if (!input.homeworkId) throw new Error("classroom_homework_missing");
+    const stop = classroomLessonForStop(input.childId, input.homeworkId, lesson);
+    assets = stop.assets;
+    lessonTag = `\n<script type="application/json" id="classroom-lesson">${stop.json.replace(/</g, "\\u003c")}</script>`;
+    console.log(` 🎮 [classroom] [lesson] [chosen] child=${input.childId} lesson=${lesson.lessonId} assets=${assets.length}`);
+  }
+  const head = `<base href="/games/cookoff/${input.id}/">\n${configTag}${lessonTag}`;
+  // After <meta charset> when there is one (it must stay in the first bytes), else right after <head>.
+  const anchor = /<meta\s+charset=[^>]*>/i.test(source) ? /<meta\s+charset=[^>]*>/i : /<head[^>]*>/i;
+  if (!anchor.test(source)) throw new Error(`library_game_head_missing:${input.id}`);
+  const html = source
+    .replace(anchor, (tag) => `${tag}\n${head}`)
+    .replace(BRIDGE_TAG, () => `<script>\n${bridge}\n</script>`)
+    // The "Hey Elli" talk trial is not part of this build (owner, 2026-11-11); its script would 404 as HTML.
+    .replace(/<script[^>]*src="\/talk\/talk-client\.js"[^>]*><\/script>\s*/i, "")
+    // The game draws the companion in 3D, but which companion is Sunny's call (GET /api/companion/current/<child>);
+    // this is the anchor the text check asks for. Nothing reads it at runtime today.
+    .replace(/<body[^>]*>/i, (tag) => `${tag}\n<div id="sunny-companion" hidden data-companion-rendered-by="library-game"></div>`);
+  if (!html.includes('id="sunny-companion"')) throw new Error(`library_game_body_missing:${input.id}`);
+  console.log(` 🎮 [library-game] [html] [built] game=${input.id} child=${input.childId} node=${input.nodeId} items=${shown.length} matched=${matchedItemIds.length} unmatched=${unmatchedTargets.length}`);
+  return { html, matchedItemIds, unmatchedTargets, assets };
+}
+
+/**
+ * The hand-built 3D games on the tutor's menu for this subject (owner, 2026-11-25: full toolbox, every stage; no parent
+ * note needed). Any child's game for this subject can serve her; whether and when is the tutor's call from her evidence.
+ * A Quest or Boss game is placeable only where this stage offers an encounter. Elli's Classroom (owner, 2026-11-27) is
+ * offered only to a child who has a lesson saved, and goes on an ordinary practice step: a lesson teaches, never measures.
+ */
+export function libraryGameOffer(input: { subject: string; encounterOffered: boolean; childId?: string; rootDir?: string }): { games: Array<{ id: LibraryGameId; title: string; role: LibraryGameRole; builtFor: string }>; line: string } {
+  const lessons = input.childId ? classroomLessons(input.childId, input.subject, { rootDir: input.rootDir }) : [];
+  const games = Object.values(LIBRARY_GAMES).filter(game => game.subject === input.subject && (game.role !== "teach" || lessons.length))
+    .map(game => ({ id: game.id, title: game.title, role: game.role, builtFor: game.childId }));
+  const encounterGames = games.filter(game => game.role !== "teach"), teach = games.find(game => game.role === "teach");
+  const encounterLine = input.encounterOffered && encounterGames.length
+    ? `These hand-built 3D games are ready: ${encounterGames.map(game => `${game.id} = ${game.title} (${game.role}, first built for ${game.builtFor})`).join("; ")}. Each takes any step's ${input.subject === "math" ? "problems" : "words"}. Whether and when is your call from her evidence; to use one, put library_game on your quest or boss step.\n`
+    : "";
+  const teachLine = teach && lessons[0]
+    ? `${teach.id} = ${teach.title}: a 3D lesson where her companion teaches at a chalkboard, made for her outside Sunny from her record: "${lessons[0].title}" (${lessons[0].concept}, made ${lessons[0].madeOn}). It teaches, then gives her this step's ${input.subject === "math" ? "problems" : "words"} as her turn, recorded as practice. Whether and when is your call from her evidence; to use it, put library_game ${teach.id} on an ordinary step without check_first.\n`
+    : "";
+  return { games, line: `${encounterLine}${teachLine}` };
+}

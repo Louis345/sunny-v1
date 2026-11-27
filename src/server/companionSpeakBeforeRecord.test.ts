@@ -4,7 +4,7 @@ import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { z } from "zod";
 
 const model = vi.hoisted(() => ({ current: null as unknown }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => model.current) }));
+vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => model.current), createAnthropic: vi.fn(() => vi.fn(() => model.current)) }));
 vi.mock("../agents/elli/tools/generateToolDocs", () => ({ ALL_TOOLS: {} }));
 
 import { runAgent } from "../agents/elli/run";
@@ -77,8 +77,8 @@ describe("the companion speaks before she records", () => {
     expect(doStream).toHaveBeenCalledTimes(2);
   });
 
-  it("tells her to speak first and record after", () => {
+  it("tells her a record call ends her turn, so she speaks first", () => {
     expect(COMPANION_SPOKEN_TURN_PROMPT).toMatch(/recordChildSignal.*recordProductIssue|recordProductIssue.*recordChildSignal/);
-    expect(COMPANION_SPOKEN_TURN_PROMPT).toMatch(/after/i);
+    expect(COMPANION_SPOKEN_TURN_PROMPT).toMatch(/anything you say comes before those calls/i);
   });
 });

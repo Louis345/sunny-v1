@@ -1,6 +1,9 @@
 /** Companion LLM turn — extracted from SessionManager.runCompanionResponse. */
 // @ts-nocheck
+import { SIDE_TALK_TOOL, sideTalkAiTool, sideTalkLine } from "./companionSideTalk";
+import { sideTalkKey as companionSideTalkKey } from "./companionChildFacts";
 import { redactProtectedSpellingText, redactProtectedSpellingValue } from "./currentBoardSnapshot";
+import { noteCompanionReply } from "./urgentLearningSupport";
 import { randomUUID } from "node:crypto";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import { runAgent } from "../agents/elli/run";
@@ -20,6 +23,8 @@ import {
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 import { COMPANION_EXPRESSION_PROMPT, createExpressionTagFilter } from "./companionExpressionTags";
+import { companionAbilitiesLine } from "./companionTurnTaking";
+import { answerGateForSession, filterAnswerReveal } from "./answerRevealGate";
 import { COMPANION_SPOKEN_TURN_PROMPT } from "./companionTurnTaking";
 
 /** Project remembered text too: a previous teaching turn must not reveal this check's stimulus. */
@@ -59,6 +64,12 @@ export function deferCompanionUntilNarrationFinishes(
   const requestId = session.activeGameNarrationRequestId
     ?? session.pendingGameNarrationPlayback?.requestId;
   if (!requestId) return false;
+  if (session.voiceFloor?.narratorReadingScreenText?.()) {
+    // She spoke over an instruction: the narrator stops and her companion answers her now (a test word finishes first).
+    console.log(" 🎮 [voice-floor] [narrator] [stopped] reason=child_spoke");
+    session.bargeIn("child_speech");
+    return false;
+  }
   const turnState = session.turnSM.getState?.();
   if (turnState === "LOADING" || turnState === "PROCESSING") {
     session.turnSM.onInterrupt();
@@ -200,11 +211,14 @@ export async function runCompanionResponseForSession(
         typeof session.buildCurrentBoardContextForTurn === "function"
           ? session.buildCurrentBoardContextForTurn(source === "user" ? userMessage : undefined)
           : "";
-      const messageWithContext = [userMessage, boardCtx, canvasCtx]
+      // Her own side-conversation clock, shared with her FaceTime calls (owner 2026-11-15).
+      const sideTalkKey = companionSideTalkKey(session.chartChildId ?? "", session.companion?.name ?? "");
+      const messageWithContext = [userMessage, boardCtx, canvasCtx, sideTalkLine(sideTalkKey)]
         .filter(Boolean)
         .join("\n\n");
 
       const finalTools = session.buildAgentToolkit();
+      finalTools[SIDE_TALK_TOOL] = sideTalkAiTool(sideTalkKey);
       if (session.spellingLaunch) delete finalTools.sessionLog;
 
       debugPrintClaudePreRun(session, userMessage);
@@ -236,6 +250,8 @@ export async function runCompanionResponseForSession(
           console.error(" 🎮 [companion] [expression] [failed]", error),
         );
       });
+      // The open problem's answer: one gate before both text and voice (11/23, "try typing 49"; muted text showed it too).
+      const answerGate = answerGateForSession(session);
       const speakChunk = (chunk: string) => {
         if (chunk.trim()) startAudio();
         fullResponse += chunk;
@@ -251,7 +267,7 @@ export async function runCompanionResponseForSession(
         history: protectSpellingModelMessages(historyWithPin, session.currentBoardSnapshot),
         injectedContextMessages: protectSpellingModelMessages(gameContextMessages, session.currentBoardSnapshot),
         userMessage: redactProtectedSpellingText(messageWithContext, session.currentBoardSnapshot),
-        profile: { ...session.companion, systemPrompt: `${redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot)}\n\n${COMPANION_SPOKEN_TURN_PROMPT}\n\n${COMPANION_EXPRESSION_PROMPT}` },
+        profile: { ...session.companion, systemPrompt: `${redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot)}\n\n${COMPANION_SPOKEN_TURN_PROMPT}\n\n${COMPANION_EXPRESSION_PROMPT}\n\n${companionAbilitiesLine(Object.keys(finalTools))}` },
         tools: finalTools,
         experimentalOnStepStart: thinkingHooks?.onStepStart,
         experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,
@@ -262,7 +278,7 @@ export async function runCompanionResponseForSession(
             session.voiceLatency?.mark("model_first_token");
             console.log("  🎮 [companion] model_response_received");
           }
-          const spoken = expressionTags.push(chunk);
+          const spoken = answerGate.push(expressionTags.push(chunk));
           if (spoken) speakChunk(spoken);
         },
         signal: abortController.signal,
@@ -649,7 +665,7 @@ export async function runCompanionResponseForSession(
       });
 
       if (rejectStaleOutput("completion")) return;
-      const trailing = expressionTags.flush();
+      const trailing = answerGate.push(expressionTags.flush()) + answerGate.flush();
       if (trailing) speakChunk(trailing);
 
       session.turnSM.onAgentComplete();
@@ -671,7 +687,13 @@ export async function runCompanionResponseForSession(
       if (fullResponse.trim()) {
         session.conversationHistory.push({ role: "assistant", content: fullResponse });
         session.recordDebugTranscript?.("assistant", fullResponse);
+        // A game-invited reply can give letters too (audit 2026-11-13 c); only her own turn is her help request.
         if (source === "user") session.recordCompanionHelpTurn?.(userMessage, fullResponse);
+        else session.recordCompanionReplySupport?.(fullResponse);
+        if (session.chartChildId) {
+          const said = noteCompanionReply(String(session.chartChildId), fullResponse);
+          console.log(` 🎮 [companion] [reply] [said] child=${session.chartChildId} words=${said.words} repeat=${said.repeat}`);
+        }
       }
 
       if (await finalizePendingSessionEnd(session)) {
@@ -763,6 +785,8 @@ export async function runCompanionResponseForSession(
 
 export async function runDirectCompanionTurnForSession(session: any, text: string): Promise<void> {
     if (session.activeGameNarrationRequestId || session.pendingGameNarrationPlayback) session.bargeIn();
+    text = filterAnswerReveal(session, text);
+    if (!text.trim()) return; // the whole line stated an open check's answer: nothing is said or shown
     const turn = claimCompanionResponseTurn(session);
     session.turnSM.onEndOfTurn();
     // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it

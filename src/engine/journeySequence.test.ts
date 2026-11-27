@@ -80,3 +80,19 @@ describe('the Planner authors the journey in one place',()=>{
   expect(instruction).toContain('your decision');
  });
 });
+
+// BUGS.md S5, owner observed 2026-11-08: board 4 showed "Final Trophy Check" twice, because the Planner named the
+// finish portal after the last stop ("Final Signal Check" / "Final Signal Check Complete" on board 3). The finish must
+// read as the finish. Why the human caught it: two portals looked the same. Why logs missed it: labels are not checked.
+// Why the lab missed it: fixtures always used a distinct endpoint label.
+describe('the finish never repeats a stop name',()=>{
+ it('names the finish "Finish" when the Planner reused a stop name for it',()=>{
+  const inventory=[{id:'sort',title:'Keep Them Apart'},{id:'final',title:'Final Trophy Check'}];
+  const log=vi.spyOn(console,'log').mockImplementation(()=>{});
+  const journey=expand({title:'Board 4',opening:['sort'],closing:['final'],singlePathReason:'One path.',endpointLabel:'Final Trophy Check Complete'},inventory);
+  expect(journey.portals.filter(portal=>portal.kind==='endpoint').map(portal=>portal.label)).toEqual(['Finish']);
+  expect(log.mock.calls.some(([line])=>String(line).includes('[endpoint-label-repeats-stop]'))).toBe(true);
+  const distinct=expand({title:'Board 4',opening:['sort'],closing:['final'],singlePathReason:'One path.',endpointLabel:'Trophy Room'},inventory);
+  expect(distinct.portals.find(portal=>portal.kind==='endpoint')!.label).toBe('Trophy Room');
+ });
+});

@@ -49,6 +49,11 @@ it('seeds the demo child a Quest board and plays it through Boss for free',async
  const warmUp=(cycle:any)=>cycle.nodes.find((row:any)=>currentBoardInstance(cycle).nodeIds.includes(row.nodeId)&&row.role==='baseline')!;
  const stateOf=(cycle:any,nodeId:string)=>(projectLearningCycle(cycle) as any).adventureBoard.nodes.find((row:any)=>row.activityNodeId===nodeId)?.state;
  expect(stateOf(seeded,encounter(seeded,'quest').nodeId)).toBe('locked');
+ // Owner 2026-11-18, "I have never seen the ceremony": the kiosk board merged a presented "activity" over the
+ // canonical "quest", and the ceremony plays only for kind quest/boss. The board the kiosk shows must keep the kind.
+ const chart=getChildChart(DEMO_CHILD_ID,{rootDir});
+ const kioskQuest=(chart.activeSessionPlan as any)?.adventureBoard?.nodes.find((row:any)=>row.activityNodeId===encounter(seeded,'quest').nodeId);
+ expect(kioskQuest?.kind).toBe('quest');
  const warmed=play(opts,warmUp(seeded).nodeId,'quest-warm-up');
  expect(canonicalJourneyLaunchable(seeded,encounter(seeded,'quest').nodeId)).toBe(false);
  expect(stateOf(warmed,encounter(seeded,'quest').nodeId)).toBe('available');

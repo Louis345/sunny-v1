@@ -13,13 +13,13 @@ import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import * as canvas from "../engine/adventureBoardCanvas";
 import * as runtime from "../engine/learningCycleRuntime";
 import { getChildChart } from "../profiles/childChart";
-import { renderHarnessReport, scoreRun, wallsFromConversations, type HarnessRun } from "./plannerHarness";
+import { harnessModelEnv, renderHarnessReport, scoreRun, wallsFromConversations, type HarnessRun } from "./plannerHarness";
 import { HARNESS_CHILDREN } from "./harnessChildren";
 
 /**
  * Runs each synthetic child through real intake, Discovery, the Teaching board and the next board, with the
  * Planner at the Anthropic boundary. By default that Planner is the recorded one ($0). With HARNESS_MODEL set
- * (and ANTHROPIC_API_KEY), each Planner and artist turn goes to that model instead, stopping at
+ * (and ANTHROPIC_API_KEY), Sunny's SUNNY_*_MODEL settings become that model, so each request is shaped for it, stopping at
  * HARNESS_MAX_TOKENS (default 400000) so a run cannot overspend. Never touches a real child's data.
  * Run: npm run harness  (paid: HARNESS_MODEL=claude-sonnet-5 HARNESS_MAX_TOKENS=200000 npm run harness)
  */
@@ -27,13 +27,15 @@ const lab = vi.hoisted(() => ({ planner: { root: "", childId: "", homeworkId: ""
 vi.mock("@anthropic-ai/sdk", async original => {
   const actual = await original<typeof import("@anthropic-ai/sdk")>();
   const { recordedToolReply } = await import("../scripts/fixtures/recordedToolPlanner");
+  const { assertShapedForHarnessModel } = await import("./plannerHarness");
   const model = process.env.HARNESS_MODEL?.trim(), cap = Number(process.env.HARNESS_MAX_TOKENS ?? 400000);
   const real = model ? new actual.default({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 }) : undefined;
   const answer = async (request: any) => {
     if (!real) return recordedToolReply(lab.planner, request);
     if (lab.tokens >= cap) throw new Error(`harness_token_cap_reached:${lab.tokens}`);
+    assertShapedForHarnessModel(request, model!);
     lab.planner.requests.push(structuredClone(request));
-    const message = await real.messages.stream({ ...request, model }).finalMessage();
+    const message = await real.messages.stream(request).finalMessage();
     lab.tokens += (message.usage?.input_tokens ?? 0) + (message.usage?.output_tokens ?? 0);
     return message;
   };
@@ -52,6 +54,8 @@ async function runChild(child: typeof HARNESS_CHILDREN[number]): Promise<Harness
   Object.assign(lab.planner, { root: rootDir, childId, words: child.words, missedWords: child.missedWords, requests: [], decisions: 0, teachingBoards: 0 });
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
   if (planner === "recorded") vi.stubEnv("ANTHROPIC_API_KEY", "recorded-local-only");
+  // Sunny shapes each request for the model that receives it (I6): HARNESS_MODEL is every SUNNY_*_MODEL for this run.
+  for (const [name, value] of Object.entries(harnessModelEnv(process.env.HARNESS_MODEL?.trim()))) vi.stubEnv(name, value);
   for (const name of ["SUNNY_CHART_DIR", "SUNNY_PREVIEW_MODE", "SUNNY_CERTIFICATION_RUN_ID", "SUNNY_ACTIVITY_RESULT_LOG_ROOT", "SUNNY_LOG_REPO_DIR", "SUNNY_IMAGE_CACHE_PATH", "GROK_API_KEY", "OPENAI_API_KEY"]) vi.stubEnv(name, "");
   const run: HarnessRun = { caseId: child.id, planner, aboutHer: null, boards: [], prompts: {}, conversations: [] };
   try {

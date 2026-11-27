@@ -28,6 +28,7 @@ import { AdventureChoiceModal } from "./AdventureChoiceModal";
 import {
   UNLOCK_CEREMONY_END_MS,
   UNLOCK_CEREMONY_STAGES,
+  ceremonyStageAt,
   UnlockCeremony,
   UnlockCeremonyDim,
   stageReached,
@@ -44,6 +45,8 @@ type AdventureBoardProps = {
   onChoiceVisibilityChange?: (choiceSet: AdventureChoiceSet, opened: boolean) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
   onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
+  /** An activity covers the board: hold the unlock ceremony until she can see it (owner, 2026-11-18). */
+  holdCeremony?: boolean;
 };
 
 export type UnlockCeremonyEvent = {
@@ -193,6 +196,7 @@ export function AdventureBoard({
   onChoiceClick,
   onChoiceVisibilityChange,
   onUnlockCeremony,
+  holdCeremony = false,
 }: AdventureBoardProps): React.ReactElement {
   const previousNodeStates = useRef(new Map(board.nodes.map((node) => [node.id, node.state])));
   const boardRef = useRef<HTMLElement | null>(null);
@@ -206,6 +210,9 @@ export function AdventureBoard({
   useEffect(() => {
     // A Quest or Boss plays its ceremony when it opens, or the first time she ever sees it open (owner,
     // 2026-11-05: "they never see the quest and boss node" until it is ready, built ahead of time).
+    // Behind a game she cannot see it (11/18: the Boss ceremony played 7.5 s before she was back on the board).
+    // Hold it: the remembered states stay as they were, so it plays the moment the board is on screen.
+    if (holdCeremony) return;
     const revealed = readRevealedEncounters(board.childId);
     const newlyUnlocked = board.nodes.find((node) => {
       if (node.kind !== "quest" && node.kind !== "boss") return false;
@@ -238,7 +245,7 @@ export function AdventureBoard({
     rememberRevealedEncounter(board.childId, event.nodeId);
     onUnlockCeremony?.(event);
     console.log(` 🎮 [adventure-board] [unlock-ceremony] [started] kind=${event.kind} node=${event.nodeId}`);
-  }, [board.boardId, board.childId, board.nodes, board.edges, onUnlockCeremony]);
+  }, [board.boardId, board.childId, board.nodes, board.edges, onUnlockCeremony, holdCeremony]);
 
   // The running ceremony owns its timers, so a remount (StrictMode, a reconnect) re-arms them instead of
   // leaving the node underground forever.
@@ -247,7 +254,7 @@ export function AdventureBoard({
     const timers: ReturnType<typeof setTimeout>[] = [];
     const later = (ms: number, run: () => void) => timers.push(setTimeout(run, ms));
     for (const { stage, at } of UNLOCK_CEREMONY_STAGES.slice(1)) later(at, () => setCeremonyStage(stage));
-    if (unlockCeremony.kind === "boss") later(2500, () => setCeremonyShakeAgain(true));
+    if (unlockCeremony.kind === "boss") later(ceremonyStageAt("rise") + 1250, () => setCeremonyShakeAgain(true));
     later(UNLOCK_CEREMONY_END_MS, () => {
       setUnlockCeremony(null);
       console.log(` 🎮 [adventure-board] [unlock-ceremony] [finished] kind=${unlockCeremony.kind} node=${unlockCeremony.nodeId}`);
@@ -316,6 +323,12 @@ export function AdventureBoard({
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
   const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
   const nodes = new Map(resolvedNodes.map((node) => [node.id, node]));
+  // Several ready stops look alike, so one stands out as next (owner 2026-11-08). Every ready stop stays
+  // playable; the glow only moves on when the saved next stop is already done here.
+  const playableNow = (node: AdventureBoardNode | undefined) =>
+    Boolean(node && (node.state === "available" || node.state === "current") && node.kind !== "start" && node.kind !== "choice-gate");
+  const savedNext = board.progress?.currentNodeId ? nodes.get(board.progress.currentNodeId) : undefined;
+  const nextStopId = playableNow(savedNext) ? savedNext!.id : resolvedNodes.find(playableNow)?.id;
 
   return (
     <section
@@ -329,6 +342,7 @@ export function AdventureBoard({
         unlockCeremony ? `adventure-board--ceremony-${unlockCeremony.kind}` : "",
         unlockCeremony && !stageReached(ceremonyStage, "open") ? "adventure-board--ceremony-dim" : "",
         unlockCeremony && stageReached(ceremonyStage, "shake") && !ceremonyShakeAgain ? "adventure-board--ceremony-shake" : "",
+        unlockCeremony && stageReached(ceremonyStage, "rumble") && !stageReached(ceremonyStage, "pillar") ? "adventure-board--ceremony-rumble" : "",
         unlockCeremony && ceremonyShakeAgain ? "adventure-board--ceremony-shake-again" : "",
       ].join(" ")}
       style={{
@@ -461,6 +475,7 @@ export function AdventureBoard({
                 "adventure-board__node",
                 `adventure-board__node--${node.kind}`,
                 `adventure-board__node--${node.state}`,
+                node.id === nextStopId ? "adventure-board__node--next" : "",
                 unlockCeremony?.nodeId === node.id ? "adventure-board__node--unlocking" : "",
                 unlockCeremony?.nodeId === node.id && !stageReached(ceremonyStage, "rise")
                   ? "adventure-board__node--underground"

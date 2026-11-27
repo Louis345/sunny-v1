@@ -51,16 +51,6 @@ export type CompanionManifestEntry = {
       plead: string[];
       specialDance: string;
     };
-    scripts: {
-      en: {
-        intro: string;
-        plead: string;
-      };
-      ja?: {
-        intro?: string;
-        plead?: string;
-      };
-    };
   };
 };
 
@@ -68,7 +58,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
   {
     "id": "elli",
     "name": "Elli",
-    "vrmUrl": "/companions/2878599730723533962.vrm",
+    "vrmUrl": "/companions/sample.vrm",
     "personality": [
       "sparkly",
       "funny",
@@ -150,7 +140,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
         "Elli"
       ],
       "ageImage": "Warm best-friend companion",
-      "personality": "Warm, funny, playful, and completely in Ila's corner",
+      "personality": "Warm, funny, playful, and completely in the child's corner",
       "likes": [
         "riddles",
         "word games",
@@ -171,7 +161,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
         "turning words into games",
         "remembering shared jokes"
       ],
-      "role": "Ila's best friend and learning buddy",
+      "role": "The child's best friend and learning buddy",
       "outfitChangeEffect": "Adventure outfit -> extra playful best-friend energy",
       "gestureProfile": {
         "meet": "wave",
@@ -184,12 +174,129 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "wave"
         ],
         "specialDance": "dance_victory"
+      }
+    }
+  },
+  {
+    "id": "hikari",
+    "name": "Hikari",
+    "vrmUrl": "/companions/673852811403133503.vrm",
+    "personality": [
+      "warm",
+      "playful",
+      "glowing"
+    ],
+    "unlockCost": 0,
+    "voiceAvailable": true,
+    "voices": [
+      {
+        "id": "d8WcCpplp8meHt10UhL8",
+        "label": "Hikari Voice",
+        "language": "en",
+        "default": true
       },
-      "scripts": {
-        "en": {
-          "intro": "Hi! I'm Elli. I love riddles, silly ideas, and cheering for every tiny win.",
-          "plead": "Please pick me! I promise I'll make learning feel like hanging out with a friend who is always on your side."
-        }
+      {
+        "id": "piI8Kku0DcvcL6TTSeQt",
+        "label": "Fairy",
+        "language": "en"
+      },
+      {
+        "id": "n7Wi4g1bhpw4Bs8HK5ph",
+        "label": "Gigi - Energetic",
+        "language": "en"
+      },
+      {
+        "id": "Nggzl2QAXh3OijoXD116",
+        "label": "Candy - Young and Sweet",
+        "language": "en"
+      }
+    ],
+    "companionConfig": {
+      "companionId": "hikari",
+      "vrmUrl": "/companions/673852811403133503.vrm",
+      "expressions": {
+        "idle": "neutral",
+        "happy": "happy",
+        "thinking": "lookDown",
+        "celebrating": "happy",
+        "concerned": "sad",
+        "winking": "blinkLeft",
+        "surprised": "surprised",
+        "angry": "angry",
+        "blink": "blink"
+      },
+      "faceCamera": {
+        "position": [
+          0,
+          1.4,
+          0.8
+        ],
+        "target": [
+          0,
+          1.4,
+          0
+        ]
+      },
+      "displayScale": 1,
+      "dopamineGames": [
+        "space-invaders",
+        "asteroid",
+        "space-frogger"
+      ],
+      "sensitivity": {
+        "session_start": 0.8,
+        "correct_answer": 0.9,
+        "wrong_answer": 0.6,
+        "mastery_unlock": 1,
+        "session_complete": 0.85,
+        "session_end": 0.7,
+        "idle_too_long": 0.5
+      },
+      "idleFrequency_ms": 8000,
+      "randomMomentProbability": 0.3,
+      "toggledOff": false
+    },
+    "showroom": {
+      "modelName": "Sunny companion Hikari (angel)",
+      "recommendedNames": [
+        "Hikari"
+      ],
+      "ageImage": "Around 8 years old, a little angel friend",
+      "personality": "Warm, playful, a little mischievous angel who loves helping her friend shine",
+      "likes": [
+        "stars",
+        "fluffy clouds",
+        "secret wishes",
+        "silly jokes",
+        "pink jackets"
+      ],
+      "dislikes": [
+        "thunderstorms",
+        "being left out",
+        "grumpy days"
+      ],
+      "catchphrases": [
+        "Let's make it glow!",
+        "Wish granted!"
+      ],
+      "specialSkills": [
+        "Turning hard moments into bright ones",
+        "making up sky games",
+        "noticing when you need a cheer"
+      ],
+      "role": "A glowing angel best friend for video calls",
+      "outfitChangeEffect": "New outfit -> extra sparkly halo energy",
+      "gestureProfile": {
+        "meet": "wave",
+        "intro": [
+          "wave",
+          "think"
+        ],
+        "plead": [
+          "dance_victory",
+          "wave"
+        ],
+        "specialDance": "dance_victory"
       }
     }
   },
@@ -347,19 +454,13 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "wave"
         ],
         "specialDance": "dance_victory"
-      },
-      "scripts": {
-        "en": {
-          "intro": "I'm Kefla. I turn spelling and math into training — big energy, zero meanness, all heart.",
-          "plead": "Pick me and we'll treat every lesson like leveling up: hard work, loud cheers, real progress."
-        }
       }
     }
   },
   {
     "id": "matilda",
     "name": "Matilda",
-    "vrmUrl": "/companions/673852811403133503.vrm",
+    "vrmUrl": "/companions/sample.vrm",
     "personality": [
       "clever",
       "patient",
@@ -462,7 +563,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
         "making challenges feel exciting",
         "helping kids feel capable"
       ],
-      "role": "Reina's sharp, affectionate learning partner",
+      "role": "The child's sharp, affectionate learning partner",
       "outfitChangeEffect": "Bookish outfit -> extra clever challenge energy",
       "gestureProfile": {
         "meet": "wave",
@@ -475,12 +576,6 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "wave"
         ],
         "specialDance": "dance_victory"
-      },
-      "scripts": {
-        "en": {
-          "intro": "Hi! I'm Matilda. I love books, patterns, and challenges that make your brain feel powerful.",
-          "plead": "Pick me and I'll keep things exciting, tricky, and always fun. We'll solve the hard stuff together."
-        }
       }
     }
   },
@@ -620,12 +715,6 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "wave"
         ],
         "specialDance": "silly_dancing"
-      },
-      "scripts": {
-        "en": {
-          "intro": "Hi! I'm Melty. I love strawberries, candy, pink sparkles, and cheering people up when they feel wobbly.",
-          "plead": "Please pick me! I'll make every lesson sweeter, put cute band-aids on hard moments, and celebrate you so much."
-        }
       }
     }
   },
@@ -758,12 +847,6 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "quick_formal_bow"
         ],
         "specialDance": "salsa_dancing"
-      },
-      "scripts": {
-        "en": {
-          "intro": "Hello, I am Princess. I turn hard practice into brave little quests, and I always notice a real try.",
-          "plead": "Pick me and we shall make every correction sparkle. The royal rule is simple: brave tries first, crowns after."
-        }
       }
     }
   },
@@ -905,12 +988,6 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "wave"
         ],
         "specialDance": "hip_hop_dancing_2"
-      },
-      "scripts": {
-        "en": {
-          "intro": "Hi, I'm Tene. I love music, dancing, glowing lights, and helping people feel confident.",
-          "plead": "Pick me and I'll have your back. We'll find the rhythm in hard things and shine through them together."
-        }
       }
     }
   },
@@ -1052,16 +1129,6 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "dance_victory"
         ],
         "specialDance": "blow_a_kiss"
-      },
-      "scripts": {
-        "en": {
-          "intro": "Hi! I'm Towa. I love glowing earrings, cute outfits, night walks, and making dark places feel friendly.",
-          "plead": "Pick me and we'll shine together. I'll help every lesson feel stylish, brave, and a little magical."
-        },
-        "ja": {
-          "intro": "トワだよ。かわいいアクセサリーと、光るものが大好き。",
-          "plead": "わたしを選んでね。一緒にきらきらしよう。"
-        }
       }
     }
   },
@@ -1193,12 +1260,6 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "think"
         ],
         "specialDance": "salsa_dancing"
-      },
-      "scripts": {
-        "en": {
-          "intro": "Hi, I'm Yukari. I love soft sweaters, purple evenings, and helping you feel steady when things get loud.",
-          "plead": "Pick me and we'll take it one breath at a time—I'll cheer the small wins and keep the vibe gentle."
-        }
       }
     }
   }

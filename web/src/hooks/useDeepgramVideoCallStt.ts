@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushBufferIfUnmuted } from "../../../src/shared/flushBuffer";
+import { MIC_FRAME_SAMPLES, framesFor } from "../utils/micFrames";
 
 type VideoCallSttStatus = "idle" | "connecting" | "listening" | "blocked" | "error";
 
@@ -28,7 +29,10 @@ type WindowWithWebkitAudio = Window & {
 };
 
 const BARGE_IN_RMS_THRESHOLD = 0.045;
-const BARGE_IN_CONSECUTIVE_FRAMES = 2;
+/** About 0.2 s of her voice over the companion stops the companion (was 2 × 256 ms frames). */
+const BARGE_IN_CONSECUTIVE_FRAMES = framesFor(192);
+/** The last second of her voice, replayed to Deepgram when she barges in. */
+const ROLLING_BUFFER_FRAMES = framesFor(1024);
 const VIDEO_CALL_STT_CONNECTION_MESSAGE =
   "Voice connection is having trouble. You can still type.";
 const VIDEO_CALL_STT_MIC_PERMISSION_MESSAGE =
@@ -145,7 +149,7 @@ export function useDeepgramVideoCallStt(
     const audioContext = new AudioContextCtor({ sampleRate: 16000 });
     audioContextRef.current = audioContext;
     const source = audioContext.createMediaStreamSource(stream);
-    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    const processor = audioContext.createScriptProcessor(MIC_FRAME_SAMPLES, 1, 1);
     processorRef.current = processor;
     const silence = audioContext.createGain();
     silence.gain.value = 0;
@@ -157,7 +161,7 @@ export function useDeepgramVideoCallStt(
       }
       const base64 = arrayBufferToBase64(int16.buffer);
       rollingBufferRef.current.push(base64);
-      if (rollingBufferRef.current.length > 4) {
+      if (rollingBufferRef.current.length > ROLLING_BUFFER_FRAMES) {
         rollingBufferRef.current.shift();
       }
 

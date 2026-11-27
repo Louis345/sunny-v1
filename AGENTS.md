@@ -1,7 +1,20 @@
 Organic first: Sunny is an adaptive learning system, so code must route truth, evidence, and safety while Elli handles human conversation from live context instead of canned scripted responses.
+XState owns every voice and turn-taking state. One voice at a time: the game's narrator reads only on-screen text and test words, the companion is the only one who converses, and when the child speaks both stop (`src/server/voiceFloor.ts`, `web/src/utils/voiceFloor.ts`).
 Every human-caught child-session bug must become a lab invariant: explain why the human caught it, why logs did or did not catch it, and why the AI lab missed it.
 
 Required learning authority: read [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md) before changing learning evidence, prediction, theory, or adaptation behavior. It is the sole normative learning-loop contract [Laws 13, 14]: Sunny is accountable to reality, every activity is a measurement instrument first and a game second, and private game scores or synthetic learning claims are forbidden. Design stance: [`AI_DESIGN_PRINCIPLES.md`](./AI_DESIGN_PRINCIPLES.md).
+
+# The vision (read first)
+
+- **The goal:** each girl passes her real school test, and she wants to come back to Sunny tomorrow. Everything serves those two.
+- **One Planner, one menu, one source of truth:** there is one Planner for every subject and stage. Each subject only fills in its facts. Each fact and each list lives in one place; if you are about to copy one, derive it instead.
+- **The Planner thinks like a tutor:** each board, it writes its theory, checks whether she improved and why, and changes course. Help it by giving it facts and its own track record, not rules.
+- **Full toolbox at every stage:** a doctor gets every instrument. Restrict only for child safety or an honest record, and say why, in one place.
+- **Honest records:** help is help, practice is not a check, and play is play. Code owns truth; the AI owns judgment.
+- **Fun is part of learning:** variable rewards, her companion, choices she makes. Today the Planner owns the boards; the reward economy and a designer agent come next, as separate agents with their own missions.
+- **The children are real:** nothing reaches them untested, and nothing merges until the owner has tested it with them.
+
+When a change fights this vision, stop and ask. Tests catch drift after the fact; this page is what keeps an agent from drifting in the first place.
 
 # Sunny: six rules for AI agents
 
@@ -17,6 +30,7 @@ There is one source of truth for each fact. New Planner, generator, care-plan an
 - Code fills every code-owned field itself (IDs, configuration, measurement bookkeeping, the expanded journey) and never asks the Planner for them. Free to decide, fixed to write down.
 - A tool that cannot accept an input says why in its tool result, inside the same conversation. No after-the-fact check may buy a correction or patch call, and nothing flows back up to veto a finished order.
 - Tools are sent in strict mode. If the API cannot enforce a form, make the form smaller (split the tool, or let code fill the field); do not loosen the lock. Today only `add_explainer` is unlocked, for size, and its handler checks it.
+- **One menu [Law 16]:** Games and Planner tools are declared once (activityToolCatalog contracts + `plannerMenu`); every Planner stage and subject derives its menu from it; a stage may remove a tool only via `STAGE_EXCEPTIONS` with a child-safety or honest-record reason; `plannerMenuParity.test.ts` enforces it.
 - **Math Prompt Chain Boundary:** Math has one production ingestion path: assignment and child chart → Planner → Experience Creator → runtime verification. The only AI roles are the Planner and Experience Creator. No new math production module, model call, fallback, renderer, or pipeline may be added without explicit human approval.
 
 ## 3. Everyone else is a nurse
@@ -30,6 +44,7 @@ The canvas, the runtime and Elli carry out the order faithfully. They never veto
 - Nothing merges until the owner has tested it with the child and comments `/ship` on the PR (`human-gate` plus CI). Green CI and AI approval are not acceptance. The AI never posts `/ship`.
 - Human sessions start only through the kiosk launcher `npm run sunny:run -- ...`, without `--no-browser` (that flag is for automated runs only), and only after the log shows `🎮 [kiosk] [kiosk-visible] [confirmed]`.
 - The automatic AI review is paused since 2026-10-22 for cost; do not wait for it or re-enable it unless the owner asks.
+- Anything new that Sunny writes to disk gets a lifetime row in `src/server/storagePolicy.ts`, or it is a record kept forever. Labs, certifications and demos never run on the kiosk.
 
 ## 5. Treat the disease [Laws 3, 4, 5, 6, 15]
 

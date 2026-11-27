@@ -37,8 +37,8 @@ jobs:
       - name: Build (root + web)
         run: npm run build
 
-      - name: Test (Vitest root + web)
-        run: npm run test
+      - name: Test (Vitest root + web, including pre-deploy browser runs)
+        run: npm run test:all
 
       - name: Save synthetic Sunny benchmark evidence
         if: always()

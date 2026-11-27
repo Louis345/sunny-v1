@@ -7,7 +7,7 @@ vi.mock("ai", async (importOriginal) => ({
   streamText: stream,
   stepCountIs: () => () => false,
 }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: () => "model" }));
+vi.mock("@ai-sdk/anthropic", () => ({ anthropic: () => "model", createAnthropic: () => () => "model" }));
 vi.mock("../agents/elli/tools/generateToolDocs", () => ({ ALL_TOOLS: {} }));
 
 import { runCompanionResponseForSession } from "./companion-response-runner";
@@ -80,8 +80,7 @@ describe("Elli's inline expressions", () => {
     const system = stream.mock.calls.at(-1)?.[0].messages[0].content as string;
     expect(system).toContain("Live persona");
     expect(system).toContain("[smile]");
-    expect(system).toContain("Keep ordinary conversation brief");
-    expect(system).toContain("Expand when useful or requested");
+    expect(system).toContain("## Talking live");
   });
 });
 

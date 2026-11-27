@@ -1,0 +1,142 @@
+import { familyClock } from "../utils/familyCalendar";
+/**
+ * The concept signal (docs/specs/child-knowledge-store.md, stage 1; owner + Saori 2026-11-22): how she thinks, kept
+ * apart from right/wrong counts. Code lays out three kinds of fact, each with an id the Planner can cite:
+ *   - everything she said to her companions on this assignment, verbatim and dated (no keyword list picks which);
+ *   - problems or words right only with help (help-dependence);
+ *   - her wrong answers exactly as she gave them, grouped by the Planner's own concept tags (ready_on_paper items).
+ * Code names no misconception and ranks nothing: what the pattern means is the Planner's to infer.
+ */
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { resolveChildContextDir } from "../utils/contextRoot";
+import type { LearningCycleRecordV2, LearningCycleRepositoryOptions, LearningObservation } from "./learningCycleRepository";
+
+const SYNTHETIC = /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i;
+const MAX_WORDS = 60, MAX_ITEMS_PER_CONCEPT = 10, MAX_ANSWERS_PER_ITEM = 6;
+const clip = (text: string, max = 160) => { const flat = text.replace(/\s+/g, " ").trim(); return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat; };
+const minute = (iso: string) => familyClock(iso);
+
+/** A short, stable id for one recorded answer (observation ids run to 120 characters). */
+export const observationEvidenceId = (observationId: string): string => `ans-${crypto.createHash("sha1").update(observationId).digest("hex").slice(0, 8)}`;
+
+type Said = { id: string; at: string; words: string; source?: string };
+
+/** Her words to her companions since this assignment began (companion_interactions, one file per day). */
+function herWords(cycle: Pick<LearningCycleRecordV2, "childId" | "createdAt">, opts: LearningCycleRepositoryOptions): Said[] {
+  const dir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "companion_interactions");
+  const since = cycle.createdAt.slice(0, 10);
+  let files: string[] = [];
+  try { files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(name => /^\d{4}-\d{2}-\d{2}\.ndjson$/.test(name) && name.slice(0, 10) >= since).sort() : []; }
+  catch (error) { console.warn(` 🎮 [concept-signal] [her-words] [unreadable] child=${cycle.childId} reason=${error instanceof Error ? error.message : String(error)}`); }
+  const said: Said[] = [];
+  for (const file of files) {
+    let lines: string[] = [];
+    try { lines = fs.readFileSync(path.join(dir, file), "utf8").split("\n"); } catch { continue; }
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const row = JSON.parse(line) as { id?: unknown; questionText?: unknown; createdAt?: unknown; callSource?: unknown };
+        if (typeof row.id !== "string" || typeof row.questionText !== "string" || typeof row.createdAt !== "string") continue;
+        if (row.createdAt < cycle.createdAt) continue;
+        said.push({ id: row.id, at: row.createdAt, words: row.questionText, ...(typeof row.callSource === "string" ? { source: row.callSource } : {}) });
+      } catch { /* one unreadable line never hides the rest */ }
+    }
+  }
+  return said.sort((a, b) => a.at.localeCompare(b.at)).slice(-MAX_WORDS);
+}
+
+/** Room-talk digests since this assignment began (room_talk, one file per day; 2026-11-23): her words heard while her
+ * companion was minimized, summarized once per session, quotes checked against what was heard. */
+function roomTalk(cycle: Pick<LearningCycleRecordV2, "childId" | "createdAt">, opts: LearningCycleRepositoryOptions): Array<{ id: string; at: string; summary: string; herWords: Array<{ quote: string; shows?: string }>; adultsTeaching: Array<{ quote: string; what?: string }> }> {
+  const dir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "room_talk");
+  const rows: ReturnType<typeof roomTalk> = [];
+  let files: string[] = [];
+  try { files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(name => /^\d{4}-\d{2}-\d{2}\.ndjson$/.test(name) && name.slice(0, 10) >= cycle.createdAt.slice(0, 10)).sort() : []; }
+  catch (error) { console.warn(` 🎮 [concept-signal] [room-talk] [unreadable] child=${cycle.childId} reason=${error instanceof Error ? error.message : String(error)}`); }
+  for (const file of files) {
+    let lines: string[] = [];
+    try { lines = fs.readFileSync(path.join(dir, file), "utf8").split("\n"); } catch { continue; }
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try { const row = JSON.parse(line); if (typeof row.id === "string" && typeof row.at === "string" && row.at >= cycle.createdAt) rows.push({ id: row.id, at: row.at, summary: String(row.summary ?? ""), herWords: row.herWords ?? [], adultsTeaching: row.adultsTeaching ?? [] }); }
+      catch { /* one unreadable line never hides the rest */ }
+    }
+  }
+  return rows.sort((a, b) => a.at.localeCompare(b.at)).slice(-6);
+}
+
+/** The Planner's own concept tag for each item, from its ready_on_paper calls (the latest call naming an item wins). */
+function conceptOfItem(cycle: Pick<LearningCycleRecordV2, "decisionHistory">): Map<string, string> {
+  const concept = new Map<string, string>();
+  for (const decision of cycle.decisionHistory ?? []) for (const call of decision.readyOnPaper ?? []) for (const id of call.items ?? []) concept.set(id, call.concept.trim());
+  return concept;
+}
+
+/** Each item's prompt as she saw it: a math problem's text, or a spelling word. */
+function itemTexts(cycle: Pick<LearningCycleRecordV2, "nodes">): Map<string, string> {
+  const texts = new Map<string, string>();
+  for (const node of cycle.nodes ?? []) {
+    for (const item of Object.values(node.evidenceContract?.itemContracts ?? {})) if (!texts.has(item.id)) texts.set(item.id, item.prompt);
+    for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) if (!texts.has(item.id)) texts.set(item.id, item.word);
+  }
+  return texts;
+}
+
+const helpLabel = (row: LearningObservation) => row.assistance.status === "unassisted" ? "on her own" : row.assistance.status === "assisted" ? "with help" : "help not recorded";
+
+export function conceptSignalSection(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions = {}): { text: string; evidenceIds: string[] } {
+  const evidenceIds: string[] = [];
+  const said = herWords(cycle, opts);
+  evidenceIds.push(...said.map(row => `said:${row.id}`));
+
+  const texts = itemTexts(cycle), concepts = conceptOfItem(cycle);
+  const rows = (cycle.observations ?? []).filter(row => typeof row.result?.correct === "boolean" && texts.has(row.itemId) && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
+    .sort((a, b) => a.observedAt.localeCompare(b.observedAt));
+  const byItem = new Map<string, LearningObservation[]>();
+  for (const row of rows) byItem.set(row.itemId, [...(byItem.get(row.itemId) ?? []), row]);
+  const label = (itemId: string) => `"${clip(texts.get(itemId) ?? itemId, 80)}"`;
+
+  // Right only with help: right at least once with help, never right on her own.
+  const helpOnly: string[] = [];
+  for (const [itemId, list] of byItem) {
+    const helpedRight = list.filter(row => row.result.correct && row.assistance.status === "assisted");
+    if (!helpedRight.length || list.some(row => row.result.correct && row.assistance.status === "unassisted")) continue;
+    const own = list.filter(row => !row.result.correct && row.assistance.status === "unassisted" && row.childResponse?.trim());
+    evidenceIds.push(...helpedRight.map(row => observationEvidenceId(row.observationId)));
+    helpOnly.push(`- ${label(itemId)}${concepts.has(itemId) ? ` (${concepts.get(itemId)})` : ""}: right with help ${helpedRight.length} time${helpedRight.length === 1 ? "" : "s"}; ${own.length ? `on her own she wrote ${own.map(row => `"${clip(row.childResponse!, 30)}"`).join(", ")}` : "not answered on her own yet"} [${helpedRight.map(row => observationEvidenceId(row.observationId)).join(", ")}]`);
+  }
+
+  // Her wrong answers, as she gave them, per concept the Planner named.
+  const groups = new Map<string, string[]>();
+  for (const [itemId, list] of byItem) {
+    const wrong = list.filter(row => !row.result.correct && row.childResponse?.trim()).slice(-MAX_ANSWERS_PER_ITEM);
+    if (!wrong.length) continue;
+    evidenceIds.push(...wrong.map(row => observationEvidenceId(row.observationId)));
+    const key = concepts.get(itemId) ?? "";
+    groups.set(key, [...(groups.get(key) ?? []), `${label(itemId)} → ${wrong.map(row => `"${clip(row.childResponse!, 30)}" (${helpLabel(row)}) [${observationEvidenceId(row.observationId)}]`).join(", ")}`]);
+  }
+  const wrongLines = [...groups].sort(([a], [b]) => (a ? 0 : 1) - (b ? 0 : 1)).map(([concept, items]) => {
+    const shown = items.slice(-MAX_ITEMS_PER_CONCEPT), hidden = items.length - shown.length;
+    return `- ${concept || "Problems you have not tagged to a concept"}: ${shown.join("; ")}${hidden ? `; and ${hidden} earlier item${hidden === 1 ? "" : "s"} in read_record observations` : ""}`;
+  });
+
+  const heard = roomTalk(cycle, opts);
+  evidenceIds.push(...heard.map(row => row.id));
+  console.log(` 🎮 [concept-signal] [built] homework=${cycle.homeworkId} her_words=${said.length} room_talk=${heard.length} help_only=${helpOnly.length} wrong_groups=${groups.size}`);
+  const text = [
+    "How she thinks, kept apart from right/wrong counts (facts laid out by code; what they mean is yours to infer).",
+    "Everything she said to her companions on this assignment (verbatim from speech-to-text, newest last; read_record her_talk has the full talk with replies):",
+    ...(said.length ? said.map(row => `- [said:${row.id}] ${minute(row.at)}: "${clip(row.words)}"`) : ["- Nothing she said is recorded on this assignment yet."]),
+    "What the kiosk mic heard at the table while her companion was minimized (one cheap-model digest per session; anyone in the room may be talking; quotes were checked against what was heard; read_record room_talk has them all):",
+    ...(heard.length ? heard.flatMap(row => [`- [${row.id}] ${minute(row.at)}: ${clip(row.summary, 300)}`,
+      ...row.herWords.map(quote => `  - she: "${clip(quote.quote)}"${quote.shows ? ` (${clip(quote.shows, 120)})` : ""}`),
+      ...row.adultsTeaching.map(quote => `  - an adult: "${clip(quote.quote)}"${quote.what ? ` (${clip(quote.what, 120)})` : ""}`)]) : ["- Nothing recorded yet."]),
+    "Right only with help (right with help, not yet right on her own):",
+    ...(helpOnly.length ? helpOnly : ["- None."]),
+    "Her wrong answers, exactly as she gave them, grouped by your own concept tags from ready_on_paper:",
+    ...(wrongLines.length ? wrongLines : ["- No wrong answers recorded yet."]),
+  ].join("\n");
+  return { text, evidenceIds: [...new Set(evidenceIds)] };
+}

@@ -3,14 +3,16 @@ import { getChildChart } from "../profiles/childChart";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
+import { offeredValues } from "../engine/plannerTransport";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
 import type { RecordedToolLab } from "./fixtures/recordedToolPlanner";
-import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
-import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { closeStuckFinishedBoard, getLearningCycle, projectLearningCycle, savePaintedNodeArtwork, transitionLearningCycle } from "../engine/learningCycleRepository";
+import { currentBoardInstance, successorResumeAction } from "../engine/learningBoardInstances";
 import { completeDiscoveryEvaluation } from "../engine/adaptiveMathDiscovery";
-import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
+import { MAX_NEW_PICTURES_PER_BOARD, prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
+import { readPictureLibrary, savePictureLibrary } from "../engine/pictureLibrary";
 import * as canvas from "../engine/adventureBoardCanvas";
 import * as runtime from "../engine/learningCycleRuntime";
 
@@ -33,7 +35,7 @@ const roots: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 /** Real intake, Discovery and Teaching board at $0, then the next-board decision. */
-async function playToNextBoard() {
+async function playToNextBoard(testDate?: string) {
   Object.assign(lab.planner, { requests: [], decisions: 0, teachingBoards: 0 });
   const childId = "ila", rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-next-board-menu-")); roots.push(rootDir);
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
@@ -76,6 +78,12 @@ async function playToNextBoard() {
     runtime.recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: node.nodeId, sessionId: "lab-session", result: { completed: true, accuracy: 1, timeSpent_ms: 100,
       targetResults: Object.values(node.evidenceContract.spellingItems ?? {}).map(item => ({ target: item.id, correct: true, attemptedValue: item.word })) } }, opts);
   }
+  // Her school test date as homework/current.json records it (Ila's list: Friday 2026-11-13).
+  if (testDate) {
+    const currentFile = path.join(childDir, "homework", "current.json");
+    const current = JSON.parse(fs.readFileSync(currentFile, "utf8"));
+    fs.writeFileSync(currentFile, JSON.stringify({ ...current, current: { ...current.current, testDate } }));
+  }
   // The next board: the recorded Planner orders one step for every built-in the menu offers.
   await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId }, opts);
   return { childId, homeworkId, opts, discovery };
@@ -85,8 +93,8 @@ async function playToNextBoard() {
 // offers every game and mode the Teaching board offers, plus re-runs; every entry must still prepare.
 it("prepares everything the next-board menu offers: re-runs, Discovery included, and every game and mode", async () => {
   const { childId, homeworkId, opts, discovery } = await playToNextBoard();
-  const menu: string[] = lab.planner.requests.find(request => request.tools?.some((tool: any) => tool.name === "add_step"))!
-    .tools.find((tool: any) => tool.name === "add_step").input_schema.properties.built_in.enum;
+  const menu: string[] = offeredValues(lab.planner.requests.find(request => request.tools?.some((tool: any) => tool.name === "add_step"))!
+    .tools.find((tool: any) => tool.name === "add_step").input_schema.properties.built_in)!;
   expect(menu).toContain(discovery.nodeId);
   for (const fresh of ["word-radar:visible_read", "word-radar:partial_visual_recall", "word-radar:hidden_word_recall", "letter-rush:read-and-race", "letter-rush:hear-and-spell", "letter-rush:type-and-spell"]) expect(menu).toContain(fresh);
   const after = await prepareSuccessorBoard({ childId, homeworkId }, opts);
@@ -140,6 +148,9 @@ it("tells the Planner and the map artist who she is on every board, without her 
   }
 }, 120000);
 
+// A "do not" line is a rule. "ask_parents ... never waits for a reply" (2026-11-23) states how the tool behaves, not a rule.
+const doNotLine = (line: string) => /\b(do not|don't|never|must not)\b/i.test(line.replace("it never waits for a reply", ""));
+
 // 2026-10-25 owner review: the Planner's instructions were mostly "do not" lines guarding against old
 // failures, and its only goal was academic. The owner's rule: one goal, the facts, and tools; a limit is
 // what a strict tool accepts, never a sentence. This keeps the instructions from growing walls again.
@@ -152,9 +163,44 @@ it("gives every Planner one goal, that she wants to come back, and no do-not lin
   });
   for (const [tool, prompt] of prompts) {
     const instructions = (prompt as string).split("\n").filter((line: string) => !/^\s*[[{"]/.test(line) && line.length < 2000);
-    expect(instructions.filter((line: string) => /\b(do not|don't|never|must not)\b/i.test(line)), tool).toEqual([]);
+    expect(instructions.filter((line: string) => doNotLine(line)), tool).toEqual([]);
     if (tool !== "submit_board") expect(prompt, tool).toContain("she wants to come back");
   }
+}, 120000);
+
+// 2026-11-08 owner (Ila's session): practice should move toward test conditions as the test nears. The school
+// test is full recall with no letters shown. The next-board Planner was told "by the school test" but never
+// the date: homework/current.json's testDate reached no Planner prompt. Nothing failed, so no log showed it;
+// the lab never asked what the Planner knows about the test. The goal and the facts, never a schedule.
+it("tells the next-board Planner the school test date, days left and test conditions, as facts", async () => {
+  const at = new Date(); at.setDate(at.getDate() + 5);
+  const testDate = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
+  await playToNextBoard(testDate);
+  const request = lab.planner.requests.find(row => row.tools?.some((item: any) => item.name === "decide"))!;
+  const first = request.messages[0].content;
+  const prompt: string = typeof first === "string" ? first : first.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n");
+  expect(prompt).toContain("she knows her words by the school test");
+  const weekday = at.toLocaleDateString("en-US", { weekday: "long" });
+  expect(prompt).toContain(`School test: ${weekday} ${testDate}, 5 days from today.`);
+  expect(prompt).toContain("At the school test she writes each word from memory with no letters shown.");
+  const instructions = prompt.split("\n").filter(line => !/^\s*[[{"]/.test(line) && line.length < 2000);
+  expect(instructions.filter(line => doNotLine(line))).toEqual([]);
+}, 120000);
+
+// 2026-11-08 owner: "gut the rules". The Planner gets the goal, facts about her and the tools, and the
+// rules that keep the record honest. How to teach, pace, title or offer a choice is its call.
+it("sends the Planner no teaching directives, only the goal, facts, tools and record rules", async () => {
+  await playToNextBoard();
+  const directives = [
+    "small, varied pieces", "best finds her independent starting point", "every line is short",
+    "sneaky letter", "Never explains your reasoning", "Title each step as she should see it",
+    "Her family wants each next board", "the way a raid has a warm-up",
+  ];
+  for (const request of lab.planner.requests) {
+    const sent = JSON.stringify({ system: request.system, messages: request.messages, tools: request.tools });
+    for (const directive of directives) expect(sent, directive).not.toContain(directive);
+  }
+  expect(lab.planner.requests.length).toBeGreaterThan(0);
 }, 120000);
 
 // 2026-10-25 owner review: every stop looked and sounded the same. Code filled each stop's theme with its
@@ -173,6 +219,73 @@ it("puts the story and picture the Planner wrote on every stop of both boards", 
   const shown = projectLearningCycle(after).adventureBoard.nodes.filter(node => node.activityNodeId);
   expect(shown.length).toBeGreaterThan(0);
   for (const node of shown) expect(node.thumbnailPrompt, node.id).toMatch(/^Picture: /);
+}, 120000);
+
+// 2026-11-13 owner-caught: next-board stops showed placeholder icons, never pictures. Each new stop copied the last
+// stop's icon marked "ready", and no new board ran the painter. Now a new board's stops get pictures from her picture
+// library, and only stops with nothing fitting are painted; a failed painting keeps the icon and never blocks.
+it("gives every new stop a picture from her library, painting only what is missing", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const paintPicture = vi.fn(async (_prompt: string, filename: string) => `/generated/direct-math/${filename}`);
+  const after = await prepareSuccessorBoard({ childId, homeworkId, paintPicture }, opts);
+  const board = after.boards!.find(row => row.kind === "successor")!;
+  const stops = after.nodes.filter(node => board.nodeIds.includes(node.nodeId) && node.artwork.prompt);
+  expect(stops.length).toBeGreaterThan(MAX_NEW_PICTURES_PER_BOARD); // this lab board runs every game, so the cap shows
+  const pictured = stops.filter(stop => stop.artwork.localPath?.startsWith("/generated/direct-math/node-picture-ila-"));
+  expect(pictured).toHaveLength(MAX_NEW_PICTURES_PER_BOARD);
+  expect(paintPicture).toHaveBeenCalledTimes(MAX_NEW_PICTURES_PER_BOARD);
+  const shown = projectLearningCycle(after).adventureBoard.nodes.filter(node => node.activityNodeId && pictured.some(stop => stop.nodeId === node.activityNodeId));
+  expect(shown.length).toBeGreaterThan(0);
+  for (const node of shown) expect(node.thumbnailUrl, node.id).toMatch(/node-picture-ila-/);
+  expect(readPictureLibrary(childId, opts)).toHaveLength(MAX_NEW_PICTURES_PER_BOARD);
+}, 120000);
+
+// Audit 11/22 (Saori, seen): on Ila's math boards 6–9, 16 of 17 stops showed one picture. A new practice or mystery stop
+// borrows the stop before it's picture, and the painter skipped any stop whose borrowed picture was already a painted
+// one, silently. So after her first painted board only Quest and Boss got new pictures. Why the human caught it: the
+// map looked the same every day. Why the logs missed it: the skip logged nothing. Why the lab missed it: every lab
+// board started from icons, never from a board that already had painted pictures.
+it("decides a picture for every new stop even when the stop before it already had a painted one", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const borrowed = "/generated/direct-math/node-picture-ila-earlier.jpeg";
+  savePictureLibrary(childId, [{ path: borrowed, prompt: "an earlier painted stop", keywords: ["earlier"], kind: "activity", homeworkId, createdAt: "2026-11-15T00:00:00Z" }], opts);
+  for (const node of getLearningCycle(childId, homeworkId, opts)!.nodes) savePaintedNodeArtwork(childId, homeworkId, node.nodeId, borrowed, opts);
+  const log = vi.spyOn(console, "log");
+  const after = await prepareSuccessorBoard({ childId, homeworkId, paintPicture: async (_prompt, filename) => `/generated/direct-math/${filename}` }, opts);
+  const board = after.boards!.find(row => row.kind === "successor")!;
+  const withPrompt = after.nodes.filter(node => board.nodeIds.includes(node.nodeId) && node.artwork.prompt);
+  const decided = log.mock.calls.map(call => String(call[0])).filter(line => /\[picture-library\] \[(reused|painted|icon-kept)\]/.test(line));
+  expect(withPrompt.length).toBeGreaterThan(0);
+  for (const stop of withPrompt) expect(decided.some(line => line.includes(`node=${stop.nodeId} `)), stop.nodeId).toBe(true);
+}, 120000);
+
+it("keeps a stop's icon when its picture cannot be painted, and still publishes the board", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const warn = vi.spyOn(console, "warn");
+  const after = await prepareSuccessorBoard({ childId, homeworkId, paintPicture: async () => { throw new Error("provider_down"); } }, opts);
+  const board = after.boards!.find(row => row.kind === "successor")!;
+  expect(board.publishedAt).toBeTruthy();
+  expect(after.nodes.filter(node => board.nodeIds.includes(node.nodeId)).every(node => !node.artwork.localPath?.includes("node-picture-"))).toBe(true);
+  expect(warn.mock.calls.some(call => String(call[0]).includes("[picture-library] [paint] [failed]"))).toBe(true);
+}, 120000);
+
+// 2026-11-13 Ila (AI-caught in the log): every stop on her board was done, but she had never tapped the fork, so the
+// board stayed "ready", no next board was made, and she was left on a finished map. At startup Sunny now closes a
+// finished board that never closed, so the normal next-board step runs.
+it("closes a finished board that never closed, so the next board gets made", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const published = await prepareSuccessorBoard({ childId, homeworkId, paintPicture: async (_prompt, filename) => `/generated/direct-math/${filename}` }, opts);
+  const board = currentBoardInstance(published);
+  expect(board.publishedAt).toBeTruthy();
+  expect(closeStuckFinishedBoard(childId, homeworkId, opts)!.lifecycle).toBe(published.lifecycle); // nothing played yet
+  const file = path.join(opts.rootDir!, "src/context", childId, "homework/cycles", `${homeworkId}.json`);
+  const stuck = JSON.parse(fs.readFileSync(file, "utf8"));
+  for (const node of stuck.nodes) if (board.nodeIds.includes(node.nodeId)) node.state = "completed";
+  stuck.lifecycle = "baseline_ready";
+  fs.writeFileSync(file, JSON.stringify(stuck, null, 2));
+  const closed = closeStuckFinishedBoard(childId, homeworkId, opts)!;
+  expect(closed.lifecycle).toMatch(/_evaluating$/);
+  expect(successorResumeAction(closed)).toBe("decide");
 }, 120000);
 
 // 2026-10-26 parent test: demo-pashley's profile lists her favorites (space, animals, adventure), but she has

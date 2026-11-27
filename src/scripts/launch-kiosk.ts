@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { acceptVisibleMacKiosk, kioskBrowserCommand, kioskBrowserExitAction, macShutdownBrowserTargets } from "./kioskBrowserLaunch";
+import { acceptVisibleMacKiosk, bringKioskToFront, countMacWindows, kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macShutdownBrowserTargets, kioskDebugArgs, KIOSK_DISK_CACHE_ARG, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
 import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
@@ -20,14 +20,20 @@ import {
 } from "../server/certificationRuntime";
 import { assertHumanAcceptanceAudioEnvironment } from "../server/humanAcceptanceAudio";
 import { localNpmScriptCommand, localTsxCommand } from "./localRuntimeCommand";
+import { installServerLogFile } from "../server/serverLogFile";
+import { KIOSK_MARKER_FILE, enforceStoragePolicy } from "../server/storagePolicy";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const root = path.resolve(process.cwd());
+// kiosk-run.log is overwritten at each restart; the kiosk's own lifecycle lines also go to the dated server log.
+installServerLogFile({ dir: path.join(root, "logs", "server") });
 const WEB_DIR = path.join(root, "web");
 const DIST_DIR = path.join(WEB_DIR, "dist");
 const KIOSK_TOKEN = randomUUID();
 const BROWSER_PROFILE_DIR = process.env.SUNNY_BROWSER_PROFILE_DIR?.trim()
   || path.join(process.env.HOME || root, ".sunny", "kiosk-browser-profile");
+const HOME_DIR = process.env.HOME || root;
+enforceStoragePolicy({ repoRoot: root, homeDir: HOME_DIR, browserProfileDir: BROWSER_PROFILE_DIR, isKiosk: fs.existsSync(path.join(HOME_DIR, KIOSK_MARKER_FILE)) });
 const processTargetOps = {
   sendSignal: (target: number, signal: NodeJS.Signals) => process.kill(target, signal),
   isAlive: (target: number) => {
@@ -238,7 +244,7 @@ async function main() {
     }
 
     fs.mkdirSync(BROWSER_PROFILE_DIR, { recursive: true });
-    let browserReopens = 0;
+    const browserExitTimes: number[] = [];
     // The server keeps the first launch's visible-identity proof, so a reopened window
     // is accepted by its matched profile and kiosk URL rather than a fresh page handshake.
     const openVisibleBrowser = async (): Promise<void> => {
@@ -256,6 +262,9 @@ async function main() {
         if (shuttingDown) throw new Error("kiosk_startup_cancelled");
         let candidate: ChildProcess;
         const browserArgs = [
+          ...kioskDebugArgs(process.env),
+          // The kiosk's browser cache stays bounded on any machine (BUGS.md S39): 500 MB.
+          KIOSK_DISK_CACHE_ARG,
           "--kiosk",
           "--no-first-run",
           "--no-default-browser-check",
@@ -302,6 +311,7 @@ async function main() {
             macBrowserPid = undefined;
           } else {
             console.log(` 🎮 [kiosk] [macos-launch] [launchservices] browserPid=${macBrowserPid}`);
+            await bringKioskToFront(macBrowserPid);
           }
         } else {
           accepted = await acceptOrStopKioskCandidate(
@@ -326,14 +336,39 @@ async function main() {
       visibleBrowser.once("exit", (code, signal) => {
         if (shuttingDown) return;
         const exit = `browser-exit:${signal ?? code ?? "unknown"}`;
-        if (kioskBrowserExitAction(browserReopens) === "shutdown") return void shutdown(exit, code ?? 1);
-        browserReopens += 1;
-        console.warn(` 🎮 [kiosk] [browser-exit] [reopening] ${exit} reopen=${browserReopens}`);
+        browserExitTimes.push(Date.now());
+        if (kioskBrowserExitAction(browserExitTimes) === "shutdown") {
+          console.warn(` 🎮 [kiosk] [browser-exit] [shutting-down] ${exit} closes=${browserExitTimes.length} reason=closed-twice-within-a-minute-or-reopen-guard`);
+          return void shutdown(exit, code ?? 1);
+        }
+        console.warn(` 🎮 [kiosk] [browser-exit] [reopening] ${exit} reopen=${browserExitTimes.length}`);
         openVisibleBrowser().catch(async (error) => {
           console.error(" 🎮 [kiosk] [browser-reopen] [failed]", error);
           await shutdown("browser-reopen-failed", 1);
         });
       });
+      if (process.platform === "darwin" && macBrowserPid) watchMacKioskWindow(macBrowserPid, visibleBrowser);
+    };
+    // A closed window on macOS leaves Chrome running windowless; close that Chrome so the exit rule above
+    // reopens the kiosk (or shuts Sunny down on a second close within a minute, as a grown-up stopping it).
+    const watchMacKioskWindow = (browserPid: number, browser: ChildProcess) => {
+      let emptyChecks = 0;
+      let counting = false;
+      const timer = setInterval(() => {
+        if (shuttingDown || browser.exitCode !== null || browser.signalCode !== null) return void clearInterval(timer);
+        if (counting) return;
+        counting = true;
+        countMacWindows(browserPid).then(async (windows) => {
+          emptyChecks = nextEmptyWindowChecks(emptyChecks, windows);
+          if (kioskWindowWatchAction(emptyChecks) === "wait") return;
+          clearInterval(timer);
+          console.warn(` 🎮 [kiosk] [window-closed] [detected] browserPid=${browserPid} closing windowless Chrome so the kiosk reopens`);
+          await terminateProcessTargets([browserPid], processTargetOps);
+        }).catch((error) => {
+          console.error(" 🎮 [kiosk] [window-closed] [close-failed]", error);
+        }).finally(() => { counting = false; });
+      }, 5000);
+      timer.unref();
     };
     await openVisibleBrowser();
   } catch (error) {

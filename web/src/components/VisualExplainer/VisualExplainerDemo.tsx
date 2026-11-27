@@ -22,10 +22,6 @@ import {
   type VisualExplainerEvidenceEvent,
 } from "./visualExplainerMachine";
 import {
-  createBrowserNarrationControls,
-  type BrowserNarrationStatus,
-} from "./browserNarration";
-import {
   createFlowGameEvents,
   type FlowGameSendMessage,
 } from "../../utils/flowGameEvents";
@@ -118,10 +114,6 @@ function CompanionCoach(props: {
   line: VisualExplainerNarrationLine;
   state: string;
   compact?: boolean;
-  narrationMuted: boolean;
-  narrationStatus: BrowserNarrationStatus;
-  narrationSupported: boolean;
-  onToggleNarration: () => void;
 }): React.ReactElement {
   const expressionLabel: Record<VisualExplainerNarrationLine["expression"], string> = {
     idle: "Watching",
@@ -186,18 +178,9 @@ function CompanionCoach(props: {
               voice: {props.config.companion.provider}
             </span>
             <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-              tts: {props.narrationSupported ? props.narrationStatus : "unsupported"}
+              preview cue, never spoken
             </span>
           </div>
-          {props.compact ? null : (
-            <button
-              type="button"
-              onClick={props.onToggleNarration}
-              className="mt-3 rounded-md border border-violet-200 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-violet-800"
-            >
-              {props.narrationMuted ? "Unmute scratch voice" : "Mute scratch voice"}
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -348,8 +331,6 @@ export function VisualExplainerDemo(props: {
   );
   const [progress, setProgress] = useState(0);
   const [events, setEvents] = useState<VisualExplainerEvidenceEvent[]>([]);
-  const [narrationMuted, setNarrationMuted] = useState(false);
-  const [narrationStatus, setNarrationStatus] = useState<BrowserNarrationStatus>("idle");
   const { actor, snapshot } = useVisualExplainerActor();
   const currentState = String(snapshot.value);
   const isPlaying = currentState === "playing";
@@ -358,10 +339,6 @@ export function VisualExplainerDemo(props: {
     config,
     currentState,
     snapshot.context.selectedOption,
-  );
-  const narration = useMemo(
-    () => createBrowserNarrationControls({ muted: narrationMuted }),
-    [narrationMuted],
   );
   const flowEvents = useMemo(
     () =>
@@ -392,11 +369,14 @@ export function VisualExplainerDemo(props: {
     setProgress(0);
   };
 
-  useEffect(() => {
-    const status = narration.speak(companionLine.text);
-    setNarrationStatus(status);
-    return () => narration.stop();
-  }, [companionLine.id, companionLine.text, narration]);
+  // Audit 2026-11-22: no device voice reads the authored companion lines. Her companion gets the on-screen state
+  // as facts (reportState below) and narrates live in her own words.
+  const onScreen = [
+    `Caption: ${nearestCheckpoint(config, progress)}`,
+    currentState === "pausedForPrediction"
+      ? `Question: ${config.prediction.prompt} Options: ${config.prediction.options.map((option) => option.label).join(" | ")}`
+      : null,
+  ].filter(Boolean).join("\n");
 
   useEffect(() => {
     flowEvents?.reportState(`Visual Explainer state: ${currentState}`, {
@@ -407,8 +387,10 @@ export function VisualExplainerDemo(props: {
       targetConcept: config.prediction.targetConcept,
       progressPct: Math.round(progress * 100),
       scaffoldLevel: currentState === "pausedForPrediction" ? 2 : 1,
+      onScreen,
     });
   }, [
+    onScreen,
     config.activityId,
     config.nodeId,
     config.prediction.targetConcept,
@@ -931,10 +913,6 @@ export function VisualExplainerDemo(props: {
               config={config}
               line={companionLine}
               state={currentState}
-              narrationMuted={narrationMuted}
-              narrationStatus={narrationStatus}
-              narrationSupported={narration.supported}
-              onToggleNarration={() => setNarrationMuted((value) => !value)}
             />
             <EventConsole events={events} />
           </aside>

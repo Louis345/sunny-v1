@@ -93,7 +93,7 @@ export async function verifyAuthoredBoardCanvas(input:{definition:AdventureBoard
 }
 
 /** Screenshots and measurements inform the human; they never grant permission to publish. */
-export async function reportAuthoredBoardCanvas(input:{definition:AdventureBoardDefinition;directory:string;rootDir:string}):Promise<BoardCanvasProof|undefined>{
+export async function reportAuthoredBoardCanvas(input:{definition:AdventureBoardDefinition;directory:string;rootDir:string;rules?:BoardPreviewRules}):Promise<BoardCanvasProof|undefined>{
  reportAuthoredBoardArtwork(input);
  try {
   const definitionHash=boardDefinitionHash(input.definition),preview=await renderBoardPreview(input);
@@ -109,7 +109,9 @@ export async function verifyPreparingBoardCanvas(input:{rootDir:string;childId:s
  const cycle=getLearningCycle(input.childId,input.homeworkId,{rootDir:input.rootDir});
  const board=cycle?.boards?.find(candidate=>candidate.publishedAt===null);
  if(!board)return;
- const proof=board.definition?await reportAuthoredBoardCanvas({...input,definition:board.definition}):undefined;
+ // The preview follows the kiosk's rule for this board: spelling and math teaching and next boards play in any order.
+ const rules={domain:cycle!.domain,anyOrder:(cycle!.domain==='spelling'||cycle!.domain==='math')&&['teaching','successor'].includes(board.kind)};
+ const proof=board.definition?await reportAuthoredBoardCanvas({...input,definition:board.definition,rules}):undefined;
  const latest=getLearningCycle(input.childId,input.homeworkId,{rootDir:input.rootDir})!;
  transitionLearningCycle(input.childId,input.homeworkId,latest.revision,proof?{type:'board_canvas_verified',boardId:board.boardId,proof}:{type:'board_preparation_checked'},{rootDir:input.rootDir});
 }
@@ -122,7 +124,17 @@ const previewOrigin='http://sunny.preview';
 
 /** What the map artist sees: the kiosk renderer with the real artwork, at kiosk and portrait
  * size, plus each portal's measured box. It reports; it never judges or rejects a layout. */
-export async function renderBoardPreview(input:{definition:AdventureBoardDefinition;directory:string;rootDir:string}):Promise<BoardPreview>{
+/** The preview page is UTF-8 by declaration and by header (2026-11-10: the badge's "⭐" was drawn as "â"). */
+export const BOARD_PREVIEW_CONTENT_TYPE='text/html; charset=utf-8';
+export const boardPreviewHtml=(css:string,markup:string)=>`<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${markup}</body></html>`;
+
+/** The board as the kiosk will draw it, for previews: its subject and the play-in-any-order rule, or generic. */
+export type BoardPreviewRules={domain:string;anyOrder:boolean};
+export function previewBoardJson(definition:AdventureBoardDefinition,rules?:BoardPreviewRules){
+ return renderBoardDefinition(definition,{boardId:'preview',planId:'preview',childId:'board-preview',domain:rules?.domain??'generic',allowReadyActivitySelection:rules?.anyOrder===true,activities:[...new Set(definition.portals.flatMap(p=>p.activityNodeId?[p.activityNodeId]:[]))].map(id=>({id,verified:true,state:'ready'}))});
+}
+
+export async function renderBoardPreview(input:{definition:AdventureBoardDefinition;directory:string;rootDir:string;rules?:BoardPreviewRules}):Promise<BoardPreview>{
  const sourceRoot=path.resolve(__dirname,'../..'),publicRoot=path.resolve(input.rootDir,'web/public');
  const css=fs.readFileSync(path.join(sourceRoot,'web/src/components/AdventureBoard.css'),'utf8');
  const bundle=buildSync({stdin:{contents:`import React from 'react';import{renderToStaticMarkup}from'react-dom/server';import{AdventureBoard}from'./src/components/AdventureBoard';import{XPBar}from'./src/components/XPBar';export const render=board=>renderToStaticMarkup(React.createElement(React.Fragment,null,React.createElement(AdventureBoard,{board}),React.createElement(XPBar,{level:1,xp:0,xpToNext:100,onOpen:()=>{}})));`,resolveDir:path.join(sourceRoot,'web')},bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',loader:{'.css':'empty'}});
@@ -130,8 +142,8 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
  const moduleFile=path.join(input.directory,`preview-render-${createHash('sha256').update(bundle.outputFiles[0]!.text).digest('hex').slice(0,12)}.cjs`);
  fs.writeFileSync(moduleFile,bundle.outputFiles[0]!.text);
  const render=(require(moduleFile) as {render:(board:ReturnType<typeof renderBoardDefinition>)=>string}).render;
- const board=renderBoardDefinition(input.definition,{boardId:'preview',planId:'preview',childId:'board-preview',domain:'generic',activities:[...new Set(input.definition.portals.flatMap(p=>p.activityNodeId?[p.activityNodeId]:[]))].map(id=>({id,verified:true,state:'ready'}))});
- const html=`<!doctype html><html><head><style>${css}body{margin:0}</style></head><body>${render(board)}</body></html>`;
+ const board=previewBoardJson(input.definition,input.rules);
+ const html=boardPreviewHtml(`${css}body{margin:0}`,render(board));
  const background=input.definition.theme.background;
  const browser=await chromium.launch({headless:true});
  const preview:BoardPreview={screenshots:[],portals:[],overlaps:[],crowded:[],artworkLoaded:true};
@@ -142,7 +154,7 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
    await page.route('**/*',route=>{
     const url=new URL(route.request().url());
     if(url.origin!==previewOrigin)return route.abort();
-    if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:html});
+    if(url.pathname==='/')return route.fulfill({contentType:BOARD_PREVIEW_CONTENT_TYPE,body:html});
     const file=path.resolve(publicRoot,decodeURIComponent(url.pathname).replace(/^\//,''));
     return file.startsWith(`${publicRoot}${path.sep}`)&&fs.existsSync(file)&&fs.statSync(file).isFile()?route.fulfill({path:file}):route.abort();
    });

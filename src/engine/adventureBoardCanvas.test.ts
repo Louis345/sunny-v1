@@ -101,3 +101,32 @@ it('publishes an as-authored map with missing artwork but reports the missing fi
   expect(error).not.toHaveBeenCalled();
  } finally {error.mockRestore();rmSync(rootDir,{recursive:true,force:true});}
 });
+
+// Bug 2026-11-10 (AI-caught in the math board preview): the board's level badge read "â Level 1". The preview page
+// was served as text/html with no charset, so Chromium decoded the UTF-8 "⭐" as Windows-1252.
+// Why a human did not catch it: the live kiosk page declares UTF-8; only the Planner's preview screenshot was garbled.
+// Why the logs did not: the preview logs its screenshots and portal boxes, never the text drawn in them.
+// Why the lab missed it: canvas tests measured geometry; none read a glyph back from the rendered preview.
+it('serves the board preview as UTF-8 so the level badge keeps its star', async () => {
+ const { boardPreviewHtml, BOARD_PREVIEW_CONTENT_TYPE } = await import('./adventureBoardCanvas');
+ const { chromium } = await import('playwright');
+ const browser = await chromium.launch({ headless: true });
+ try {
+  const page = await browser.newPage();
+  await page.route('**/*', route => route.fulfill({ contentType: BOARD_PREVIEW_CONTENT_TYPE, body: boardPreviewHtml('body{margin:0}', '<button class="level-path-trigger">⭐ Level 1</button>') }));
+  await page.goto('http://board-preview.local/');
+  expect(await page.locator('.level-path-trigger').textContent()).toBe('⭐ Level 1');
+ } finally { await browser.close(); }
+}, 20000);
+
+// Audit 11/22 (seen in code): the artist's preview was drawn as a 'generic' board without the rule that lets her play
+// ready practice in any order, so it showed "Keep going" locks the kiosk never shows, and the Experience Creator judged
+// its map from that. Why the human caught it: preview screenshots did not match the kiosk. Why the lab missed it: the
+// preview test never compared its stop states with the kiosk's.
+it('draws the preview with the same play-in-any-order rule the kiosk uses for this board',async()=>{
+ const {previewBoardJson}=await import('./adventureBoardCanvas');
+ const definition=linearJourneyFixture(['learn','check']) as AdventureBoardDefinition;
+ const states=(board:ReturnType<typeof previewBoardJson>)=>board.nodes.filter(node=>node.activityNodeId).map(node=>(node as {state?:string}).state);
+ expect(states(previewBoardJson(definition,{domain:'spelling',anyOrder:true})).every(status=>status==='available')).toBe(true);
+ expect(states(previewBoardJson(definition))).toContain('locked');
+});

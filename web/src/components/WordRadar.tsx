@@ -385,6 +385,8 @@ export function WordRadar({
     : spokenLetterConstruction
       ? { label: "Build the word aloud", helper: "Say one letter at a time. Watch each letter appear." }
       : wordRadarModeCopy(resolvedInputMode, effectiveRecallMode);
+  /** One rule: an assessment check has no clock (the hook never counts it down), so no ring and showTimer=false. */
+  const clockSeconds = !assessmentMode && typeof timerSeconds === "number" && timerSeconds > 0 ? timerSeconds : undefined;
   const bonusItemCount = useMemo(() => items.filter(isBonusRadarItem).length, [items]);
   const resolvedWordRadarConfig: WordRadarNodeConfig = useMemo(
     () =>
@@ -392,8 +394,8 @@ export function WordRadar({
         recallMode: effectiveRecallMode,
         inputMode: resolvedInputMode,
         speakStyle: effectiveSpeakStyle,
-        showTimer: typeof timerSeconds === "number" && timerSeconds > 0,
-        ...(typeof timerSeconds === "number" && timerSeconds > 0 ? { timerSeconds } : {}),
+        showTimer: clockSeconds !== undefined,
+        ...(clockSeconds !== undefined ? { timerSeconds: clockSeconds } : {}),
         hideWordDuringResponse: effectiveHideWordDuringResponse,
         requiresCapturedResponse,
       },
@@ -822,7 +824,7 @@ export function WordRadar({
             scaffold: effectiveRecallMode,
             inputMode: resolvedInputMode,
             speakStyle: effectiveSpeakStyle,
-            showTimer: typeof timerSeconds === "number" && timerSeconds > 0,
+            showTimer: clockSeconds !== undefined,
             hideWordDuringResponse: effectiveHideWordDuringResponse,
             requiresCapturedResponse,
           },
@@ -906,7 +908,7 @@ export function WordRadar({
         scaffold: effectiveRecallMode,
         inputMode: resolvedInputMode,
         speakStyle: effectiveSpeakStyle,
-        showTimer: typeof timerSeconds === "number" && timerSeconds > 0,
+        showTimer: clockSeconds !== undefined,
         hideWordDuringResponse: effectiveHideWordDuringResponse,
         requiresCapturedResponse,
       };
@@ -1366,8 +1368,7 @@ export function WordRadar({
             }}
           >
             {hook.phase === "response" &&
-            typeof timerSeconds === "number" &&
-            timerSeconds > 0 ? (
+            clockSeconds !== undefined ? (
               <div
                 style={{
                   position: "relative",
@@ -1427,7 +1428,7 @@ export function WordRadar({
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {Math.max(0, Math.ceil(hook.timerRemainingRatio * timerSeconds))}s
+                    {Math.max(0, Math.ceil(hook.timerRemainingRatio * clockSeconds))}s
                   </span>
                   <span
                     style={{
@@ -1437,7 +1438,7 @@ export function WordRadar({
                       color: "rgba(248,250,252,0.55)",
                     }}
                   >
-                    of {timerSeconds}s
+                    of {clockSeconds}s
                   </span>
                 </div>
               </div>

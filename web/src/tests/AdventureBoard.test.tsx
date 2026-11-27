@@ -273,7 +273,14 @@ describe("AdventureBoard", () => {
     expect(section).toHaveClass("adventure-board--ceremony-shake");
     expect(node()).toHaveClass("adventure-board__node--underground");
 
-    act(() => vi.advanceTimersByTime(800));
+    // Owner 2026-11-20: the board holds its breath while her companion notices ("oh my god, something's happening"),
+    // then the light and the node come. About three seconds of rumble before the reveal.
+    act(() => vi.advanceTimersByTime(2000));
+    expect(section).toHaveClass("adventure-board--ceremony-rumble");
+    expect(document.querySelector(".unlock-ceremony__pillar")).toBeNull();
+    expect(node()).toHaveClass("adventure-board__node--underground");
+
+    act(() => vi.advanceTimersByTime(1800));
     expect(document.querySelector(".unlock-ceremony__pillar")).not.toBeNull();
     expect(document.querySelector(".unlock-ceremony__flash")).not.toBeNull();
     expect(node()).toHaveClass("adventure-board__node--rising");
@@ -294,6 +301,29 @@ describe("AdventureBoard", () => {
     vi.useRealTimers();
   });
 
+  // Owner 2026-11-18: "I did not see any ceremony". Ila's Boss unlocked as her game finished; the ceremony started
+  // at 8:17:35 behind the game and the board came back at 8:17:43. Why the human caught it: nothing to see. Why logs
+  // missed it: [unlock-ceremony] [played] was logged. Why the lab missed it: the board was always on screen in tests.
+  // Rule: while an activity covers the board the ceremony is held, and it plays when the board is visible again.
+  it("holds the unlock ceremony while a game covers the board, then plays it on the board", () => {
+    const onUnlockCeremony = vi.fn();
+    const base: AdventureBoardJson = {
+      schemaVersion: 1, boardId: "held-ceremony", planId: "held-plan", childId: "held-child", domain: "spelling",
+      theme: { background: { type: "solid", value: "#10203d" }, palette: { path: "#fff", completed: "#2f9f6f", available: "#6d5dfc", locked: "#9aa3ad", current: "#f59e0b", preview: "#c6ced6", text: "#fff", panel: "#111827" } },
+      nodes: [
+        { id: "practice", kind: "activity", label: "Practice", state: "completed", position: { x: 0.3, y: 0.6 } },
+        { id: "boss", kind: "boss", label: "Boss", state: "locked", position: { x: 0.7, y: 0.4 }, lock: { reason: "evidence-gated", label: "Preparing" } },
+      ],
+      edges: [{ id: "to-boss", from: "practice", to: "boss", state: "locked" }],
+    };
+    const open = { ...base, nodes: base.nodes.map(node => node.id === "boss" ? { ...node, state: "available" as const, lock: undefined } : node) };
+    const { rerender } = render(<AdventureBoard board={base} onUnlockCeremony={onUnlockCeremony} />);
+    rerender(<AdventureBoard board={open} onUnlockCeremony={onUnlockCeremony} holdCeremony />);
+    expect(onUnlockCeremony).not.toHaveBeenCalled();
+    rerender(<AdventureBoard board={open} onUnlockCeremony={onUnlockCeremony} holdCeremony={false} />);
+    expect(onUnlockCeremony).toHaveBeenCalledWith(expect.objectContaining({ kind: "boss" }));
+  });
+
   it("shows a just-completed node as completed and keeps it replayable", () => {
     const onNodeClick = vi.fn();
     render(
@@ -310,6 +340,34 @@ describe("AdventureBoard", () => {
     expect(onNodeClick).toHaveBeenCalledWith(
       expect.objectContaining({ id: "verify", state: "completed" }),
     );
+  });
+
+  // 2026-11-08 (owner observed): back on the map after a stop she saw several ready stops that looked
+  // identical and could not tell which came next. Every ready stop stays playable; one stands out.
+  it("makes exactly one next stop stand out while every ready stop stays playable", () => {
+    const board: AdventureBoardJson = {
+      ...explicitRouteBoard,
+      boardId: "next-stop-test",
+      choiceSets: [],
+      progress: { currentNodeId: "first", completedNodeIds: [] },
+      nodes: [
+        {id:"first",kind:"activity",activityId:"word-radar",label:"First",state:"available",position:{x:.2,y:.5}},
+        {id:"second",kind:"activity",activityId:"word-radar",label:"Second",state:"available",position:{x:.5,y:.5}},
+        {id:"third",kind:"activity",activityId:"word-radar",label:"Third",state:"available",position:{x:.8,y:.5}},
+      ],
+      edges: [],
+    };
+    const onNodeClick = vi.fn();
+    const { container, rerender } = render(<AdventureBoard board={board} onNodeClick={onNodeClick} />);
+    expect(container.querySelectorAll(".adventure-board__node--next")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "First" })).toHaveClass("adventure-board__node--next");
+
+    // She just finished First; the saved board has not refreshed yet, so the glow moves on, never vanishes.
+    rerender(<AdventureBoard board={board} completedNodeIds={["first"]} onNodeClick={onNodeClick} />);
+    expect(container.querySelectorAll(".adventure-board__node--next")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Second" })).toHaveClass("adventure-board__node--next");
+    for (const name of ["First", "Second", "Third"]) fireEvent.click(screen.getByRole("button", { name }));
+    expect(onNodeClick).toHaveBeenCalledTimes(3);
   });
 
   // Oct 19 demo: a missing Grok world left the child a blank board. The image
@@ -1448,7 +1506,7 @@ describe("AdventureBoardExperience", () => {
     const onNodeClick = vi.fn();
     const first = render(<AdventureBoard board={board} onNodeClick={onNodeClick} />);
     expect(screen.getByRole("status", { name: "Quest unlocked" })).toHaveTextContent("Lantern Trail");
-    act(() => vi.advanceTimersByTime(4600));
+    act(() => vi.advanceTimersByTime(7600 /* the ceremony with its rumble build-up (owner, 2026-11-20) */));
     expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Lantern Trail" }));
     expect(onNodeClick).toHaveBeenCalledWith(expect.objectContaining({ id: "quest" }));
@@ -1473,7 +1531,7 @@ describe("AdventureBoardExperience", () => {
       edges: [{ id: "to-quest", from: "start", to: "quest", state: "available" }],
     };
     render(<StrictMode><AdventureBoard board={board} onNodeClick={vi.fn()} /></StrictMode>);
-    act(() => vi.advanceTimersByTime(4600));
+    act(() => vi.advanceTimersByTime(7600 /* the ceremony with its rumble build-up (owner, 2026-11-20) */));
     expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lantern Trail" })).not.toHaveClass("adventure-board__node--underground");
     vi.useRealTimers();

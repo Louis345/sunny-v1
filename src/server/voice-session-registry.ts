@@ -42,13 +42,20 @@ export function __resetVoiceSessionRegistryForTests(): void {
  */
 export interface VoiceSessionManagerHandle {
   getSessionId?: () => string;
+  /** The live session's saved packet folder, for the retro of the session so far. */
+  getSessionDir?: () => string | undefined;
   getSpellingLaunch?: () => {homeworkId:string;nodeId:string;launchId:string;launchToken?:string} | undefined;
   getDiscoveryAttemptContext?: (homeworkId: string, itemId: string, launchToken?:string) => { chartItemId?:string; practice?:boolean; spellingShown?:boolean|null; audioReplays?:number|null; launchId?:string; nodeId?: string; support: { status: "unassisted" | "assisted" | "unknown"; scaffolds: string[] }; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined;
   noteExternalEvent(event: unknown): void;
-  speakGameNarration?: (
+  /** A game asked to say something: the narrator reads it if it is on-screen text, else the companion gets a fact. */
+  requestGameNarration?: (
     text: string,
     metadata?: Record<string, unknown>,
   ) => Promise<void> | void;
+  /** Her own earlier words (a scheduled check-in), spoken in her voice. */
+  runCompanionCheckIn?: (facts: string) => Promise<void> | void;
+  /** She just caught a pet: her companion reacts to its facts (unnamed pets) in its own words. */
+  reactToCaughtPet?: () => Promise<void>;
   recordGameTrace?: (state: Record<string, unknown>) => void;
   end?: () => Promise<void>;
 }

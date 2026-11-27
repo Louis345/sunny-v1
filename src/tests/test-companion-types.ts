@@ -130,7 +130,7 @@ describe("companion types (COMPANION-001)", () => {
     expect(p.companion.vrmUrl).toBe("/companions/sample.vrm");
     expect(p.companion.companionId).toBe("elli");
     expect(p.companion.idleFrequency_ms).toBe(45000);
-    expect(p.ttsName).toBe("Ayla");
+    expect(p.ttsName).toBe("EYE-lah");
     expect(p.avatarImagePath).toBe("/characters/ila.png");
   });
 

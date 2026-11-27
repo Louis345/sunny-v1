@@ -118,6 +118,9 @@ export interface UseKaraokeReadingArgs {
   matchMode?: KaraokeMatchMode;
   /** Pronunciation should only score the newest utterance tail; story karaoke can scan the phrase. */
   sequentialMatchScope?: "anywhere" | "tail";
+  /** Sequential only: score the live transcript once it has stayed unchanged this long, so a word it passes
+   * through on the way to another ("import" while she says "important") is never credited (BUGS.md 2026-11-08). */
+  settleTailMs?: number;
 }
 
 export type KaraokeReadingCompleteResult = {
@@ -171,7 +174,10 @@ export function useKaraokeReading(
     resetKey = "",
     matchMode = "speech",
     sequentialMatchScope = "anywhere",
+    settleTailMs = 0,
   } = args;
+  const settleTimerRef = useRef<number | null>(null);
+  useEffect(() => () => { if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current); }, []);
 
   const [wordIndex, setWordIndex] = useState(0);
   const [skippedIndices, setSkippedIndices] = useState<number[]>([]);
@@ -545,6 +551,7 @@ export function useKaraokeReading(
       return;
     }
 
+    const scoreNow = () => {
     const prev = wordIndexRef.current;
     if (prev >= words.length) return;
     const expected = words[prev];
@@ -575,7 +582,19 @@ export function useKaraokeReading(
     if (next >= words.length) {
       completeReading();
     }
+    };
+    if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+    if (settleTailMs > 0) {
+      settleTimerRef.current = window.setTimeout(() => {
+        settleTimerRef.current = null;
+        if (lastInterimRef.current !== t || isCompleteRef.current) return;
+        scoreNow();
+      }, settleTailMs);
+      return;
+    }
+    scoreNow();
   }, [
+    settleTailMs,
     interimTranscript,
     words,
     sendProgress,

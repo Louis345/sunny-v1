@@ -99,6 +99,24 @@ describe("truthful waiting screen", () => {
   });
 });
 
+// BUGS.md S28 (owner, 2026-11-18): Ila's board 5 was published with two games the credit outage refused, and the kiosk
+// showed a fork whose both paths were locked, then a Quest and a Mystery. Why the human caught it: the map made no
+// sense. Why logs missed it: "published" with Not ready portals was the designed state. Why the lab missed it: a
+// published board was always shown. Owner rule: a board shows only when every activity is built; otherwise the
+// waiting screen stays up while the build is retried.
+describe("a published board with an unbuilt activity", () => {
+  const board = (lock?: string) => ({ activeSessionPlan: { domain: "spelling", adventureBoard: { nodes: [
+    { id: "quest", state: "completed", action: { type: "launch-activity" } },
+    { id: "lanterns", state: lock ? "locked" : "available", action: { type: lock ? "show-locked-reason" : "launch-activity" }, ...(lock ? { lock: { reason: lock } } : {}) },
+  ] } }, childChart: { learningCycle: { lifecycle: "quest_ready" } } }) as never;
+  it("keeps the waiting screen up until every activity is built, then shows the board", () => {
+    const input = (packet: never) => ({ packet, directDiscoveryMode: false, handoff: null, held: true, preview: false, published: true });
+    expect(resolvePreparationSurface(input(board("artifact-not-ready")))).toBe("held");
+    expect(resolvePreparationSurface({ ...input(board()), held: false })).toBeNull();
+    expect(resolvePreparationSurface({ ...input(board("route-not-taken")), held: false })).toBeNull();
+  });
+});
+
 describe("a finished board", () => {
   const packet = (lifecycle: string, domain = "spelling") => ({ activeSessionPlan: { domain }, childChart: { learningCycle: { lifecycle } } }) as never;
   it("opens the same waiting screen until the next board is published", () => {
@@ -107,10 +125,42 @@ describe("a finished board", () => {
     expect(resolvePreparationSurface({ ...input, published: true })).toBeNull();
     expect(resolvePreparationSurface({ ...input, preview: true })).toBeNull();
   });
-  it("is known from the cycle deciding what comes next, on spelling only", () => {
-    for (const lifecycle of ["baseline_evaluating", "quest_evaluating", "boss_evaluating"]) expect(isBoardFinishedPacket(packet(lifecycle))).toBe(true);
-    expect(isBoardFinishedPacket(packet("board_ready"))).toBe(false);
-    expect(isBoardFinishedPacket(packet("baseline_evaluating", "math"))).toBe(false);
+  // Owner 2026-11-12: Reina finished math board 3, came back from FaceTime while board 4 was being built, and saw the
+  // finished board 3 as if it were current. Why the human caught it: an old, done board on screen. Why logs missed
+  // it: the page reloaded into the board with no screen report. Why the lab missed it: this test pinned math to
+  // "no waiting screen", and no case covered a page opened while the next board is generated.
+  // Rule: one waiting screen for every subject, from the moment a board is finished until the next one is published.
+  it("is known from the cycle deciding or building what comes next, for spelling and math", () => {
+    for (const domain of ["spelling", "math"]) {
+      for (const lifecycle of ["baseline_evaluating", "quest_evaluating", "boss_evaluating", "quest_generating", "boss_generating"]) {
+        expect(isBoardFinishedPacket(packet(lifecycle, domain)), `${domain} ${lifecycle}`).toBe(true);
+      }
+      expect(isBoardFinishedPacket(packet("board_ready", domain))).toBe(false);
+      expect(isBoardFinishedPacket(packet("baseline_generating", domain))).toBe(false);
+    }
     expect(isBoardFinishedPacket(null)).toBe(false);
+  });
+  // BUGS.md S20 (Ila, 2026-11-17/18): her finished spelling board 3 showed with every activity checked because the
+  // next-board decision was blocked (S16), and "blocked" was not a finished-board state. Why the human caught it: she
+  // saw a done board and thought she was finished. Why logs missed it: the screen report said "board", a normal screen.
+  // Why the lab missed it: the 11/12 rule listed deciding/building states only. Rule: a board whose every activity is
+  // done shows the waiting screen while its successor is blocked too; a board blocked mid-play does not.
+  it("counts a blocked cycle whose board is all done as finished, and a half-played one as not", () => {
+    const blocked = (states: string[], domain = "spelling") => ({
+      activeSessionPlan: { domain, adventureBoard: { nodes: states.map((state, index) => ({ id: `n${index}`, state })) } },
+      childChart: { learningCycle: { lifecycle: "blocked" } } }) as never;
+    const building = (states: string[]) => ({ activeSessionPlan: { domain: "spelling", adventureBoard: { nodes: states.map((state, index) => ({ id: `n${index}`, state })) } },
+      childChart: { learningCycle: { lifecycle: "baseline_generating" } } }) as never;
+    expect(isBoardFinishedPacket(building(["completed", "completed"]))).toBe(true);
+    expect(isBoardFinishedPacket(building(["completed", "locked"]))).toBe(false);
+    for (const domain of ["spelling", "math"]) {
+      expect(isBoardFinishedPacket(blocked(["completed", "completed", "completed"], domain)), domain).toBe(true);
+      expect(isBoardFinishedPacket(blocked(["completed", "ready"], domain)), domain).toBe(false);
+    }
+  });
+  it("opens for a finished math board until the next one is published", () => {
+    const input = { packet: packet("quest_generating", "math"), directDiscoveryMode: false, handoff: null, held: false, preview: false, boardFinished: true };
+    expect(resolvePreparationSurface(input)).toBe("chapter");
+    expect(resolvePreparationSurface({ ...input, published: true })).toBeNull();
   });
 });

@@ -66,11 +66,5 @@
       "label": "Candy - Young and Sweet",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "Hi, I'm Tene. I love music, dancing, glowing lights, and helping people feel confident.",
-      "plead": "Pick me and I'll have your back. We'll find the rhythm in hard things and shine through them together."
-    }
-  }
+  ]
 }

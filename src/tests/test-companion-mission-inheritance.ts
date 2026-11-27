@@ -19,7 +19,7 @@ const companionFiles = readdirSync(resolve(srcDir, "companions")).filter((file) 
 const IDENTITY_SECTIONS = ["Identity", "Personality", "Openings and Closings"];
 
 function missionSection(): string {
-  const start = companionBase.indexOf("## Companion mission");
+  const start = companionBase.indexOf("## Where you are");
   if (start < 0) return "";
   const next = companionBase.indexOf("\n## ", start + 1);
   return companionBase.slice(start, next < 0 ? undefined : next);
@@ -28,13 +28,11 @@ function missionSection(): string {
 describe("companion mission inheritance", () => {
   it("keeps one shared mission every companion inherits", () => {
     const mission = missionSection();
-    expect(mission).toContain("not the activity");
-    expect(mission).toContain("Follow the child's lead");
-    expect(mission).toContain("a greeting gets a greeting");
-    expect(mission).toContain("Teach when the child asks or is clearly stuck");
-    expect(mission).toContain("Do not start quizzing");
-    expect(mission).toContain("not from transcript text");
-    expect(mission).toContain("Your personality changes how you speak, never this mission");
+    // 11/23: the shared part is the situation (tutoring or a call), not rules about how to behave in it.
+    expect(mission).toContain("**Tutoring.**");
+    expect(mission).toContain("can do it on her own, on paper, at school");
+    expect(mission).toContain("**On a call.**");
+    expect(companionBase).toContain("not the transcript, says whether she was right");
   });
 
   it.each(companionFiles)("%s holds only identity and personality, not job rules", (file) => {
@@ -49,7 +47,7 @@ describe("companion mission inheritance", () => {
       const { buildSessionPrompt } = await import("../agents/prompts");
       const prompt = await buildSessionPrompt("synthetic-prompt-probe" as never, resolve(srcDir, "companions", file),
         "Assigned spelling words", [], "homework", { carePlan: null });
-      expect(prompt.split("## Companion mission").length - 1).toBe(1);
+      expect(prompt.split("## Where you are").length - 1).toBe(1);
       const personality = readFileSync(resolve(srcDir, "companions", file), "utf8").match(/## Personality\n\n([^\n]+)/)?.[1];
       expect(personality).toBeTruthy();
       expect(prompt).toContain(personality!);
@@ -64,6 +62,6 @@ describe("companion mission inheritance", () => {
     const context = buildCurrentBoardSnapshotContext(snapshot);
     expect(context).toContain("raincoat");
     expect(context).not.toContain("Purpose: help the child learn this word together");
-    expect(context).toContain("When the child asks for help with this word or is clearly stuck");
+    expect(context).toContain("Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available.");
   });
 });

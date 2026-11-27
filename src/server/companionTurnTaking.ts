@@ -1,16 +1,23 @@
 /**
- * How Elli takes turns in a live voice conversation: one product rule for her
- * reply length, plus the code-side rules for when the child is talking over her.
+ * How a live voice conversation works for the companion (facts), plus the code that handles the child talking over her.
  */
 import type { ModelMessage } from "ai";
 
 export const COMPANION_SPOKEN_TURN_PROMPT = [
-  "## How you talk",
-  "Be warm and attentive. Keep ordinary conversation brief and leave room for the child. Expand when useful or requested. Respond meaningfully to direct requests, through speech or an appropriate action.",
-  "If the child interrupts, answer what they just said.",
-  "Speak first, record after: write your spoken reply before any recordChildSignal or recordProductIssue call, and say nothing after those calls.",
-  "Every word you write is spoken aloud: never write private notes or describe the child in the third person.",
+  "## Talking live",
+  "Every word you write is spoken aloud, and your voice starts as soon as your first sentence is written.",
+  "She can talk over you: your reply stops there, and her words come to you next.",
+  "Your turn ends when you call recordChildSignal or recordProductIssue, so anything you say comes before those calls.",
 ].join("\n");
+
+/**
+ * What she can really do, from the tools this turn actually has (owner eval 11/22: "I promise… tomorrow", "I'll flag
+ * that" with no tool to flag). Code states the abilities; the companion decides what to say.
+ */
+export function companionAbilitiesLine(toolNames: string[]): string {
+  const names = [...new Set(toolNames.filter(Boolean))];
+  return `## What you can do\nYour abilities right now are exactly what these tools do: ${names.length ? names.join(", ") : "no tools this turn (you can only talk)"}. Anything else, such as remembering a plan for another day, reminding, flagging or telling a grown-up, is not something you can do from here.`;
+}
 
 /**
  * History for a reply the child cut off: their message, only what Elli had
@@ -99,20 +106,26 @@ export function normalizeUtterance(text: string): string {
 
 /**
  * Anything Sunny spoke recently (game narration or a reply) coming back through the room mic.
- * Only a multi-word transcript counts: most of its words are in one recent utterance and it
- * repeats a run of three of them in order. A child repeating a word or two ("plane",
- * "is it plane?") is a real answer, and a letter-by-letter spelling attempt is always hers.
+ * Only a multi-word transcript counts, and most of its words must sit in runs of three that
+ * Sunny said in that order: a mic echo is a stretch of her speech, while a child's sentence
+ * that borrows common words and one phrase from a long reply is hers (Ila, 2026-11-09).
+ * A child repeating a word or two ("plane", "is it plane?") is a real answer, and a
+ * letter-by-letter spelling attempt is always hers. Returns the utterance it echoes.
  */
-export function isSelfEcho(transcript: string, recentSpeech: readonly string[]): boolean {
+export function selfEchoSource(transcript: string, recentSpeech: readonly string[]): string | undefined {
   const words = spokenWords(transcript);
-  if (words.length < 4 || words.every((w) => w.length === 1)) return false;
-  return recentSpeech.some((utterance) => {
+  if (words.length < 4 || words.every((w) => w.length === 1)) return undefined;
+  return recentSpeech.find((utterance) => {
     const said = spokenWords(utterance);
-    const vocabulary = new Set(said);
-    if (words.filter((w) => vocabulary.has(w)).length / words.length < 0.75) return false;
     const runs = new Set(said.slice(2).map((w, i) => `${said[i]} ${said[i + 1]} ${w}`));
-    return words.slice(2).some((w, i) => runs.has(`${words[i]} ${words[i + 1]} ${w}`));
+    const covered = new Set<number>();
+    words.slice(2).forEach((w, i) => { if (runs.has(`${words[i]} ${words[i + 1]} ${w}`)) [i, i + 1, i + 2].forEach((at) => covered.add(at)); });
+    return covered.size / words.length >= 0.75;
   });
+}
+
+export function isSelfEcho(transcript: string, recentSpeech: readonly string[]): boolean {
+  return selfEchoSource(transcript, recentSpeech) !== undefined;
 }
 
 /**

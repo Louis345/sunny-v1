@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
+import { NODE_REGISTRY } from "../../../src/shared/nodeRegistry";
 import {
   buildPlannerBoardIframeStartMessage,
   isDirectDiscoveryPacket,
@@ -169,6 +170,16 @@ describe("direct Discovery entry", () => {
     current.spellingInstruments = { wheel: { assessment: false, items: [{ itemId: "frozen-night", display: "night", acceptedResponses: ["night"], label: "Spelling", subject: "spelling" }] } };
     const node = current.activeSessionPlan!.adventureBoard!.nodes[0]; node.state = "available"; node.action = { type: "launch-activity", payloadId: "wheel" };
     expect(resolvePlannerBoardLaunchNode(current, node)?.spellingItemBindings).toEqual([{ itemId: "frozen-night", word: "night" }]);
+  });
+  // One pipeline (owner, 2026-11-08): a math game opens each problem through the contract's openItem.
+  it("passes each built math game its problems to open, and puts them in the game's launch URL", () => {
+    const current = packet("learning-cycle:hw-1", [{ id: "camp", type: "generated-game", targets: ["7 + 6"], gameHtmlPath: "/homework/games/hw-1/camp.html", date: "hw-1" }]);
+    current.itemBindings = { camp: [{ itemId: "p1", display: "7 + 6. Is the sum even or odd?" }] };
+    const node = current.activeSessionPlan!.adventureBoard!.nodes[0]; node.state = "available"; node.action = { type: "launch-activity", payloadId: "camp" };
+    const launch = resolvePlannerBoardLaunchNode(current, node)!;
+    expect(launch.itemBindings).toEqual([{ itemId: "p1", display: "7 + 6. Is the sum even or odd?" }]);
+    const url = NODE_REGISTRY["generated-game"]!.getUrl!(launch as never, { childId: "lab", companion: "elli", previewParam: "" } as never);
+    expect(JSON.parse(new URL(url, "http://kiosk").searchParams.get("itemBindings")!)).toEqual([{ itemId: "p1", display: "7 + 6. Is the sum even or odd?" }]);
   });
   it("polls the same durable job for spelling and math without enabling legacy domains", () => {
     for (const domain of ["spelling", "math"]) {

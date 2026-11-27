@@ -226,10 +226,10 @@ describe("CompanionShowroom command source", () => {
 
     expect(source).toContain('cameraAngle: "mid-shot"');
     expect(source).toContain(
-      "motor?.setCameraAngle(containedFraming.cameraAngle, 680)",
+      "motor?.setCameraAngle(previewCameraAngle, 680)",
     );
     expect(source).toContain(
-      "motor.setCameraAngle(containedFraming.cameraAngle, 0)",
+      "motor.setCameraAngle(previewCameraAngle, 0)",
     );
     expect(source).not.toContain('contained ? "mid-shot" : "full-body"');
   });

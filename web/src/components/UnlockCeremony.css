@@ -182,6 +182,10 @@
 @keyframes unlockCeremonyUndim { from { opacity: 1; } to { opacity: 0; } }
 
 .adventure-board--ceremony-shake { animation: unlockCeremonyShake 600ms linear; }
+/* The board holds its breath while her companion notices: a low tremble and a glow where the node will rise. */
+.adventure-board--ceremony-rumble { animation: unlockCeremonyRumble 180ms linear infinite; }
+.adventure-board--ceremony-rumble .adventure-board__node--underground { filter: drop-shadow(0 0 18px rgba(255, 214, 102, 0.95)); }
+@keyframes unlockCeremonyRumble { 0% { translate: -1.5px 0; } 50% { translate: 1.5px -1px; } 100% { translate: -1px 1px; } }
 .adventure-board--ceremony-shake-again { animation: unlockCeremonyShakeAgain 600ms linear; }
 
 @keyframes unlockCeremonyShake {
@@ -226,6 +230,7 @@
 @media (prefers-reduced-motion: reduce) {
   .adventure-board--ceremony-dim { transform: none; }
   .adventure-board--ceremony-shake,
+  .adventure-board--ceremony-rumble,
   .adventure-board--ceremony-shake-again,
   .adventure-board__node--rising .adventure-board__node-orb,
   .unlock-ceremony__spark,

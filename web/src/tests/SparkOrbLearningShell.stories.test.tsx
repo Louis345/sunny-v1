@@ -16,6 +16,7 @@ vi.mock("../components/CompanionLayer", () => ({
 
 vi.mock("../utils/sparkOrbSfx", () => ({
   playSparkOrbSfx: vi.fn(),
+  startSparkOrbPullTone: () => null,
 }));
 
 afterEach(() => {
@@ -57,8 +58,8 @@ describe("SparkOrbLearningShell stories", () => {
     );
     expect(screen.queryByText("Flick up")).not.toBeInTheDocument();
     expect(screen.queryByText("Aim up, then release")).not.toBeInTheDocument();
-    expect(vi.mocked(playSparkOrbSfx)).toHaveBeenCalledWith("charge");
-    expect(vi.mocked(playSparkOrbSfx)).toHaveBeenCalledWith("ready");
+    expect(vi.mocked(playSparkOrbSfx)).toHaveBeenCalledWith("charge", expect.objectContaining({ sensory: expect.any(Object) }));
+    expect(vi.mocked(playSparkOrbSfx)).toHaveBeenCalledWith("ready", expect.objectContaining({ sensory: expect.any(Object) }));
     expect(infoSpy).toHaveBeenCalledWith(
       " 🎮 [storybook:spark-orb-learning] [question-answer] [charge-earned]",
       expect.objectContaining({

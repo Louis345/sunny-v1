@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle } from "./learningCycleRepository";
 import {
   buildLongitudinalLearningHistory,
@@ -11,8 +11,14 @@ import {
   type ConfirmedReturnedWork,
 } from "./longitudinalLearning";
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+
 function root(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-longitudinal-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-longitudinal-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 it("cannot call a prediction supported when returned work produces no eligible evaluation", async () => {
@@ -225,6 +231,23 @@ describe("longitudinal learning evidence", () => {
     expect(interpreted.applied).toBe(true);
     expect(interpreted.cycle.decisionHistory.filter((decision) => decision.eventType === "theory_decided")).toHaveLength(1);
     expect(repeated).toMatchObject({ applied: false, reason: "already_interpreted" });
+  });
+
+  // 11/22 (seen on Reina's Chapter 1 quiz): the Planner's decision about the graded test locked a new school forecast
+  // at the grade's own instant, a "prediction" made with the answer known. A week whose graded test is recorded locks
+  // no more school forecasts.
+  it("locks no school forecast in the decision that interprets a recorded graded test", async () => {
+    const rootDir = root();
+    createLearningCycle(cycleInput("hw-math-graded"), { rootDir });
+    const first = recordConfirmedReturnedWork(returnedWork("hw-math-graded"), { rootDir });
+    const before = first.schoolForecasts?.length ?? 0;
+    const interpreted = await interpretReturnedWorkBatch({
+      childId: "reina", homeworkId: "hw-math-graded", sourceId: "source:return:1", rootDir,
+      interpret: async () => ({ status: "inconclusive", reason: "Graded test recorded.", nextAction: "Wait for the next week.",
+        evidenceIds: first.observations.map((row) => row.observationId), predictionEvaluationIds: [], preserve: [], change: [], testNext: [], nextEvidenceRequired: [] }),
+    });
+    expect(interpreted.applied).toBe(true);
+    expect(interpreted.cycle.schoolForecasts?.length ?? 0).toBe(before);
   });
 
   it("keeps confirmed evidence pending when the Planner interpretation provider fails", async () => {

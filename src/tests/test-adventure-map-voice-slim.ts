@@ -95,7 +95,7 @@ describe("buildSessionPrompt — ADVENTURE_MAP voice slim", () => {
     );
     expect(prompt).not.toContain("[Canvas Capabilities]");
     expect(prompt).toContain("The adventure map controls which activities appear on screen");
-    expect(prompt).toContain("### takeGameScreenshot");
+    expect(prompt).not.toContain("### takeGameScreenshot");
     expect(prompt).toContain("### companionAct");
     expect(prompt).toContain("### show_level_path");
     expect(prompt).toMatch(/show_level_path[\s\S]*never open it proactively/i);
@@ -219,7 +219,7 @@ describe("SessionManager.buildAgentToolkit — ADVENTURE_MAP voice slim", () => 
       ).buildAgentToolkit(),
     ).sort();
     expect(keys).not.toContain("canvasShow");
-    expect(keys).toContain("takeGameScreenshot");
+    expect(keys).not.toContain("takeGameScreenshot");
     expect(keys).not.toContain("sessionLog");
     expect(keys).not.toContain("launchGame");
     expect(keys).toContain("companionAct");

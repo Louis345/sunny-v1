@@ -5,7 +5,6 @@ import {
   createShowroomVideoCallStatusCopy,
   createShowroomVideoChatEntryCopy,
   createShowroomVideoChatStartedEvent,
-  resolveVideoCallPickupGreeting,
   resolveShowroomChildDisplayName,
   createShowroomVideoActivityContextFromEvent,
   createShowroomTalkPayload,
@@ -14,6 +13,7 @@ import {
   getShowroomVideoPermissionFallbackMessage,
   getShowroomVideoChatLatencyBudget,
   inferShowroomVideoConversationIntent,
+  isWardrobeShoppingReactionCurrent,
   isShowroomActivityReactionCurrent,
   resolveShowroomTalkChildId,
   getShowroomTalkRequestedAnimation,
@@ -66,6 +66,134 @@ describe("CompanionShowroom talk mode", () => {
       callSource: "showroom",
       relationshipState: "previewing",
     });
+  });
+
+  it("includes exact shopping context in video-call turns", () => {
+    const shoppingContext = {
+      mode: "try_on" as const,
+      visitId: "visit-elli-web",
+      walletBalance: 80,
+      companionWish: "a celestial headpiece",
+      companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+      selectedItem: {
+        id: "royal-crown",
+        name: "Royal Crown",
+        price: 20,
+        category: "accessory" as const,
+        styleTags: ["gold", "royal"],
+        owned: true,
+        saved: false,
+        preferenceMatch: true,
+        opinionVerdict: "reject" as const,
+        opinionReasons: ["not feeling royal today"],
+        companionConsentsToWear: false,
+      },
+      ownedItemIds: ["royal-crown"],
+      savedItemIds: [],
+    };
+
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "aurora",
+        question: "Do you like it?",
+        mode: "video_call",
+        shoppingContext,
+      }),
+    ).toMatchObject({ shoppingContext });
+  });
+
+  it("marks automatic try-on reactions as store events instead of child questions", () => {
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "aurora",
+        question: "React naturally to the item that was just tried on.",
+        mode: "video_call",
+        shoppingEvent: {
+          type: "try_on_started",
+          itemId: "royal-crown",
+        },
+      }),
+    ).toMatchObject({
+      shoppingEvent: {
+        type: "try_on_started",
+        itemId: "royal-crown",
+      },
+    });
+  });
+
+  it("marks item review reactions as store events instead of child questions", () => {
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "aurora",
+        question: "Give a brief first impression of the selected item.",
+        mode: "video_call",
+        shoppingEvent: {
+          type: "item_reviewed",
+          itemId: "star-halo",
+        },
+      }),
+    ).toMatchObject({
+      shoppingEvent: {
+        type: "item_reviewed",
+        itemId: "star-halo",
+      },
+    });
+  });
+
+  it("drops a shopping reaction after the child changes item or store mode", () => {
+    const currentContext = {
+      mode: "review" as const,
+      visitId: "visit-1",
+      walletBalance: 100,
+      companionWish: "something cosmic",
+      companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+      selectedItem: {
+        id: "star-halo",
+        name: "Star Halo",
+        price: 25,
+        category: "accessory" as const,
+        styleTags: ["celestial"],
+        owned: false,
+        saved: false,
+        preferenceMatch: true,
+        opinionVerdict: "love" as const,
+        opinionReasons: ["matches the current wish"],
+        companionConsentsToWear: true,
+      },
+      ownedItemIds: [],
+      savedItemIds: [],
+    };
+
+    expect(
+      isWardrobeShoppingReactionCurrent(
+        "visit-1:review:item_reviewed:star-halo",
+        currentContext,
+        { type: "item_reviewed", itemId: "star-halo" },
+      ),
+    ).toBe(true);
+    expect(
+      isWardrobeShoppingReactionCurrent(
+        "visit-1:review:item_reviewed:royal-crown",
+        currentContext,
+        { type: "item_reviewed", itemId: "royal-crown" },
+      ),
+    ).toBe(false);
+    expect(
+      isWardrobeShoppingReactionCurrent(
+        "visit-1:try_on:try_on_started:star-halo",
+        currentContext,
+        { type: "try_on_started", itemId: "star-halo" },
+      ),
+    ).toBe(false);
   });
 
   it("gates the mic while the companion is speaking but not while the child is talking", () => {
@@ -128,97 +256,8 @@ describe("CompanionShowroom talk mode", () => {
     });
   });
 
-  it("resolves companion-specific showroom pickup greetings", () => {
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }),
-    ).toEqual({
-      text: "Hiii Ila! I was hoping you'd call.",
-      usedMemorySeed: false,
-    });
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "kefla",
-        companionName: "Kefla",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }).text,
-    ).toBe("You called? Good. I was ready for a challenge.");
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "matilda",
-        companionName: "Matilda",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }).text,
-    ).toBe("Hi Ila. I saved a calm little spot for us.");
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "princess",
-        companionName: "Princess",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }).text,
-    ).toBe("Ila, you made it. The quest can begin.");
-  });
-
-  it("uses earned reward and safe memory pickup variants without making memory mandatory", () => {
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: "Ila",
-        callSource: "game_reward",
-        relationshipState: "earned_reward",
-      }),
-    ).toEqual({
-      text: "Ila! You earned this call. I was hoping we'd get a minute together.",
-      usedMemorySeed: false,
-    });
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "selected",
-        memory: { reunionLineSeed: "Last time we played tic-tac-toe." },
-      }),
-    ).toEqual({
-      text: "Hiii Ila! Last time we played tic-tac-toe.",
-      usedMemorySeed: true,
-    });
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: "Ila",
-        callSource: "showroom",
-        relationshipState: "selected",
-        memory: { reunionLineSeed: "   " },
-      }).usedMemorySeed,
-    ).toBe(false);
-  });
-
-  it("uses the child query display name for pickup greetings when dbz preview omits childName prop", () => {
+  it("uses the child query display name when dbz preview omits childName prop", () => {
     expect(resolveShowroomChildDisplayName(undefined, "ila")).toBe("Ila");
-    expect(
-      resolveVideoCallPickupGreeting({
-        companionId: "elli",
-        companionName: "Elli",
-        childName: resolveShowroomChildDisplayName(undefined, "ila"),
-        callSource: "showroom",
-        relationshipState: "previewing",
-      }).text,
-    ).toBe("Hiii Ila! I was hoping you'd call.");
   });
 
   it("wires an unlocked Video Chat shell without economy lock copy", () => {
@@ -238,12 +277,14 @@ describe("CompanionShowroom talk mode", () => {
   it("wires pickup greeting through existing companion speak route and trace events", () => {
     const source = readShowroomSource();
 
-    expect(source).toContain("resolveVideoCallPickupGreeting");
+    expect(source).toContain("callOpeningCacheRef");
     expect(source).toContain("call_greeting_selected");
     expect(source).toContain("call_greeting_audio_start");
     expect(source).toContain("call_greeting_audio_ended");
     expect(source).toContain("call_greeting_skipped");
-    expect(source).toContain("/speak");
+    // Her written lines are voiced by writeCallMoment (utils/callMoment.ts → /speak); the showroom holds no scripts.
+    expect(source).toContain("writeCallMoment(");
+    expect(source).toContain('moment: "showroom_plead"');
     expect(source).not.toContain("new WebSocket");
   });
 

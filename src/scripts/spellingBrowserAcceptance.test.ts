@@ -31,6 +31,11 @@ import { handleWsConnection } from "../server/ws-handler";
 import { SessionManager } from "../server/session-manager";
 import * as legacyLearning from "../engine/learningEngine";
 import { trackedBody, waitForUnfinishedBodies } from "../tests/unfinishedTestBodies";
+import { collectTreasureIfShown, leaveStopToMap, skipRatingAfterTreasure } from "./acceptanceTreasure";
+import { screenshotsSkipFontWait } from "./screenshotFonts";
+
+// I3: external requests are aborted below and screenshots do not wait on fonts (a slow font stalled two runs).
+screenshotsSkipFontWait();
 const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false, refusePreparation: false, refusalCalls: 0 }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: lab.adaptive ? recordedAdaptiveSpellingPlan(packet, lab.root) : recordedSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
 vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => ({ status: "inconclusive", reason: "Immediate recall is not retention", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId) }) }, opts) }; });
@@ -80,11 +85,11 @@ it("keeps the spelling audio proof on Sunny's production WebSocket and TTS path"
 // A scenario that times out keeps running; the next one starts only after its cleanup (Nov 4 catch).
 waitForUnfinishedBodies(120000);
 
+// One case per distinct path: plain kiosk, chart with forecast-failure recovery,
+// adaptive with chart, existing chart, and preparation failure. Extra viewports
+// replayed the same flow and cost about 100 s each.
 it.each([
-  { width: 1365, height: 768, adaptive: false, chart: false },
   { width: 1280, height: 720, adaptive: false, chart: false },
-  { width: 1365, height: 768, adaptive: true, chart: false },
-  { width: 1280, height: 720, adaptive: true, chart: false },
   { width: 768, height: 1024, adaptive: false, chart: true },
   { width: 768, height: 1024, adaptive: true, chart: true },
   { width: 768, height: 1024, adaptive: false, chart: true, existing: true },
@@ -271,7 +276,7 @@ it.each([
       const discoveryCompanion = page.locator('[data-testid="companion-layer-stack"], [data-testid="companion-portrait-stack"]');
       await discoveryCompanion.waitFor();
       await expect.poll(() => discoveryCompanion.getAttribute("data-companion-model-status")).toBe("ready");
-      await page.screenshot({ path: path.join(outputDir, `discovery-${viewport.width}x${viewport.height}.png`) });
+      await page.screenshot({ path: path.join(outputDir, `discovery-${viewport.width}x${viewport.height}.png`), timeout: 30000 });
     }
     const answer = async (value: string) => {
       const hear = page.getByRole("button", { name: "Hear the word", exact: true });
@@ -316,7 +321,7 @@ it.each([
         expect(await page.getByText(words[2], { exact: true }).count()).toBe(0);
       }
     }
-    await page.getByText("Skip", { exact: true }).click();
+    await skipRatingAfterTreasure(page);
     if (lab.refusePreparation) {
       await expect.poll(() => preparationFailure).toBe("learning_design_provider_refused");
       await page.getByText("Building paused", { exact: true }).waitFor({ timeout: 5000 });
@@ -333,7 +338,7 @@ it.each([
       expect(getLearningCycle(childId, homeworkId, { rootDir })!.observations).toEqual(preserved);
       expect(hashFilesUnder(canonicalFamilyPaths)).toBe(canonicalFamilyHashBefore);
       expect(errors).toEqual([]);
-      await page.screenshot({ path: path.join(runDir, "provider-failure.png") });
+      await page.screenshot({ path: path.join(runDir, "provider-failure.png"), timeout: 30000 });
       fs.writeFileSync(path.join(runDir, "provider-failure.json"), JSON.stringify({
         passed: true, injectedFailure: preparationFailure, providerCalls: lab.refusalCalls,
         workerLaunchCount, preservedAnswerCount: preserved.length, restartPreservedFailure: true,
@@ -345,7 +350,7 @@ it.each([
     // It remains hidden until the child explicitly chooses it.
     await page.getByRole("button", {name:"Let's go!",exact:true}).waitFor({ timeout: 30000 });
     expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
-    await page.screenshot({path:path.join(outputDir,"preparation-no-map.png")});
+    await page.screenshot({path:path.join(outputDir,"preparation-no-map.png"), timeout: 30000 });
     const before = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(before.observations.map(row => row.result.correct)).toEqual(scenario.adaptive
       ? [true, true, true, true, true, true, false, false, false, false]
@@ -361,7 +366,7 @@ it.each([
     const discoveryAudioFrames = assessmentAudioFrames;
     const discoveryPlaybackConfirmations = confirmedAssessmentPlayback;
     expect(before.observations.at(-1)?.result.observedErrorType).toBeUndefined();
-    await page.screenshot({ path: path.join(outputDir, "preparing.png") });
+    await page.screenshot({ path: path.join(outputDir, "preparing.png"), timeout: 30000 });
     expect(workerLaunchCount).toBe(1);
     expect(automaticGeneration).toBeDefined();
     await automaticGeneration;
@@ -437,7 +442,7 @@ it.each([
       const discoveryScreenshotPath = path.join(outputDir, `discovery-${viewport.width}x${viewport.height}.png`);
       const finalCheckScreenshotPath = path.join(outputDir, `final-check-${viewport.width}x${viewport.height}.png`);
       const completionScreenshotPath = path.join(outputDir, `completed-route-${viewport.width}x${viewport.height}.png`);
-      await page.screenshot({ path: boardScreenshotPath });
+      await page.screenshot({ path: boardScreenshotPath, timeout: 30000 });
 
       await page.getByRole("button", { name: "Choose your path", exact: true }).click();
       await page.getByRole("dialog").getByRole("button", { name: /Speed It/ }).click();
@@ -500,19 +505,20 @@ it.each([
         await next.waitFor();
         await next.click();
       }
-      await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+      await leaveStopToMap(page);
       await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("ready");
       await page.getByRole("button", { name: "Recall Checkpoint", exact: true }).click();
       await page.getByRole("button", { name: "Ready!", exact: true }).click();
       await page.getByTestId("word-radar-input").waitFor();
-      await page.screenshot({ path: finalCheckScreenshotPath });
+      await page.screenshot({ path: finalCheckScreenshotPath, timeout: 30000 });
       for (const [index, word] of words.entries()) {
         await page.getByText(`Word ${index + 1} of ${words.length}`, {exact:true}).waitFor();
         await answer(word);
         if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
       }
-      await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
-      await page.screenshot({ path: completionScreenshotPath });
+      // Since 2026-11-10 a finished stop returns straight to the map (no summary popup).
+      await leaveStopToMap(page);
+      await page.screenshot({ path: completionScreenshotPath, timeout: 30000 });
 
       await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.lifecycle).toBe("awaiting_calibration");
       const completed = getLearningCycle(childId, homeworkId, { rootDir })!;
@@ -625,16 +631,18 @@ it.each([
     await page.getByText("Word workshop", { exact: true }).first().click();
     await page.getByRole("button", { name: "Ready!", exact: true }).click();
     await page.getByTestId("word-radar-input").fill("light");
-    await page.getByText("Skip", { exact: true }).click();
+    await skipRatingAfterTreasure(page);
     await page.getByText("Recall check", { exact: true }).first().click();
     await page.getByRole("button", { name: "Ready!", exact: true }).click();
     await answer("night"); await page.getByTestId("word-radar-input").waitFor(); await answer("light");
-    await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
+    await leaveStopToMap(page);
+    await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })!.predictionEvaluations.length).toBe(2);
     const after = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(after.predictionEvaluations).toHaveLength(2);
     expect(after.nodes.some(node => node.role === "quest" || node.role === "boss")).toBe(false);
     const attemptsBeforeReplay = events.filter(event => event.includes("/discovery/attempt")).length;
-    await page.getByRole("button", { name: "Play again", exact: true }).click();
+    // A child replays a finished stop by tapping it again on the map (the summary's Play again is gone since 2026-11-10).
+    await page.getByText("Recall check", { exact: true }).first().click();
     const ready = page.getByRole("button", { name: "Ready!", exact: true });
     await Promise.race([ready.waitFor(), page.getByTestId("word-radar-input").waitFor()]);
     if (await ready.isVisible()) await ready.click();
@@ -644,7 +652,8 @@ it.each([
     await page.getByTestId("word-radar-btn-skip").click();
     await page.getByTestId("word-radar-input").waitFor();
     await page.getByTestId("word-radar-input").fill("light");
-    await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
+    await leaveStopToMap(page);
+    await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })!.observations.length).toBe(after.observations.length + 2);
     const replayed = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(replayed.observations.slice(0, after.observations.length)).toEqual(after.observations);
     expect(replayed.predictionEvaluations).toEqual(after.predictionEvaluations);
@@ -668,12 +677,12 @@ it.each([
     expect(replayFacts[1].childResponse).toBe("light");
     // Each replay answer now uses the original per-answer endpoint; completion must add no duplicate.
     expect(events.filter(event => event.includes("/discovery/attempt"))).toHaveLength(attemptsBeforeReplay + 2);
-    await page.getByText("Skip", { exact: true }).click();
+    await skipRatingAfterTreasure(page);
     expect(events).toContain("canonical-game:attempt_event");
     expect(legacyAttempt).not.toHaveBeenCalled();
     expect(errors).toEqual([]);
     fs.writeFileSync(path.join(outputDir, "report.json"), JSON.stringify({ provider: "recorded", viewport, before, after, replayed, events, errors, plannerCalls: lab.plannerCalls, timing: { discoveryReadyMs, firstReadyMs, limitation: "Recorded Planner and native games only; not a live provider latency estimate." } }, null, 2));
-    await page.screenshot({ path: path.join(outputDir, "complete.png") });
+    await page.screenshot({ path: path.join(outputDir, "complete.png"), timeout: 30000 });
     if(chartDb){
       await page.goto(new URL(`/parent/learning-report?child=${childId}`,vite!.resolvedUrls!.local[0]).href);
       await page.getByRole('link',{name:'Spelling chart and school results'}).click();
@@ -700,12 +709,12 @@ it.each([
       expect(school?.sourceKind).toBe('parent_transcription');
       expect(projectAssignment(exportEvents(chartDb),homeworkId).forecast).toMatchObject({scheduledTestDate:null,scheduleFactId:null});
       expect(school?.results.map(r=>r.correct)).toEqual([true,false]);
-      await page.screenshot({path:path.join(outputDir,'parent-report.png')});
+      await page.screenshot({path:path.join(outputDir,'parent-report.png'), timeout: 30000 });
     }
   } finally {
     if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) {
       const diagnosticId=`${viewport.width}x${viewport.height}-chart-${scenario.chart}-${path.basename(rootDir)}`;
-      await page.screenshot({ path: path.join(outputDir, "last-state.png") });
+      await page.screenshot({ path: path.join(outputDir, "last-state.png"), timeout: 30000 });
       fs.copyFileSync(path.join(outputDir,"last-state.png"),path.join(outputDir,`${diagnosticId}.png`));
       const diagnostic=JSON.stringify({ events, errors, body: await page.locator("body").innerText(),cycle:getLearningCycle(childId,homeworkId,{rootDir}) });
       fs.writeFileSync(path.join(outputDir,"diagnostic.json"),diagnostic);

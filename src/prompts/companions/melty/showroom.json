@@ -49,11 +49,5 @@
       "label": "Candy - Young and Sweet",
       "language": "en"
     }
-  ],
-  "scripts": {
-    "en": {
-      "intro": "Hi! I'm Melty. I love strawberries, candy, pink sparkles, and cheering people up when they feel wobbly.",
-      "plead": "Please pick me! I'll make every lesson sweeter, put cute band-aids on hard moments, and celebrate you so much."
-    }
-  }
+  ]
 }

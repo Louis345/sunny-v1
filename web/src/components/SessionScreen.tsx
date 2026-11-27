@@ -143,6 +143,7 @@ export function SessionScreen({
           sendMessage={sendMessage}
           readingCanvas={readingCanvas}
           storyImageChildId={childId}
+          arcadeChildId={childId}
           storyImageLoading={storyImageLoading}
           storyImageUrl={storyImageUrl}
           storyImageFailed={storyImageFailed}

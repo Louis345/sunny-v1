@@ -239,6 +239,20 @@ function reportGameState(message, extras) {
   }
 }
 
+// Letter picks are not a spelled word, so the game records only that her word was in play, hidden (E4, 2026-11-14).
+// No narration: saying the word would give away the puzzle.
+let wheelWordOpened = false;
+function openWheelWord() {
+  if (wheelWordOpened) return;
+  wheelWordOpened = true;
+  reportGameState('Wheel word in play (letters hidden).', {
+    spellingItemOpened: true,
+    currentWord: WORD_RAW,
+    phase: 'presentation',
+    answerVisibility: 'hidden',
+  });
+}
+
 function reportGameAction(action, message, snapshot) {
   if (window.GameBridge && typeof window.GameBridge.reportAction === 'function') {
     window.GameBridge.reportAction(action, message, snapshot || {});
@@ -1183,6 +1197,7 @@ function App() {
 
   const handleSpin = useCallback(() => {
     if (spinning || phase !== 'idle') return;
+    openWheelWord();
     reportGameAction(
       "wheel_spin_started",
       `Wheel of Fortune started. Word: ${LETTERS.length} letters. Category: ${CATEGORY}. ` +

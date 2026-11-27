@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { describeScreenForCompanion, normalizeScreenReport } from "./screenReport";
 
 // 2026-10-22 human catch: Elli described an "independent evaluation" while the kiosk showed "Planning your
@@ -74,7 +74,7 @@ it("feeds Elli's real per-turn context: activity details appear only while the k
     const inActivity = turn({ screen: "activity", nodeId: "radar", activityTitle: "Final Radar" });
     expect(inActivity).toContain("Final Radar is open");
     expect(inActivity).toContain("Current item: word-3");
-    expect(inActivity).toContain("Activity-help objective");
+    expect(inActivity).not.toContain("Activity-help objective"); // 11/23: no rules, only what is on screen
     expect(turn(undefined)).toMatch(/screen is unknown/i);
   } finally {
     vi.unstubAllEnvs();
@@ -82,7 +82,7 @@ it("feeds Elli's real per-turn context: activity details appear only while the k
   }
 });
 
-it("tells Elli a check word gets the child's own try before any spelling help", async () => {
+it("tells Elli whether a word is a check or practice, as a fact, with no instructions on how to help", async () => {
   const fs = await import("node:fs"), os = await import("node:os"), path = await import("node:path");
   const { vi } = await import("vitest");
   const { buildActivityCompanionContext } = await import("./urgentLearningSupport");
@@ -95,8 +95,9 @@ it("tells Elli a check word gets the child's own try before any spelling help", 
       word: "night", artifactHash: "h", audioDelivered: true, supportIds: [], lettersVisible: false });
     const turn = (instrument: "recall_check" | "practice") => buildActivityCompanionContext({ snapshot, childId: "try-lab", companionId: "Elli",
       presence: "summoned", spellingAssessment: assessment(instrument) });
-    expect(turn("recall_check")).toContain("let her make her own try");
-    expect(turn("practice")).not.toContain("let her make her own try");
+    expect(turn("recall_check")).toContain("This word is a check: it measures what she spells on her own.");
+    expect(turn("practice")).toContain("This word is practice");
+    for (const text of [turn("recall_check"), turn("practice")]) expect(text).not.toMatch(/own try before|Ways to help|must not be revealed/);
   } finally {
     vi.unstubAllEnvs();
     fs.rmSync(root, { recursive: true, force: true });
@@ -105,4 +106,33 @@ it("tells Elli a check word gets the child's own try before any spelling help", 
 
 it("accepts the kiosk's resting screen", () => {
   expect(normalizeScreenReport({ screen: "resting" })).toEqual({ screen: "resting" });
+});
+
+// 2026-11-15 human catch (W8): "Elli, look at your dress" — she could not see what she was wearing and denied it.
+// The kiosk reports the look it draws, so she knows what her own body shows; names are quoted data.
+it("tells her what she is wearing on the child's screen, from the kiosk's own report", () => {
+  const report = normalizeScreenReport({ screen: "board", boardId: "b2", companionLook: { outfit: "Sky Ribbon Dress", accessory: "Cat Ears" } })!;
+  expect(report.companionLook).toEqual({ outfit: "Sky Ribbon Dress", accessory: "Cat Ears" });
+  const text = describeScreenForCompanion({ report, boards, activityContext: "", activityNodeId: undefined });
+  expect(text).toContain(`On her screen you are wearing: "Sky Ribbon Dress", accessory "Cat Ears".`);
+  const plain = describeScreenForCompanion({ report: normalizeScreenReport({ screen: "board", boardId: "b2", companionLook: { outfit: "", accessory: "" } })!, boards, activityContext: "", activityNodeId: undefined });
+  expect(plain).toContain("On her screen you are wearing: your own clothes, no accessory.");
+  expect(describeScreenForCompanion({ report: normalizeScreenReport({ screen: "board", boardId: "b2" })!, boards, activityContext: "", activityNodeId: undefined })).not.toContain("wearing");
+  expect(normalizeScreenReport({ screen: "board", companionLook: { outfit: "x\ny".repeat(100), accessory: 3 } })!.companionLook!.outfit).not.toContain("\n");
+});
+
+// W8 (11/15 "Elli, you stole someone's dress"): the homework Elli has been told her outfit since 952c988b, but the
+// received-report log line never said what she wore, so no log could show whether she knew. Why the human caught it:
+// she denied the dress he saw. Why the logs missed it: the look was only in the prompt. Why the lab missed it: no test
+// read the log line.
+describe("the server log says what the companion wears on her screen", () => {
+  it("names the outfit and accessory from the kiosk's report", async () => {
+    const { screenReportLogLine } = await import("./screenReport");
+    const report = normalizeScreenReport({ screen: "board", boardId: "b1", companionLook: { outfit: "Navy Ribbon Dress", accessory: "Star Halo" } });
+    expect(screenReportLogLine(report!)).toBe(' 🎮 [screen] [report] [received] screen=board board=b1 node=none look="Navy Ribbon Dress"/"Star Halo"');
+  });
+  it("says look=unknown when the kiosk sent none", async () => {
+    const { screenReportLogLine } = await import("./screenReport");
+    expect(screenReportLogLine(normalizeScreenReport({ screen: "board" })!)).toMatch(/look=unknown$/);
+  });
 });

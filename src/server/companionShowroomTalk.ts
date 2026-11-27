@@ -1,3 +1,7 @@
+import type Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import { readCompanionBaseSection } from "../companions/loader";
+import { sideTalkAnthropicTool } from "./companionSideTalk";
 import {
   type CompanionCommand,
   type AnimationName,
@@ -50,6 +54,10 @@ const MAX_VISUAL_SNAPSHOT_BASE64_LENGTH = 700_000;
 const MAX_VISUAL_SNAPSHOT_DIMENSION = 1024;
 const MAX_REWARD_CONTEXT_FIELD_LENGTH = 160;
 const MAX_ACTIVITY_REASON_LENGTH = 180;
+const MAX_SHOPPING_TEXT_LENGTH = 160;
+const MAX_SHOPPING_ITEM_IDS = 100;
+const MAX_SHOPPING_STYLE_TAGS = 12;
+const MAX_SHOPPING_BALANCE = 1_000_000;
 const SHOWROOM_ACTIVITY_STATUSES = new Set(["active", "completed"]);
 const SHOWROOM_ACTIVITY_TURNS = new Set(["child", "companion", "none"]);
 const SHOWROOM_ACTIVITY_RESULTS = new Set(["child_win", "companion_win", "draw"]);
@@ -60,10 +68,17 @@ const SHOWROOM_ACTIVITY_REACTION_EVENTS = new Set([
   "companion_move",
   "round_complete",
 ]);
-const SHOWROOM_TALK_FALLBACK_TEXT = "I'm here with you. Let's keep going.";
+// The call screen draws no pet yet, so a call companion is not offered the pet tool (2026-11-22: it would say a pet
+// came out that she cannot see). Homework sessions have it.
+const SHOWROOM_ONLY_OFF = new Set(["pet"]);
 const SHOWROOM_COMPANION_ACT_CAPABILITIES = [
   ...COMPANION_CAPABILITIES.keys(),
-] as string[];
+].filter((type) => !SHOWROOM_ONLY_OFF.has(type)) as string[];
+/** The registry's strict payload shapes, so the call companion reads exactly what the validator accepts. */
+const SHOWROOM_COMPANION_ACT_PAYLOADS = [...COMPANION_CAPABILITIES.values()].filter((def) => !SHOWROOM_ONLY_OFF.has(def.type)).map((def) => {
+  const { $schema: _schema, ...shape } = z.toJSONSchema(def.payloadSchema, { io: "input" });
+  return shape;
+});
 const SHOWROOM_COMPANION_ACTIVITY_SURFACES = new Set(["video_call_overlay"]);
 
 export type ShowroomTalkPhase = "thinking" | "speaking" | "idle";
@@ -137,6 +152,39 @@ export type ShowroomVisualSnapshot = {
   width: number;
   height: number;
 };
+export type ShowroomShoppingContext = {
+  mode: "entrance" | "review" | "try_on";
+  visitId: string;
+  walletBalance: number;
+  companionWish: string;
+  companionMood: { id: string; label: string };
+  selectedItem: {
+    id: string;
+    name: string;
+    price: number;
+    category: "accessory" | "outfit";
+    styleTags: string[];
+    owned: boolean;
+    saved: boolean;
+    preferenceMatch: boolean;
+    opinionVerdict: "love" | "like" | "unsure" | "reject";
+    opinionReasons: string[];
+    companionConsentsToWear: boolean;
+  } | null;
+  ownedItemIds: string[];
+  savedItemIds: string[];
+  /** She just bought the companion's wish (owner, 2026-11-12). */
+  wishFulfilled?: { itemId: string; name: string };
+};
+/** Call clock moments (owner, 2026-11-07). The screen names the moment; the server supplies the facts. */
+export type ShowroomCallClockEvent = "minute_left" | "time_up" | "minutes_bought";
+const CALL_CLOCK_EVENTS: readonly ShowroomCallClockEvent[] = ["minute_left", "time_up", "minutes_bought"];
+export type ShowroomCallClockFacts = { event: ShowroomCallClockEvent; minutesLeft: number; secondsLeft?: number; coins: number; price: number; minutes: number };
+
+export type ShowroomShoppingEvent = {
+  type: "item_reviewed" | "try_on_started";
+  itemId: string;
+};
 
 export type ResolvedShowroomTalkRequest = {
   childId: string;
@@ -155,7 +203,73 @@ export type ResolvedShowroomTalkRequest = {
   turnId?: string;
   visualSnapshot?: ShowroomVisualSnapshot;
   lastVisualSummary?: string;
+  shoppingContext?: ShowroomShoppingContext;
+  shoppingEvent?: ShowroomShoppingEvent;
+  callClockEvent?: ShowroomCallClockEvent;
+  companionLook?: ShowroomCompanionLook;
 };
+
+/**
+ * What the call draws the companion wearing, by store name ("" = her own clothes / no accessory), and the last
+ * outfits the child tried on her, newest last (BUGS.md S34, 2026-11-19). Code-owned truth: she cannot see herself.
+ */
+export type ShowroomCompanionLook = { outfit: string; accessory: string; recentTryOns: string[] };
+const MAX_RECENT_TRY_ONS = 3;
+
+function resolveCompanionLook(value: unknown): ShowroomCompanionLook | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const name = (item: unknown) => (typeof item === "string" ? item.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) : "");
+  const tried = Array.isArray(raw.recentTryOns) ? raw.recentTryOns.map(name).filter(Boolean) : [];
+  return { outfit: name(raw.outfit), accessory: name(raw.accessory), recentTryOns: tried.slice(-MAX_RECENT_TRY_ONS) };
+}
+
+/** "The child chose this look for you on Tue, Nov 24 (about 1 day ago)." — a dated fact she can speak from. */
+function lookChosenLine(chosenAt: string, nowIso = new Date().toISOString()): string {
+  const at = new Date(chosenAt), now = new Date(nowIso);
+  if (Number.isNaN(at.getTime())) return "";
+  const days = Math.max(0, Math.round((now.getTime() - at.getTime()) / 86_400_000));
+  const date = at.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+  const ago = days === 0 ? "today" : `about ${days} day${days === 1 ? "" : "s"} ago`;
+  return `The child chose this look for you on ${date} (${ago}).`;
+}
+
+export const LOOK_AT_MYSELF_TOOL = "lookAtMyself";
+export const SELF_LOOK_SNAPSHOT_REASON = "self_look";
+
+/**
+ * The companion's own way to see itself on the call (S34). Offered on FaceTime turns only, and never on the turn that
+ * already carries her picture, so one question can cause at most one look.
+ */
+export function getShowroomSelfLookTools(input: { mode?: ShowroomTalkMode; visualSnapshot?: ShowroomVisualSnapshot }) {
+  if (input.mode !== "video_call" || input.visualSnapshot?.reason === SELF_LOOK_SNAPSHOT_REASON) return [];
+  return [{
+    name: LOOK_AT_MYSELF_TOOL,
+    description:
+      "See a picture of yourself as the child sees you on the call right now. Use it when the facts about your outfit are not enough, such as how colours look together or what a dress looks like on you. Say only a few words like \"let me look\" with it; the picture comes right after.",
+    input_schema: {
+      type: "object" as const,
+      properties: { reason: { type: "string", description: "Why you want to look, in a few words." } },
+      additionalProperties: false,
+    },
+  }];
+}
+
+/** The answer to a look request inside a tool follow-up: her picture comes on the next turn. */
+export function selfLookToolResults(content: ReadonlyArray<{ type: string; name?: string; id?: string }>) {
+  return content
+    .filter(block => block.type === "tool_use" && block.name === LOOK_AT_MYSELF_TOOL && typeof block.id === "string")
+    .map(block => ({
+      type: "tool_result" as const,
+      tool_use_id: block.id as string,
+      content: JSON.stringify({ type: "self_look_result", accepted: true, instruction: "Your picture comes right after this. Say only a few words like \"let me look\", or nothing." }),
+    }));
+}
+
+/** True when the reply asks for a look at herself. */
+export function selfLookRequested<B extends { type: string }>(content: readonly B[]): boolean {
+  return content.some(block => block.type === "tool_use" && (block as { name?: unknown }).name === LOOK_AT_MYSELF_TOOL);
+}
 
 export type ShowroomTalkCompletedEvent = {
   type: "companion_talk_completed";
@@ -208,16 +322,52 @@ export function getShowroomCompanionActTools() {
               "Capability id. Use animate for gestures, emote for facial feeling, camera for framing, and move for small symbolic shifts.",
           },
           payload: {
-            type: "object",
             description:
-              "Payload for the capability. Examples: {\"animation\":\"wave\",\"loop\":false}, {\"animation\":\"think\",\"loop\":true}, {\"emote\":\"happy\",\"intensity\":0.8}, {\"angle\":\"close-up\",\"transition_ms\":400}.",
-            additionalProperties: true,
+              'Payload for the capability: exactly one of these shapes. Examples: {"animation":"wave","loop":false}, {"emote":"happy","intensity":0.8}, {"angle":"close-up","transition_ms":400}.',
+            anyOf: SHOWROOM_COMPANION_ACT_PAYLOADS,
           },
         },
         required: ["type", "payload"],
         additionalProperties: false,
       },
     },
+  ];
+}
+
+export const REMEMBER_CHILD_GIVEN_NAME_TOOL = "rememberWhatChildCallsMe";
+export const RECALL_ABOUT_HER_TOOL = "recallAboutHer";
+
+/** The companion's own way to keep a name or role the child gives it; code stores it, the companion decides. */
+export function getShowroomRelationshipTools() {
+  return [
+    {
+      name: REMEMBER_CHILD_GIVEN_NAME_TOOL,
+      description:
+        "Remember a nickname or a role the child just gave you, so you keep it in this call and every later call. Use it when she names you or casts you as someone; do not use it for names she gives to other things.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          name: { type: "string", description: "The nickname or role, in her words." },
+          kind: { type: "string", enum: ["nickname", "role"] },
+          childWords: { type: "string", description: "What she said when she gave it." },
+        },
+        required: ["name", "kind"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: RECALL_ABOUT_HER_TOOL,
+      description:
+        "Look up something older she told you or any of her other companions: a topic, a person, a place, a word. Returns dated facts (current or replaced by something newer) and her own words from earlier calls. Use it when she mentions something you might already know about.",
+      input_schema: {
+        type: "object" as const,
+        properties: { query: { type: "string", description: "A word or short phrase, like wrestling or her teacher." } },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+    // Shared with every companion in every room (owner 2026-11-15).
+    sideTalkAnthropicTool,
   ];
 }
 
@@ -352,6 +502,142 @@ function resolveVisualSummary(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim().replace(/\s+/g, " ");
   return trimmed ? trimmed.slice(0, MAX_VISUAL_SUMMARY_LENGTH) : undefined;
+}
+
+function resolveShoppingText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (!trimmed || trimmed.length > MAX_SHOPPING_TEXT_LENGTH) return null;
+  return trimmed;
+}
+
+function resolveShoppingTextList(value: unknown, maxItems: number): string[] | null {
+  if (!Array.isArray(value) || value.length > maxItems) return null;
+  const resolved = value.map(resolveShoppingText);
+  return resolved.some((item) => item === null) ? null : (resolved as string[]);
+}
+
+function resolveShoppingContext(
+  value: unknown,
+): ShowroomShoppingContext | undefined | null {
+  if (value == null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  if (
+    raw.mode !== "entrance" &&
+    raw.mode !== "review" &&
+    raw.mode !== "try_on"
+  ) return null;
+  if (
+    typeof raw.walletBalance !== "number" ||
+    !Number.isInteger(raw.walletBalance) ||
+    raw.walletBalance < 0 ||
+    raw.walletBalance > MAX_SHOPPING_BALANCE
+  ) {
+    return null;
+  }
+  const companionWish = resolveShoppingText(raw.companionWish);
+  const visitId = resolveShoppingText(raw.visitId);
+  if (
+    !raw.companionMood ||
+    typeof raw.companionMood !== "object" ||
+    Array.isArray(raw.companionMood)
+  ) return null;
+  const rawMood = raw.companionMood as Record<string, unknown>;
+  const moodId = resolveShoppingText(rawMood.id);
+  const moodLabel = resolveShoppingText(rawMood.label);
+  const ownedItemIds = resolveShoppingTextList(raw.ownedItemIds, MAX_SHOPPING_ITEM_IDS);
+  const savedItemIds = resolveShoppingTextList(raw.savedItemIds, MAX_SHOPPING_ITEM_IDS);
+  if (!visitId || !companionWish || !moodId || !moodLabel || !ownedItemIds || !savedItemIds) {
+    return null;
+  }
+
+  let selectedItem: ShowroomShoppingContext["selectedItem"] = null;
+  if (raw.selectedItem != null) {
+    if (typeof raw.selectedItem !== "object" || Array.isArray(raw.selectedItem)) {
+      return null;
+    }
+    const selected = raw.selectedItem as Record<string, unknown>;
+    const id = resolveShoppingText(selected.id);
+    const name = resolveShoppingText(selected.name);
+    const styleTags = resolveShoppingTextList(
+      selected.styleTags,
+      MAX_SHOPPING_STYLE_TAGS,
+    );
+    const opinionReasons = resolveShoppingTextList(
+      selected.opinionReasons,
+      MAX_SHOPPING_STYLE_TAGS,
+    );
+    const opinionVerdict = selected.opinionVerdict;
+    const validOpinionVerdict =
+      opinionVerdict === "love" ||
+      opinionVerdict === "like" ||
+      opinionVerdict === "unsure" ||
+      opinionVerdict === "reject";
+    if (
+      !id ||
+      !name ||
+      !styleTags ||
+      !opinionReasons ||
+      !validOpinionVerdict ||
+      (selected.category !== "accessory" && selected.category !== "outfit") ||
+      typeof selected.price !== "number" ||
+      !Number.isInteger(selected.price) ||
+      selected.price < 0 ||
+      selected.price > MAX_SHOPPING_BALANCE ||
+      typeof selected.owned !== "boolean" ||
+      typeof selected.saved !== "boolean" ||
+      typeof selected.preferenceMatch !== "boolean" ||
+      typeof selected.companionConsentsToWear !== "boolean"
+    ) {
+      return null;
+    }
+    selectedItem = {
+      id,
+      name,
+      price: selected.price,
+      category: selected.category,
+      styleTags,
+      owned: selected.owned,
+      saved: selected.saved,
+      preferenceMatch: selected.preferenceMatch,
+      opinionVerdict,
+      opinionReasons,
+      companionConsentsToWear: selected.companionConsentsToWear,
+    };
+  }
+
+  if (raw.mode === "entrance" && selectedItem !== null) return null;
+  if (raw.mode !== "entrance" && selectedItem === null) return null;
+  const wishRaw = raw.wishFulfilled as Record<string, unknown> | undefined;
+  const wishItemId = wishRaw ? resolveShoppingText(wishRaw.itemId) : null;
+  const wishName = wishRaw ? resolveShoppingText(wishRaw.name) : null;
+
+  return {
+    ...(wishItemId && wishName ? { wishFulfilled: { itemId: wishItemId, name: wishName } } : {}),
+    mode: raw.mode,
+    visitId,
+    walletBalance: raw.walletBalance,
+    companionWish,
+    companionMood: { id: moodId, label: moodLabel },
+    selectedItem,
+    ownedItemIds,
+    savedItemIds,
+  };
+}
+
+function resolveShoppingEvent(
+  value: unknown,
+): ShowroomShoppingEvent | undefined | null {
+  if (value == null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const itemId = resolveShoppingText(raw.itemId);
+  if (
+    (raw.type !== "item_reviewed" && raw.type !== "try_on_started") ||
+    !itemId
+  ) return null;
+  return { type: raw.type, itemId };
 }
 
 /**
@@ -608,8 +894,22 @@ export function resolveShowroomTalkRequest(
     return { ok: false, status: 400, error: "invalid_activity_reaction" };
   }
   const conversationIntent = resolveShowroomConversationIntent(raw.conversationIntent);
+  const shoppingContext = resolveShoppingContext(raw.shoppingContext);
+  if (shoppingContext === null) {
+    return { ok: false, status: 400, error: "invalid_shopping_context" };
+  }
+  const shoppingEvent = resolveShoppingEvent(raw.shoppingEvent);
+  if (shoppingEvent === null) {
+    return { ok: false, status: 400, error: "invalid_shopping_event" };
+  }
+  const callClockEvent = raw.callClockEvent == null ? undefined
+    : CALL_CLOCK_EVENTS.find((event) => event === raw.callClockEvent) ?? null;
+  if (callClockEvent === null) {
+    return { ok: false, status: 400, error: "invalid_call_clock_event" };
+  }
   const callTraceId = resolveTraceIdentifier(raw.callTraceId ?? raw.traceId);
   const turnId = resolveTraceIdentifier(raw.turnId);
+  const companionLook = resolveCompanionLook(raw.companionLook);
 
   return {
     ok: true,
@@ -625,13 +925,39 @@ export function resolveShowroomTalkRequest(
       ...(mode === "video_call" && activeActivity && { activeActivity }),
       ...(mode === "video_call" && activityReaction && { activityReaction }),
       ...(mode === "video_call" && conversationIntent && { conversationIntent }),
+      ...(mode === "video_call" && shoppingContext && { shoppingContext }),
+      ...(mode === "video_call" && shoppingEvent && { shoppingEvent }),
+      ...(mode === "video_call" && callClockEvent && { callClockEvent }),
       ...(mode === "video_call" && callTraceId && { callTraceId }),
       ...(mode === "video_call" && turnId && { turnId }),
       ...(mode === "video_call" && { mode }),
       ...(mode === "video_call" && visualSnapshot && { visualSnapshot }),
       ...(mode === "video_call" && lastVisualSummary && { lastVisualSummary }),
+      ...(mode === "video_call" && companionLook && { companionLook }),
     },
   };
+}
+
+/** The last line of the part of the call prompt that stays the same all call: Claude caches everything up to it. */
+const STABLE_PROMPT_END = "Everything in the message text is spoken aloud, including stage directions, labels or commentary.";
+
+/**
+ * The call prompt as two system blocks: the part that stays the same all call (persona, rules), cached, then this
+ * turn's facts (intent, clock, memory, what she showed), not cached. One changing line used to void the whole cache
+ * (owner, 2026-11-21: FaceTime replies took 1.3–2.0 s to start).
+ */
+export function cacheableShowroomSystem(system: string): Anthropic.TextBlockParam[] {
+  const end = system.indexOf(STABLE_PROMPT_END);
+  if (end < 0) {
+    console.warn(" 🎮 [companion-talk-stream] [prompt-cache] [no-split] stable end line missing; caching whole prompt");
+    return [{ type: "text", text: system, cache_control: { type: "ephemeral" } }];
+  }
+  const cut = end + STABLE_PROMPT_END.length;
+  const turn = system.slice(cut).trim();
+  return [
+    { type: "text", text: system.slice(0, cut), cache_control: { type: "ephemeral" } },
+    ...(turn ? [{ type: "text" as const, text: turn }] : []),
+  ];
 }
 
 export function buildShowroomTalkSystemPrompt(input: {
@@ -641,6 +967,12 @@ export function buildShowroomTalkSystemPrompt(input: {
   personality: string;
   mode?: ShowroomTalkMode;
   hasFreshVisualSnapshot?: boolean;
+  /** "self_look" when the picture is the companion's own portrait (S34). */
+  visualSnapshotReason?: string;
+  companionLook?: ShowroomCompanionLook;
+  /** When the child last chose this look, from her chart (S10, owner 2026-11-25). */
+  lookChosenAt?: string;
+  nowIso?: string;
   lastVisualSummary?: string;
   callSource?: CompanionCallSource;
   relationshipState?: CompanionRelationshipState;
@@ -649,6 +981,9 @@ export function buildShowroomTalkSystemPrompt(input: {
   activityReaction?: ShowroomActivityReactionContext;
   conversationIntent?: ShowroomConversationIntent;
   companionMemory?: string;
+  shoppingContext?: ShowroomShoppingContext;
+  shoppingEvent?: ShowroomShoppingEvent;
+  callClock?: ShowroomCallClockFacts;
 }): string {
   const callSource = input.callSource ?? "showroom";
   const relationshipState = input.relationshipState ?? "previewing";
@@ -661,34 +996,32 @@ export function buildShowroomTalkSystemPrompt(input: {
     `Call source: ${callSource}.`,
     `Relationship state: ${relationshipState}.`,
     `Persona notes: ${input.personality}`,
-    "Answer the child directly in 1-3 short sentences.",
-    "Use a warm, child-safe tone. Ask at most one follow-up question.",
-    "Never tutor unless the child explicitly asks for learning help; follow the child's conversational lead.",
-    "The child may be playing, chatting, joking, testing the call, or asking for help; be fun and relationship-first.",
-    "Do not repeat your previous greeting, opener, or last sentence; continue from the child's newest turn.",
-    "If you want emotion, show emotion through movement with companionAct rather than describing stage directions in words.",
-    `If the child asks to play ${describeCompanionActivityChoices()}, use openCompanionActivity with the matching activityId (${COMPANION_ACTIVITY_IDS.join(", ")}) and surface=video_call_overlay.`,
-    "Do not say stage directions. Do not say things like 'I wave', '*waves*', or 'I smile'; call companionAct for that motion and keep spoken text natural.",
-    "Speech is optional; visual action is preferred when the child is working, feeding, earning a reward, or just hanging out.",
-    "When no spoken answer adds value, use companionAct and leave the spoken text empty.",
+    // The shared base every companion inherits: where she is and how Sunny works (owner 11/23: personas, no rules).
+    readCompanionBaseSection("Where you are"),
+    readCompanionBaseSection("How Sunny works"),
+    ...(isVideoCall ? ["You are on a call now."] : []),
+    // Owner 2026-11-24: persona plus the facts of the moment; no style rules (prompt sweep).
+    "Your voice starts as soon as your first sentence is ready, so a short first sentence is heard sooner.",
+    "She may be playing, chatting, joking, testing the call, or asking for help.",
+    `${RECALL_ABOUT_HER_TOOL} looks up what she told you or her other companions before. If she gives you a nickname or a role, ${REMEMBER_CHILD_GIVEN_NAME_TOOL} keeps it.`,
+    "companionAct moves your body (a wave, a nod, a dance).",
+    `openCompanionActivity with activityId (${COMPANION_ACTIVITY_IDS.join(", ")}) and surface=video_call_overlay opens a game on the call: ${describeCompanionActivityChoices()}.`,
+    "A reply can be words, a movement, both, or nothing.",
     "This chat cannot grant coins, XP, store purchases, or talent unlocks.",
-    "Always answer in one response: first write the words you say aloud as plain message text, then call companionAct for the matching gesture in that same response. Never wait for tool results before speaking.",
-    "Never send a tool-only response when the child asked you something or a spoken line is expected; the spoken text comes first, the tool call comes second.",
-    "Only leave the message text empty when the child is quietly working and silence is genuinely better.",
-    "The message text must contain only the words spoken aloud; no stage directions, labels, or commentary.",
+    "The message text of this reply is what she hears; tool results come back after it is sent.",
+    STABLE_PROMPT_END,
   ];
   if (input.conversationIntent) {
     lines.push(`Conversation intent: ${input.conversationIntent}.`);
   }
   if (input.conversationIntent === "repeat_after") {
     lines.push(
-      "For repeat_after turns, repeat the child's newest words or invite them to say the phrase if they just asked to start.",
-      "Do not treat numbers as game moves during repeat_after turns.",
+      "repeat_after is a repeat-after-me game: numbers she says are words to repeat, not game moves.",
     );
   }
   if (callSource === "showroom" || relationshipState === "previewing") {
     lines.push(
-      "The child may not have chosen you yet; treat this like a warm companion preview and do not assume a permanent bond.",
+      "The child may not have chosen you yet; this is a preview.",
     );
   }
   if (
@@ -697,13 +1030,13 @@ export function buildShowroomTalkSystemPrompt(input: {
     relationshipState === "earned_reward"
   ) {
     lines.push(
-      "The child earned this call; celebrate the moment without turning it into homework.",
+      "The child earned this call.",
     );
     if (input.rewardContext?.earnedBy) {
       lines.push(`Earned by: ${input.rewardContext.earnedBy}`);
     }
   } else if (relationshipState === "selected") {
-    lines.push("The child has selected you as a companion; speak with gentle continuity.");
+    lines.push("The child has chosen you as her companion.");
   }
   if (input.rewardContext?.nodeId || input.rewardContext?.activityId || input.rewardContext?.rewardId) {
     lines.push(
@@ -719,6 +1052,66 @@ export function buildShowroomTalkSystemPrompt(input: {
   if (input.companionMemory) {
     lines.push(input.companionMemory);
   }
+  if (isVideoCall) {
+    lines.push("The controls listed in What is on her screen right now are the only ones that exist.");
+  }
+  if (input.shoppingContext) {
+    const shopping = input.shoppingContext;
+    lines.push(
+      "Active shared shopping context (code-provided store truth):",
+      `Shopping mode: ${shopping.mode}.`,
+      `Shopping visit mood: ${shopping.companionMood.label} (id=${shopping.companionMood.id}).`,
+      `Wallet balance: ${shopping.walletBalance} demo coins.`,
+      `Companion wish: ${shopping.companionWish}.`,
+      "The child controls spending. You may express a preference, but you cannot buy, promise a purchase, pressure the child, or treat your wish as spending authority.",
+    );
+    if (shopping.wishFulfilled) {
+      lines.push(`The child just made your wish come true: ${shopping.wishFulfilled.name}, bought with coins she earned.`);
+    }
+    if (shopping.selectedItem) {
+      const item = shopping.selectedItem;
+      lines.push(
+        `Selected item: ${item.name} (id=${item.id}, category=${item.category}, price=${item.price} demo coins).`,
+        `Selected item state: owned=${item.owned}, saved=${item.saved}.`,
+        `Selected item style: ${item.styleTags.join(", ") || "none listed"}.`,
+        "The selected item is for you, the companion, to wear; the child is not wearing it. What you think of it is yours, from your own taste; the child decides what to buy.",
+      );
+      if (!item.companionConsentsToWear) {
+        lines.push("This item cannot be bought-and-worn or equipped during this visit; the child may save it or keep looking.");
+      }
+      if (shopping.mode === "try_on") {
+        lines.push("You are wearing the selected item in the try-on view now.");
+      }
+    } else {
+      lines.push("No store item is currently selected.");
+    }
+    lines.push(
+      `Owned item ids: ${shopping.ownedItemIds.join(", ") || "none"}.`,
+      `Saved item ids: ${shopping.savedItemIds.join(", ") || "none"}.`,
+    );
+  }
+  if (input.shoppingEvent?.type === "item_reviewed") {
+    lines.push(
+      `Live store event: the child selected item id=${input.shoppingEvent.itemId} for review.`,
+      "This event came from the store screen, not from words the child spoke."
+    );
+  }
+  if (input.shoppingEvent?.type === "try_on_started") {
+    lines.push(
+      `Live store event: the child just tried on item id=${input.shoppingEvent.itemId}.`,
+      "This event came from the store screen, not from words the child spoke."
+    );
+  }
+  if (input.callClock) {
+    // The on-screen clock shows the time; she speaks of it only when it is up, in her own words, and never sells coins
+    // or boards (Reina 2026-11-22: her whole one-minute call was a pitch for thirty coins and five more minutes).
+    lines.push(
+      input.callClock.event === "time_up"
+        ? "Live call clock event: call time is up. The screen shows her what she can do next. Buying more time, prices and homework are hers to choose, with no pressure from you."
+        : "Live call clock: the clock is on her screen.",
+      "This event came from the call clock, not from words the child spoke.",
+    );
+  }
   if (input.activeActivity) {
     const activeDescriptor = getCompanionActivityDescriptor(input.activeActivity.activityId);
     const gameIsForeground =
@@ -733,16 +1126,9 @@ export function buildShowroomTalkSystemPrompt(input: {
       `Activity status: ${input.activeActivity.status}.`,
       ...activeDescriptor.promptHints,
     );
-    if (gameIsForeground) {
-      lines.push(
-        `Stay aware of this activity when answering. If the child asks what to do, talks about a ${activeDescriptor.moveNoun}, asks why you moved, or continues the game, answer in ${activeDescriptor.displayName} context instead of acting like no game is open.`,
-        `If ${activeDescriptor.displayName} is already active, do not ask to start ${activeDescriptor.displayName} again; respond as if the board is shared between you and the child.`,
-      );
-    } else {
-      lines.push(
-        `The game is background context for this turn; answer the child's newest request and do not redirect back to ${activeDescriptor.displayName} unless they ask about the game.`,
-      );
-    }
+    lines.push(gameIsForeground
+      ? `${activeDescriptor.displayName} is open and the board is shared between you and the child.`
+      : `${activeDescriptor.displayName} is open in the background; her newest words are about something else.`);
     if (input.activeActivity.lastMove) {
       lines.push(
         `Last move: ${input.activeActivity.lastMove.by} ${input.activeActivity.lastMove.description}.`,
@@ -764,12 +1150,10 @@ export function buildShowroomTalkSystemPrompt(input: {
       input.activityReaction.eventType,
     );
     lines.push(
-      `This request is an activity reaction for ${reactionDescriptor.displayName}, not a normal child question.`,
-      "Use companionAct for a gesture that matches the words. Every AI-authored activity reaction should include one gesture when possible.",
-      `Do not use local canned ${reactionDescriptor.displayName} banter. Author the reaction from the board, last move, result, and companion persona.`,
+      `This turn is a moment in ${reactionDescriptor.displayName}, not something the child said.`,
       requiresSpeech
-        ? "This activity reaction requires one short spoken line plus companionAct when possible. Say the line in this same response - write the spoken words as message text first, then call companionAct; do not send a tool-only response and do not wait for tool results."
-        : "For child_move reactions, prefer a quick gesture and keep spoken words optional so stale speech does not trail the board.",
+        ? "She is waiting to hear from you here."
+        : "The game moves on quickly after her move; words that arrive late trail the board.",
       `Activity reaction event: ${input.activityReaction.eventType}.`,
       `Reaction board: ${board}.`,
       `Reaction turn: ${input.activityReaction.turn}.`,
@@ -777,10 +1161,8 @@ export function buildShowroomTalkSystemPrompt(input: {
       input.activityReaction.plannedMove
         ? [
             `You are about to ${input.activityReaction.plannedMove}; the board shown is from before that move.`,
-            `Speak as you make this move - present tense, one short playful line that fits why this ${reactionDescriptor.moveNoun} is a good pick.`,
           ]
         : []),
-      "Gesture map: companion move = thinking, pointing, or confident gesture; child strong move = surprised, curious, or respectful gesture; child win = happy, wave, or surprise; companion win = playful confidence; Round draw: shrug or thoughtful gesture.",
     );
     if (input.activityReaction.lastMove) {
       lines.push(
@@ -790,9 +1172,6 @@ export function buildShowroomTalkSystemPrompt(input: {
     if (input.activityReaction.result) {
       lines.push(`Reaction result: ${input.activityReaction.result}.`);
     }
-    if (input.activityReaction.desiredTone) {
-      lines.push(`Desired reaction tone: ${input.activityReaction.desiredTone}.`);
-    }
     if (input.activityReaction.summary) {
       lines.push(`Reaction summary: ${input.activityReaction.summary}`);
     }
@@ -800,12 +1179,25 @@ export function buildShowroomTalkSystemPrompt(input: {
   if (input.mode === "video_call") {
     lines.push(
       "You are in a video call with the child; your 3D companion portrait is visible in the corner.",
-      "Do not claim you can see the child, their face, their room, or an object unless this request includes a fresh camera snapshot.",
-      input.hasFreshVisualSnapshot
-        ? "A fresh camera snapshot is included for this turn. Use it only when it helps answer the child."
-        : "No fresh camera snapshot is included. If the child asks a visual question, ask the child to tap Look so you can take a quick look.",
-      "Never mention screenshots, image data, tokens, or implementation details to the child.",
+      "You see the child, her room or anything she holds up only through a fresh camera snapshot in this request.",
+      input.hasFreshVisualSnapshot && input.visualSnapshotReason === SELF_LOOK_SNAPSHOT_REASON
+        ? "The picture in this turn is you: your own portrait on the call, exactly as the child sees you. It is not the child's camera."
+        : input.hasFreshVisualSnapshot
+          ? "A fresh camera snapshot from the child's camera is included for this turn."
+          : "No fresh camera snapshot is included. The Look button shows you something of the child's (her face, her room, something she holds up).",
     );
+    if (input.companionLook) {
+      // BUGS.md S34 (2026-11-19): she cannot see herself, so code tells her; the child dresses her and asks.
+      const look = input.companionLook;
+      lines.push(
+        `You are wearing right now: ${look.outfit ? JSON.stringify(look.outfit) : "your own clothes"}, ${look.accessory ? `accessory ${JSON.stringify(look.accessory)}` : "no accessory"}. This is true even without a picture; answer questions about your clothes from it.`,
+        ...(input.lookChosenAt && (look.outfit || look.accessory) ? [lookChosenLine(input.lookChosenAt, input.nowIso)] : []),
+        ...(look.recentTryOns.length
+          ? [`Outfits the child just tried on you, oldest to newest: ${look.recentTryOns.map(name => JSON.stringify(name)).join(", ")}. "This one or that one" means these.`]
+          : []),
+        `${LOOK_AT_MYSELF_TOOL} shows you yourself (colours, how it looks on you); the Look button shows only the child's camera.`,
+      );
+    }
     if (input.lastVisualSummary) {
       lines.push(`Previous visual context summary: ${input.lastVisualSummary}`);
     }
@@ -821,6 +1213,12 @@ export function shouldRequireShowroomActivityReactionSpeech(
     eventType === "companion_move" ||
     eventType === "round_complete"
   );
+}
+
+function formatChildGivenNames(names: CompanionCareMemory["childGivenNames"]): string | null {
+  if (!names?.length) return null;
+  const list = names.map((row) => `"${row.name}" (${row.kind === "role" ? "a role she gave you" : "her nickname for you"})`);
+  return `What she calls you: ${list.join("; ")}.`;
 }
 
 function formatMemoryList(label: string, values: string[] | undefined): string | null {
@@ -841,6 +1239,7 @@ export function buildShowroomTalkMemoryPrompt(
     formatMemoryList("Relationship facts", memory.relationshipFacts),
     formatMemoryList("Favorite moments", memory.favoriteMoments),
     formatMemoryList("Things you have shown about yourself", memory.companionSelfNotes),
+    formatChildGivenNames(memory.childGivenNames),
     formatCompanionGameRecord(memory.gameRecord),
     memory.rivalryNote && `Rivalry note: ${memory.rivalryNote}`,
   ].filter((line): line is string => Boolean(line));
@@ -874,11 +1273,22 @@ function formatCompanionGameRecord(
 export function resolveShowroomSpokenText(input: {
   rawText: string;
   companionCommandCount: number;
+  requireGeneratedSpeech?: boolean;
+  shoppingContextPresent?: boolean;
 }): string {
+  // Owner rule (audit 2026-11-22): an empty model reply means she stays silent; never insert a line for her.
   const trimmed = input.rawText.trim();
-  if (trimmed) return trimmed;
-  if (input.companionCommandCount > 0) return "";
-  return SHOWROOM_TALK_FALLBACK_TEXT;
+  if (!trimmed && input.companionCommandCount === 0) {
+    console.log(` 🎮 [showroom-talk] [empty-reply] [silent] required=${Boolean(input.requireGeneratedSpeech)} shopping=${Boolean(input.shoppingContextPresent)}`);
+  }
+  return trimmed;
+}
+
+export function shouldSynthesizeShowroomSpeech(
+  spokenText: string,
+  apiKey: string | undefined,
+): boolean {
+  return Boolean(spokenText.trim() && apiKey?.trim());
 }
 
 export function shouldRunShowroomToolFollowup(input: {
@@ -886,9 +1296,11 @@ export function shouldRunShowroomToolFollowup(input: {
   rawText: string;
   companionActToolUseCount: number;
   activityToolUseCount: number;
+  relationshipToolUseCount?: number;
   activityReactionEventType?: ShowroomActivityReactionEventType;
 }): boolean {
-  const toolUseCount = input.companionActToolUseCount + input.activityToolUseCount;
+  const toolUseCount =
+    input.companionActToolUseCount + input.activityToolUseCount + (input.relationshipToolUseCount ?? 0);
   if (toolUseCount === 0) return false;
   if (input.rawText.trim().length > 0) return false;
   if (!input.isActivityReaction) return true;

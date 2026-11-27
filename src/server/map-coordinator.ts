@@ -354,7 +354,7 @@ function handleGameNarrationRequest(
     return;
   }
   const sm = getActiveVoiceSessionManagerForChild(childId);
-  if (!sm?.speakGameNarration) {
+  if (!sm?.requestGameNarration) {
     console.warn("[map-coordinator] narration_request ignored: no active voice session");
     return;
   }
@@ -372,7 +372,7 @@ function handleGameNarrationRequest(
   }
   lastIframeNarrationByChild.set(childId, { key, at: now });
   void Promise.resolve(
-    sm.speakGameNarration(text, {
+    sm.requestGameNarration(text, {
       ...payload,
       source,
     }),

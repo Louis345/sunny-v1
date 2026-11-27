@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {afterEach,expect,it,vi} from 'vitest';
+import {offeredValues} from './plannerTransport';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
 import {oldFormDecisionStage,plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
@@ -30,7 +31,7 @@ const childId='tools-lab',homeworkId='lab-assignment',words=['write','island'];
 const wordRadarConfig={recallMode:'hidden_word_recall',inputMode:'keyboard'};
 const sha=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-function fixture(){
+function fixture(withLaunchCodes=false){
  const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-successor-tools-'));roots.push(rootDir);
  vi.stubEnv('SUNNY_CONTEXT_ROOT',path.join(rootDir,'src/context'));
  vi.stubGlobal('fetch',()=>{throw Error('lab_forbids_network');});
@@ -46,6 +47,7 @@ function fixture(){
   artifactBinding:{contentId:`${homeworkId}:radar-check`,artifactId:`${homeworkId}:radar-check:native`,localArtifactPath,localArtworkPath:'/generated/world.jpeg',contractFingerprint:sha(configuration),validationStatus:'passed'},
   artwork:{status:'ready',localPath:'/generated/world.jpeg',prompt:null},sfxContract:[],companionContract:{events:[]},evidenceContract,evidenceIds:[],
  }]},{rootDir});
+ if(withLaunchCodes)for(const item of items)runtime.recordSpellingDiscoveryAttempt({childId,homeworkId,attempt:{attemptId:`a-${item.wordId}`,itemId:item.id,attemptedValue:'rite',observedAt:new Date(0).toISOString()},artifactHash:'f'.repeat(64),sessionId:'first-session',launchId:'launch-1'},{rootDir});
  runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:'radar-check',sessionId:'first-session',result:{completed:true,accuracy:0,timeSpent_ms:100,targetResults:items.map(item=>({target:item.id,correct:false,attemptedValue:'rite'}))}},{rootDir});
  // The recorded decision re-runs the proven radar and also asks for a brand-new game.
  const instrument=(nodeId:string)=>({nodeId,title:nodeId.split(':')[1],academicTarget:'Spelling',mechanic:'word-radar',theme:'world',openingPurpose:'Practice',spelling:{wordIds:items.map(item=>item.wordId),measurementRole:'practice',responseMode:'spelling_letters'}});
@@ -62,12 +64,12 @@ it('builds the next board through small locked tools, re-running only built-ins,
  // A short conversation of locked tools, never the old single form.
  expect(f.stream).toHaveBeenCalledTimes(3);
  const tools=f.requests[0].tools;
- expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','add_explainer','remove_step','set_order','add_choice','finish_board']);
+ expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','add_explainer','add_reward','read_record','read_board_wording','ask_parents','remove_step','set_order','add_choice','finish_board']);
  expect(tools.filter((tool:any)=>tool.name!=='add_explainer').every((tool:any)=>tool.strict===true)).toBe(true);
  expect(strictBudget(tools.filter((tool:any)=>tool.strict===true)).unsupported).toEqual([]);
  expect(f.requests[0].tool_choice).toEqual({type:'auto'});
  // On offer: the proven radar to re-run and the certified games and modes; a brand-new game cannot be ordered at all.
- expect(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in.enum).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
+ expect(offeredValues(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in)).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
  vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
  const generateHtml=vi.fn(async()=>'<html></html>');
  const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
@@ -144,6 +146,30 @@ it('replays the frozen question after a restart even though the chart changed me
  expect(getLearningCycle(childId,homeworkId,{rootDir:f.rootDir})!.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
 });
 
+// BUGS.md S3 (owner decision 2026-11-17): one dropped connection must not leave her with no next board when no
+// person is there to approve the retry (the kids now start Sunny alone, and at the library). Sunny approves the same
+// one retry itself, once per decision; a second drop stays blocked for a person. Why the logs did not save her: they
+// showed the block, but nobody was watching. Why the lab missed it: every lab retry was approved by a test, not code.
+it('retries a dropped next-board question once by itself, and a second drop stays blocked',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ let calls=0;
+ const dropOnce=(...args:unknown[])=>{calls+=1; if(calls===1) throw new Error('Request was aborted.'); return (f.stream as (...a:unknown[])=>unknown)(...args);};
+ const decided=await runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:dropOnce}} as never},opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ const history=decided.decisionHistory.map(row=>row.eventType);
+ expect(history.filter(type=>type==='block')).toHaveLength(1);
+ expect(history.filter(type=>type==='planner_retry_authorized')).toHaveLength(1);
+ expect(decided.decisionHistory.find(row=>row.eventType==='planner_retry_authorized')!.reason).toMatch(/automatic/i);
+
+ const g=fixture(),gopts={rootDir:g.rootDir};
+ const alwaysDrops=vi.fn(()=>{throw new Error('Request was aborted.');});
+ await expect(runtime.advanceCanonicalCycleFromEvidence({...g.request,client:{messages:{stream:alwaysDrops}} as never},gopts)).rejects.toThrow();
+ const blocked=getLearningCycle(childId,homeworkId,gopts)!;
+ expect(blocked.lifecycle).toBe('blocked');
+ expect(blocked.decisionHistory.filter(row=>row.eventType==='planner_retry_authorized')).toHaveLength(1);
+ expect(alwaysDrops).toHaveBeenCalledTimes(2);
+});
+
 // 2026-11-04, human-caught: Saori changed Wi-Fi while Reina's next-board question was in flight. The
 // request aborted, the cycle blocked as provider_outcome_uncertain (correct: Sunny cannot know whether it
 // was billed), but the operator retry refused that cause, so her loop stopped at board 3 with no way back.
@@ -196,8 +222,28 @@ it('sends the Planner each fact once, without padding',async()=>{
  const prompt=typeof content==='string'?content:content.map((block:any)=>block.text??'').join('');
  const observationIds=getLearningCycle(childId,homeworkId,opts)!.observations.map(row=>row.observationId);
  expect(observationIds.length).toBeGreaterThan(0);
- for(const id of observationIds)expect(prompt.match(new RegExp(`"observationId":\\s*"${id}"`,'g'))?.length,id).toBe(1);
+ // 2026-11-10: every answer is in her record, read with read_record, once; the question carries summaries.
+ const record=JSON.stringify(frozenQuestion(f.rootDir).facts.record.observations);
+ for(const id of observationIds){expect(record.match(new RegExp(`"observationId":"${id}"`,'g'))?.length,id).toBe(1);expect(prompt.match(new RegExp(`"observationId":\\s*"${id}"`,'g'))?.length??0,id).toBeLessThanOrEqual(1);}
  expect(prompt).not.toMatch(/\n {2,}"/);
+});
+
+// Issue #56: the Planner reads her attempts without operational codes it cannot use, while the
+// chart keeps every code exactly as recorded.
+it('leaves operational codes out of the question and keeps them in her chart',async()=>{
+ const f=fixture(true),opts={rootDir:f.rootDir};
+ const stored=()=>getLearningCycle(childId,homeworkId,opts)!.observations.flatMap(row=>row.confounds);
+ const operational=(value:string)=>/^(artifact_hash|launch_id):/.test(value);
+ expect(stored().some(operational)).toBe(true);
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const content=f.requests[0].messages[0].content;
+ const prompt=typeof content==='string'?content:content.map((block:any)=>block.text??'').join('');
+ expect(prompt).not.toMatch(/artifact_hash:|launch_id:/);
+ // Her answers are in the record the Planner reads with read_record (2026-11-10): clean there too.
+ const record=JSON.stringify(frozenQuestion(f.rootDir).facts.record.observations);
+ expect(record).not.toMatch(/artifact_hash:|launch_id:/);
+ expect(record).toContain('first_response');
+ expect(stored().some(operational)).toBe(true);
 });
 
 // Human-caught 2026-11-04: Ila solved a word in Wheel of Words by picking letters; her cycle said only
@@ -237,4 +283,34 @@ it('lets an operator retry a cycle blocked by the fixed stage-changed bug, then 
  const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
  expect(f.stream).toHaveBeenCalledTimes(3);
+});
+
+/** The Planner question as Sunny froze it, with the record read_record serves. */
+function frozenQuestion(rootDir:string):{facts:{record:{observations:unknown[]}}}{
+ const file=fs.readdirSync(rootDir,{recursive:true}).map(String).find(name=>name.endsWith('tools.question.json'))!;
+ return JSON.parse(fs.readFileSync(path.join(rootDir,file),'utf8'));
+}
+
+// BUGS.md S38 (Ila, 2026-11-18): her session end and the scorecard each started the after-Boss decision; the second
+// rebuilt turn 1 from changed facts and blocked her board. Why the human caught it: her board would have sat on the
+// waiting screen the morning of her test. Why logs missed it: two [actions-offered] lines a minute apart looked normal.
+// Why the lab missed it: every test asked once. Rule: one decision per homework at a time; a second caller joins it.
+it("runs one next-board decision when two callers ask at once", async () => {
+ const f=fixture(true);const opts={rootDir:f.rootDir};
+ const [a,b]=await Promise.all([runtime.advanceCanonicalCycleFromEvidence(f.request,opts),runtime.advanceCanonicalCycleFromEvidence(f.request,opts)]);
+ expect(a.revision).toBe(b.revision);
+ expect(a.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(1);
+ expect(a.decisionHistory.some(row=>row.eventType==='block')).toBe(false);
+});
+
+// BUGS.md S39 (owner, 2026-11-18: "imagine putting this on a friend's machine, it's a bomb"): every Planner turn kept a
+// full request copy forever (611 MB on the kiosk). A committed decision is never replayed, so its copies go and its
+// answers stay.
+it("drops a decision's request copies once it is committed, keeping its answers", async () => {
+ const f=fixture(true);const opts={rootDir:f.rootDir};
+ const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ const all=fs.readdirSync(f.rootDir,{recursive:true}).map(String);
+ expect(all.some(name=>name.includes('provider-receipts')&&name.endsWith('.json'))).toBe(true);
+ expect(all.some(name=>name.includes('provider-diagnostics'))).toBe(false);
 });

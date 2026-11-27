@@ -1,8 +1,25 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { SessionManager } from "./session-manager";
 import { getChildChart } from "../profiles/childChart";
 vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
+// I2: companion help turns for lab-child appended ledgers and a relationship
+// file under the real src/context/lab-child. Set directly (not vi.stubEnv) so
+// the per-test vi.unstubAllEnvs() calls below keep this root in place.
+const previousContextRoot = process.env.SUNNY_CONTEXT_ROOT;
+let contextRoot = "";
+beforeAll(() => {
+  contextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-discovery-support-"));
+  process.env.SUNNY_CONTEXT_ROOT = contextRoot;
+});
+afterAll(() => {
+  if (previousContextRoot === undefined) delete process.env.SUNNY_CONTEXT_ROOT;
+  else process.env.SUNNY_CONTEXT_ROOT = previousContextRoot;
+  fs.rmSync(contextRoot, { recursive: true, force: true });
+});
 
 it("keeps bound practice context usable when saved chart facts cannot be read", () => {
  const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
@@ -73,9 +90,9 @@ describe("live spelling assistance and audio provenance", () => {
     const context=s.buildCurrentBoardContextForTurn("What word?");
     expect(context).not.toContain("light");
     expect(context).not.toContain("spokenStimulus");
-    expect(context).toContain("replayWord");
+    expect(context).toContain("spellingHelp replay");
     expect(context).toContain('"answerVisibility":"hidden"');
-    expect(context).toContain("Spoken repetition is not a submitted spelling answer");
+    expect(context).toContain("saying letters aloud is not a submitted answer");
   });
   it("retires a pending reply on item advance, but rejects stale launch context", () => {
     const s=session() as any;
@@ -173,6 +190,18 @@ describe("live spelling assistance and audio provenance", () => {
       status: "unassisted",
       scaffolds: [],
     });
+  });
+  it("records spelling help Elli gives in a game-invited turn on a check word", () => {
+    // Measurement audit 2026-11-13 (c), AI-caught: a game's help button asks Elli for help as a system turn
+    // (requestInstructionReadAloud), and only child-spoken turns were checked for spelling help, so her
+    // letters on a check word were never recorded and the next answer saved as on her own.
+    const s = session() as any;
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    s.recordCompanionReplySupport("Let's try it together: n, i, g...");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support).toEqual({ status: "assisted", scaffolds: ["support:s1:i1"] });
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
+    s.recordCompanionReplySupport("You can do this one, take your time.");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i2")?.support.status).toBe("unassisted");
   });
   it("counts a check word as assisted only when Elli's reply gives its spelling", () => {
     // Owner rule, Nov 2: talking to Elli during a check is never help by
@@ -300,9 +329,9 @@ it('commits the original presentation before any answer and counts acknowledged 
  await s.speakGameNarration('night.',{assessmentMode:true,itemId:'i1'});confirmCurrentPlayback(s);
  expect(exportEvents(db).find(e=>e.type==='stimulus.played')?.payload).toMatchObject({speechRates:[0.7],delivered:true});
  (s as any).companionBridge={};
- const replay=(s.buildAgentToolkit() as any).replayWord;
+ const replay=(s.buildAgentToolkit() as any).spellingHelp;
  expect(replay).toBeDefined();
- await replay.execute({});
+ await replay.execute({action:"replay"});
  await vi.waitFor(()=>expect((s as any).pendingGameNarrationPlayback).toBeTruthy());
  confirmCurrentPlayback(s);
  expect(s.getDiscoveryAttemptContext('hw-words','i1')).toMatchObject({audioReplays:1});
@@ -369,9 +398,9 @@ it('keeps replay and delayed responses attached to their distinct launches',asyn
 
 it('keeps launch correlation through the production narration event adapter',async()=>{
  const {handleGameEventForSession}=await import('./game-event-handler');
- const speakGameNarration=vi.fn(async()=>true);
- handleGameEventForSession({speakGameNarration},{type:'narration_request',payload:{text:'night',word:'night',game:'word-radar',nodeId:'opening',itemId:'i1',assessmentMode:true,launchToken:'launch-one'}});
- expect(speakGameNarration).toHaveBeenCalledWith('night.',expect.objectContaining({itemId:'i1',launchToken:'launch-one'}));
+ const requestGameNarration=vi.fn(async()=>true);
+ handleGameEventForSession({requestGameNarration},{type:'narration_request',payload:{text:'night',word:'night',game:'word-radar',nodeId:'opening',itemId:'i1',assessmentMode:true,launchToken:'launch-one'}});
+ expect(requestGameNarration).toHaveBeenCalledWith('night.',expect.objectContaining({itemId:'i1',launchToken:'launch-one'}));
 });
 
 it.each(['closed'])('releases only the matching spelling launch on host %s',phase=>{
@@ -414,14 +443,14 @@ it("records hidden target letter disclosure in the production session trace", ()
   }
 });
 
-it("exposes replayWord without stimulus text and counts only browser-acknowledged replays",async()=>{
+it("exposes spelling-help replay without stimulus text and counts only browser-acknowledged replays",async()=>{
  const s=session() as any;
  s.companionBridge={};
  s.updateCurrentBoardSnapshot({game:"word-radar",assessmentMode:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:"hidden",currentWord:"night"});
  await s.speakGameNarration("night.",{assessmentMode:true,itemId:"i1"});confirmCurrentPlayback(s);
- const replay=s.buildAgentToolkit().replayWord;
+ const replay=s.buildAgentToolkit().spellingHelp;
  expect(replay).toBeDefined();
- const result=await replay.execute({});
+ const result=await replay.execute({action:"replay"});
  expect(JSON.stringify(result)).not.toContain("night");
  await vi.waitFor(()=>expect(s.ttsBridge.sendText).toHaveBeenCalledTimes(2));
  await vi.waitFor(()=>expect(s.pendingGameNarrationPlayback).toBeTruthy());
@@ -430,16 +459,16 @@ it("exposes replayWord without stimulus text and counts only browser-acknowledge
  expect(s.getDiscoveryAttemptContext("hw-words","i1").audioReplays).toBe(1);
  expect(JSON.stringify(s.getFreshActivityStateForScreenshot())).not.toContain("night");
 });
-it("does not replay a retired item or provide replayWord during visible teaching",async()=>{
+it("does not replay a retired item or provide spelling help during visible teaching",async()=>{
  const s=session() as any;s.companionBridge={};
  s.updateCurrentBoardSnapshot({game:"word-radar",assessmentMode:true,nodeId:"opening",itemId:"i1",phase:"response",answerVisibility:"hidden",currentWord:"night"});
- const replay=s.buildAgentToolkit().replayWord;
+ const replay=s.buildAgentToolkit().spellingHelp;
  expect(replay).toBeDefined();
  s.updateCurrentBoardSnapshot({game:"word-radar",assessmentMode:true,nodeId:"opening",itemId:"i2",phase:"response",answerVisibility:"hidden",currentWord:"light"});
- expect(await replay.execute({})).toMatchObject({requested:false});
+ expect(await replay.execute({action:"replay"})).toMatchObject({requested:false});
  expect(s.ttsBridge.sendText).not.toHaveBeenCalled();
  s.updateCurrentBoardSnapshot({game:"monster-stampede",currentWord:"tonight",answerVisibility:"visible"});
- expect(s.buildAgentToolkit().replayWord).toBeUndefined();
+ expect(s.buildAgentToolkit().spellingHelp).toBeUndefined();
  expect(s.buildCurrentBoardContextForTurn()).toContain("ARPABET: T AH0 N AY1 T");
 });
 

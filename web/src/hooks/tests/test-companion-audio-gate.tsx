@@ -160,6 +160,32 @@ describe("useSession companion audio gate", () => {
     expect(result.current.state.warning).toBe(expected);
   });
 
+  // S10 (Ila's dad, 11/15 23:45–23:48 UTC: "When I mute you, you keep talking"). The trace shows companion_speech_mute
+  // muted=true, then playback_started five more times: game narration in Elli's voice skipped the mute because every
+  // activity line was treated as must-play. Why the human caught it: he heard her keep talking. Why the logs missed it:
+  // the mute went only to the session trace, never the server log. Why the lab missed it: no test muted during a game.
+  it("the quiet button silences game narration, but a spelling test word still plays", async () => {
+    vi.useFakeTimers();
+    const {result}=renderHook(()=>useSession());
+    await act(async()=>{result.current.startSession("ila");await Promise.resolve();});
+    const ws=wsInstances[0]!;
+    await act(async()=>{await vi.advanceTimersByTimeAsync(101);});
+    act(()=>result.current.toggleCompanionSpeechMute());
+    await act(async()=>{
+      deliverJson(ws,{type:"audio_start",requestId:"narr-1",source:"activity"});
+      deliverJson(ws,{type:"audio",requestId:"narr-1",data:ONE_SAMPLE_PCM_BASE64});
+      deliverJson(ws,{type:"audio_done",requestId:"narr-1"});
+      await vi.advanceTimersByTimeAsync(151);
+    });
+    expect(playbackSources).toHaveLength(0);
+    expect(ws.send.mock.calls.map(([m])=>JSON.parse(m))).toContainEqual(expect.objectContaining({type:"playback_done",requestId:"narr-1"}));
+    await act(async()=>{
+      deliverJson(ws,{type:"audio_start",requestId:"word-1",itemId:"either",source:"activity",requiresAudio:true});
+      deliverJson(ws,{type:"audio",requestId:"word-1",data:ONE_SAMPLE_PCM_BASE64});
+    });
+    expect(playbackSources).toHaveLength(1);
+  });
+
   it("acknowledges the word after a trailing PCM chunk instead of leaving replay blocked", async () => {
     // Live run: synthesized words repeatedly timed out awaiting playback proof.
     // Earlier tests never delivered PCM after the stream-done marker.
@@ -266,11 +292,32 @@ describe("useSession companion audio gate", () => {
     await act(async()=>{result.current.startSession("ila");await Promise.resolve();});
     act(()=>result.current.toggleCompanionSpeechMute());
     const ws=wsInstances[0]!;
+    await act(async()=>{await Promise.resolve();});
+    // She taps "hear the word": the request reaches Sunny, so its answer plays even while Elli is quiet.
+    act(()=>result.current.sendMessage("game_event",{event:{type:"narration_request"}}));
     await act(async()=>{
-      deliverJson(ws,{type:"audio_start",requestId:"practice",source:"activity",requiresAudio:false});
+      deliverJson(ws,{type:"audio_start",requestId:"practice",source:"activity",requiresAudio:false,testWord:true});
       deliverJson(ws,{type:"audio",requestId:"practice",data:ONE_SAMPLE_PCM_BASE64});
     });
     expect(createBufferSourceCallCount).toBe(1);
+  });
+
+  // Human-caught 11/23 (owner: "when I mute, she still talks"). Saori's session events, 01:58:05 UTC: the narrator read
+  // "What number comes next after 42?" (reason=question) 85 s after companion_speech_mute=on. Every game line arrives as
+  // a narration_request, so the browser took each one for a tap and let it past the quiet button. Logs showed the line
+  // spoken but no client-side mute decision; the lab only tested a tapped word. Only a test word passes mute now.
+  it("mute silences the narrator reading screen text, even though the game asked for it", async () => {
+    const {result}=renderHook(()=>useSession());
+    await act(async()=>{result.current.startSession("ila");await Promise.resolve();});
+    act(()=>result.current.toggleCompanionSpeechMute());
+    const ws=wsInstances[0]!;
+    await act(async()=>{await Promise.resolve();});
+    act(()=>result.current.sendMessage("game_event",{event:{type:"narration_request"}}));
+    await act(async()=>{
+      deliverJson(ws,{type:"audio_start",requestId:"screen",source:"activity",requiresAudio:false});
+      deliverJson(ws,{type:"audio",requestId:"screen",data:ONE_SAMPLE_PCM_BASE64});
+    });
+    expect(createBufferSourceCallCount).toBe(0);
   });
 
   it("plays first audio immediately even while loading curtain is active", async () => {

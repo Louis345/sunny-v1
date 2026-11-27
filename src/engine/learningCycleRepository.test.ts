@@ -2,7 +2,7 @@ import {linearJourneyFixture, choiceJourneyFixture} from "../scripts/fixtures/au
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import { getChildChart } from "../profiles/childChart";
 import { publishBoardInstance } from "./learningBoardInstances";
@@ -21,8 +21,13 @@ import {
   type CreateLearningCycleInput,
 } from "./learningCycleRepository";
 
+// I2: every temp root this file makes is removed after the file runs.
+const tempRoots: string[] = [];
+afterAll(() => { for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
 function root(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-learning-cycle-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-learning-cycle-"));
+  tempRoots.push(dir);
+  return dir;
 }
 
 function input(): CreateLearningCycleInput {
@@ -399,10 +404,15 @@ describe("canonical learning cycle repository", () => {
     const successor = structuredClone(cycle);
     successor.boards![0]!.kind = "successor";
     expect(canonicalJourneyLaunchable(successor, "practice")).toBe(true);
+    // One pipeline (owner, 2026-11-08): a math board's built stops are open too; other subjects keep their path.
     const math = structuredClone(cycle);
     math.domain = "math";
-    expect(canonicalJourneyLaunchable(math, "practice")).toBe(false);
-    expect(projectLearningCycle(math).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
+    expect(canonicalJourneyLaunchable(math, "practice")).toBe(true);
+    expect(projectLearningCycle(math).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("available");
+    const reading = structuredClone(cycle);
+    reading.domain = "reading";
+    expect(canonicalJourneyLaunchable(reading, "practice")).toBe(false);
+    expect(projectLearningCycle(reading).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
     const probe = structuredClone(cycle);
     probe.boards![0]!.kind = "probe";
     expect(canonicalJourneyLaunchable(probe, "practice")).toBe(false);

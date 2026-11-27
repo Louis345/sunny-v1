@@ -1,0 +1,78 @@
+#!/bin/zsh -l
+# Sunny desktop launcher (Saori): shows the kiosk on whatever version is deployed in ~/Development/sunny.
+# It never pulls code, never restarts while a board is building, and asks before restarting a Sunny that has
+# a window open but is not answering. A closed window means no one can be mid-session, so it restarts cleanly.
+# Install: scripts/kiosk-launcher/install-saori.sh
+# Test switches: DRY=1 prints actions instead of doing them. FAKE_DOWN, FAKE_NOWINDOW, FAKE_STUCK, FAKE_BUILDING
+# pretend Sunny is off / has no window / is not answering / is building a board.
+REPO="$HOME/Development/sunny"
+LOG="$HOME/kiosk-run.log"
+TRACE="$HOME/sunny-launcher.log"
+say() { [[ -n $DRY ]] && { print -r -- "$*"; return; }; print -r -- "$(date '+%F %T') 🎮 [launcher] $*" >> "$TRACE"; }
+act() { if [[ -n $DRY ]]; then print -r -- "WOULD RUN: $*"; else eval "$@"; fi; }
+notify() { act "osascript -e 'display notification \"$1\" with title \"Sunny\"'"; }
+dialog() { if [[ -n $DRY ]]; then print -r -- "WOULD ASK: $1"; print -r -- "${DRY_ANSWER:-Cancel}"; else
+  osascript -e "button returned of (display dialog \"$1\" buttons {$2} default button 1 with icon caution)" 2>/dev/null; fi; }
+running() { [[ -z $FAKE_DOWN ]] && pgrep -f "src/scripts/sunnyRun.ts" >/dev/null; }
+healthy() { [[ -z $FAKE_DOWN && -z $FAKE_STUCK ]] && [[ "$(curl -s -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/)" == 200 ]]; }
+kiosk_pid() { [[ -n $FAKE_DOWN ]] && return 1; pgrep -f "MacOS/Google Chrome .*kiosk-browser-profile" | head -1; }
+building() { [[ -n $FAKE_BUILDING ]] || grep -lqE '"state": *"generating"' $REPO/src/context/*/homework/cycles/*.json 2>/dev/null; }
+# On macOS, closing the kiosk window leaves Chrome running with no window, so "Chrome is running" is not
+# "Sunny is on screen". Count the kiosk Chrome's real on-screen windows (no permission prompt needed).
+windows() {
+  [[ -n $FAKE_NOWINDOW ]] && { print 0; return; }
+  local pid; pid=$(kiosk_pid) || { print 0; return; }; [[ -z $pid ]] && { print 0; return; }
+  osascript -l JavaScript - "$pid" <<'JS' 2>/dev/null || print 0
+ObjC.import("CoreGraphics");
+function run(argv) { const pid = parseInt(argv[0]); let n = 0;
+  const list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(1 | 16, 0)));
+  for (const w of list) if (w.kCGWindowOwnerPID === pid && w.kCGWindowLayer === 0 && w.kCGWindowBounds.Height > 200) n++;
+  return String(n); }
+JS
+}
+front() {  # activate the kiosk Chrome by pid (AppKit, no Apple Events prompt; never the family's normal Chrome)
+  act "osascript -l JavaScript -e 'ObjC.import(\"AppKit\"); \$.NSRunningApplication.runningApplicationWithProcessIdentifier($1).activateWithOptions(3)' >/dev/null"; }
+on_screen() { healthy && (( $(windows) > 0 )); }
+
+if running; then
+  if healthy && (( $(windows) == 0 )); then
+    if building; then
+      say "[open] [no-window-but-building] waiting"
+      dialog "Sunny is building a new board. Please wait a few minutes and try again." '"OK"' >/dev/null; exit 0
+    fi
+    say "[open] [no-window] restarting cleanly"   # no window = no one is in a session
+  else
+    if ! on_screen; then
+      notify "Sunny is waking up…"
+      for i in {1..45}; do on_screen && break; [[ -n $DRY ]] && break; sleep 2; done
+    fi
+    if on_screen; then
+      say "[open] [already-on-screen] kiosk_pid=$(kiosk_pid) bringing kiosk to front"
+      front "$(kiosk_pid)"; exit 0
+    fi
+    if building; then
+      say "[open] [stuck-but-building] restart refused"
+      dialog "Sunny is building a new board. Please wait a few minutes and try again." '"OK"' >/dev/null; exit 0
+    fi
+    say "[open] [not-answering] asking before restart"
+    choice=$(dialog "Sunny is not answering. Restart it?\n\nOnly restart if no one is in a session." '"Cancel","Restart"' | tail -1)
+    [[ $choice != Restart ]] && { say "[restart] [declined]"; exit 0; }
+  fi
+fi
+
+ts=$(date +%Y%m%d-%H%M%S)
+B="$HOME/SunnyData/backups/launch-$ts"
+say "[start] [backup] $B"
+act "mkdir -p '$B' && cp $HOME/SunnyData/*.db* '$B'/"
+act "ls -1d $HOME/SunnyData/backups/launch-* | sort -r | tail -n +6 | while read d; do rm -rf -- \"\$d\"; done"
+say "[start] [stop-strays]"
+act "pkill -f 'src/scripts/sunnyRun.ts'; pkill -f 'src/scripts/launch-kiosk.ts'; pkill -f 'src/server.ts --serve-static'; pkill -f 'kiosk-browser-profile'; sleep 3"
+act "[[ -f '$LOG' ]] && mv '$LOG' '$HOME/kiosk-run.prev.log'"
+say "[start] [launch] $(cd $REPO && git rev-parse --short HEAD)"
+act "cd '$REPO' && (nohup npm run sunny:run -- --subject homework > '$LOG' 2>&1 &)"
+notify "Starting Sunny… the screen opens in about a minute."
+[[ -n $DRY ]] && exit 0
+for i in {1..90}; do on_screen && { say "[start] [confirmed-on-screen] after $((i*2))s"; front "$(kiosk_pid)"; exit 0; }; sleep 2; done
+say "[start] [failed] Sunny not on screen after 180s; last log: $(tail -3 "$LOG" | tr '\n' ' ')"
+dialog "Sunny didn't start. Please get Mom or Dad." '"OK"' >/dev/null
+exit 1

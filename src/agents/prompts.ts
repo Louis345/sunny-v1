@@ -26,6 +26,7 @@ import {
   readCompanionBaseMarkdown,
   readCompanionSoulMarkdownFromAbsolute,
 } from "../companions/loader";
+import { readSoulWithCurrentFacts } from "../profiles/soulCurrentFacts";
 
 const TEMPLATE_VERSION = "v28"; // bump this when prompt changes
 
@@ -33,9 +34,8 @@ const SRC_DIR = path.resolve(__dirname, "..");
 
 /** Soul markdown under `src/context/{childId}/soul.md` (childId lowercased). */
 export function readSoul(childId: string): string {
-  const id = childId.trim().toLowerCase();
-  const p = path.join(resolveChildContextDir(id), "soul.md");
-  return fs.readFileSync(p, "utf-8");
+  // Her current dated facts first: the soul file's own age/grade lines may be years old (2026-11-10).
+  return readSoulWithCurrentFacts(childId);
 }
 
 export type BuildSessionPromptOptions = {
@@ -131,7 +131,7 @@ export function buildCanvasContext(canvas: Record<string, unknown>): string {
   }
 
   if (parts.length === 0) return "";
-  return `[${parts.join(". ")}. Do NOT re-draw what is already showing unless the child explicitly asks or the content needs to change.]`;
+  return `[${parts.join(". ")}. This is already on screen.]`;
 }
 
 /** Extract a spelling word list from raw homework OCR content. */
@@ -507,9 +507,8 @@ function useAdventureMapVoiceSlimPrompt(subject: SessionSubject, worksheetMode =
 function adaptiveMicroProbeInstructions(): string {
   return [
     "## Adaptive micro-probes",
-    "You may use recordChildSignal only for narrow learning signals after a natural moment: a real choice, strong reaction, repeated error, hint request, stop/change request, parent comment, or visible frustration.",
-    "If the child or parent/caregiver reports a Sunny bug, confusing activity flow, companion lag, content mismatch, or UI blocker, use recordProductIssue. That is product evidence, not preference evidence.",
-    "If the child answers, record it as stated_preference with evidenceText. If you directly observe a behavior, record it as observed_behavior. A stated preference is useful evidence, not truth.",
+    "recordChildSignal saves something you noticed about how she learns into her record: a choice, a strong reaction, a repeated error, a hint request, a stop or change request, a parent comment, or frustration. What she says is stated_preference; what you see her do is observed_behavior. A stated preference is evidence, not truth.",
+    "recordProductIssue saves a Sunny bug, confusing flow, lag, content mismatch or UI blocker for the grown-ups.",
   ].join("\n");
 }
 
@@ -525,7 +524,7 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject, options?: BuildS
       "## Your tools\n" +
       generateAdventureMapVoiceToolDocs() +
       "\n\n" +
-      generateCompanionCapabilities(0.5, ["show_level_path"])
+      generateCompanionCapabilities(0.5, ["show_level_path", "check_back_in"])
     );
   }
   return (
@@ -679,7 +678,7 @@ export async function buildSessionPrompt(
   if (!homeworkContent || !homeworkContent.trim()) {
     const namePrefix = buildNamePrefix(childName);
     const soulBlock = [companionBase, individualMd.trim()].filter(Boolean).join("\n\n");
-    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nMatch their energy. Never use asterisks.`;
+    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today; reading, word games and open conversation are all available.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
     const manifest = sessionPromptCapabilitiesTail(subject, options);
     const beforeCare = `${body}${manifest}`;

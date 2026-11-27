@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildCurrentBoardSnapshot,
   buildCurrentBoardSnapshotContext,
@@ -58,7 +58,7 @@ describe("CurrentBoardSnapshot", () => {
     expect(context).toContain('Child speech: "what word is it?"');
     expect(context).toContain("Current game: spell-check");
     expect(context).not.toContain("above");
-    expect(context).toContain("replayWord");
+    expect(context).toContain("spellingHelp replay");
     expect(context).not.toContain("Word Radar");
   });
 
@@ -241,8 +241,8 @@ describe("spelling pronunciation context", () => {
     expect(value.targetIsSpeakable).toBe(false);
     const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help with Tuscaloosa" });
     expect(context).not.toContain("title");
-    expect(context).toContain("replayWord");
-    expect(context).toContain("replayWord");
+    expect(context).toContain("spellingHelp replay");
+    expect(context).toContain("spellingHelp replay");
     expect(context).toContain("Purpose: establish what the child can spell independently");
     expect(context).toContain("syllables, letters and spelling demonstrations would supply part of the answer");
     expect(context).not.toContain("ARPABET");
@@ -271,7 +271,8 @@ describe("spelling pronunciation context", () => {
     const value = snapshot({ game: "word-radar", itemId: "item-title", currentTarget: "title", answerVisibility: "hidden", assessmentMode: true });
     const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help me" });
     expect(context).toContain("practice with full help comes after this check");
-    expect(context).toContain("offering a replay is not a reply to everything");
+    expect(context).toContain("spellingHelp replay plays the activity’s own whole-word audio.");
+    expect(context).toContain("spellingHelp teach gives you the word so you can teach it; her answer on it is then recorded as help.");
   });
 
   it.each([
@@ -286,18 +287,18 @@ describe("spelling pronunciation context", () => {
     expect(context).not.toContain("Model the whole word, then");
     expect(context).toContain("written spelling chunks may differ from spoken syllables");
     expect(context).toContain("silent letters have no separate sound");
-    expect(context).toContain("Do not grade the child's pronunciation from transcript text");
+    expect(context).toContain("The transcript cannot show how she pronounced a word; only audio assessment evidence can.");
   });
 
   it("does not turn explicit assessment into teaching just because text is visible", () => {
     const context = buildCurrentBoardSnapshotContext(snapshot({ game: "word-radar", currentTarget: "tonight", answerVisibility: "visible", assessmentMode: true }));
-    expect(context).toContain("replayWord");
+    expect(context).toContain("spellingHelp replay");
     expect(context).not.toContain("ARPABET");
   });
 
   it("does not invent a pronunciation reference for an unknown word", () => {
     const context = buildCurrentBoardSnapshotContext(snapshot({ game: "spell-check", currentTarget: "zzzxqnotaword", answerVisibility: "visible" }));
-    expect(context).toContain("Pronunciation reference unavailable");
+    expect(context).toContain("No pronunciation reference is available for this word.");
     expect(context).not.toContain("Syllable count:");
   });
 
@@ -371,7 +372,7 @@ it.each(["hidden", "unknown", undefined, "visible"])("does not leak protected sp
  expect(snapshot.spellingTarget).toBe("dissatisfied");
  const context=buildCurrentBoardSnapshotContext(snapshot);
  expect(context.toLowerCase()).not.toContain("dissatisfied");
- expect(context).toContain("replayWord");
+ expect(context).toContain("spellingHelp replay");
 });
 
 it.each([
@@ -398,4 +399,21 @@ it('retains partial spelling identity only with an active server binding, never 
  expect(retainSpellingItemState(state,previous,bound,{launchId:'other'})).toBe(state);
  const changed={...state,game:'different'};
  expect(retainSpellingItemState(changed,previous,bound,launch)).toBe(changed);
+});
+
+// BUGS.md 2026-11-07: Elli coached "carnivore" for several turns, then said "this one's hidden" on the same word, and
+// the log could not say why. Every change of Elli's help mode is logged with its reason.
+it("logs each change of Elli's help mode with the facts that chose it", async () => {
+  const { noteSupportModeChange } = await import("./currentBoardSnapshot");
+  const log = vi.spyOn(console, "log").mockImplementation(() => {});
+  const teach: any = { itemId: "i1", nodeId: "n", spellingSupportMode: "pronunciation_model" };
+  const hidden: any = { itemId: "i1", nodeId: "n", spellingSupportMode: "stimulus_only" };
+  expect(noteSupportModeChange(undefined, teach, { canonicalPractice: true, answerVisibility: "hidden" })).toBe(teach);
+  noteSupportModeChange(teach, teach, { canonicalPractice: true, answerVisibility: "hidden" });
+  noteSupportModeChange(teach, hidden, { canonicalPractice: undefined, answerVisibility: "hidden" });
+  expect(log.mock.calls.map(([line]) => line)).toEqual([
+    " 🎮 [companion] [support-mode] [pronunciation_model] node=n item=i1 canonical=true visibility=hidden",
+    " 🎮 [companion] [support-mode] [stimulus_only] node=n item=i1 canonical=unknown visibility=hidden",
+  ]);
+  log.mockRestore();
 });

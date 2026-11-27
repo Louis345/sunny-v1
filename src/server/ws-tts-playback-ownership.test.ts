@@ -125,7 +125,7 @@ it.each(["rate_first","replay_first"])("uses the selected rate in the real narra
   narration=narrateGameStimulus({text:"night.",metadata:{...metadata,assessmentMode:true,itemId:"i1"},childName:"Lab" as any,ttsLabel:"Lab",bridge,assessment:{itemId:"i1",word:"night",audioDelivered:false},record:vi.fn()});
  }});
  const speech:any=createSpeechTools(bridge,vi.fn());
- const calls=order==="rate_first"?[speech.setSpeechRate.execute({speed:0.7}),replay.replayWord.execute({})]:[replay.replayWord.execute({}),speech.setSpeechRate.execute({speed:0.7})];
+ const calls=order==="rate_first"?[speech.setSpeechRate.execute({speed:0.7}),replay.spellingHelp.execute({action:"replay"})]:[replay.spellingHelp.execute({action:"replay"}),speech.setSpeechRate.execute({speed:0.7})];
  const ws=fixtures.sockets.at(-1);ws.readyState=1;ws.emit("open");await Promise.all(calls);
  await vi.waitFor(()=>expect(ws.send.mock.calls.map(([m]:[string])=>JSON.parse(m)).some((p:any)=>p.text.trim()==="night.")).toBe(true));
  expect(JSON.parse(ws.send.mock.calls[0][0]).voice_settings.speed).toBe(0.7);
@@ -161,8 +161,8 @@ it.each(['rate_first','replay_first'])('delivers and records pace through the sl
  const lab=await liveManager();const {s,bridge}=lab;
  try{
   bridge.beginPlayback('companion','i1',false,false,'token');const connected=bridge.connect();const old=fixtures.sockets.at(-1);old.readyState=1;old.emit('open');await connected;bridge.sendText('Here it comes.');s.currentAbort=new AbortController();
-  const tools=s.buildAgentToolkit();expect(tools.canvasShow).toBeUndefined();expect(tools.setSpeechRate).toBeDefined();expect(tools.replayWord).toBeDefined();
-  const calls=order==='rate_first'?[tools.setSpeechRate.execute({speed:0.7}),tools.replayWord.execute({})]:[tools.replayWord.execute({}),tools.setSpeechRate.execute({speed:0.7})];
+  const tools=s.buildAgentToolkit();expect(tools.canvasShow).toBeUndefined();expect(tools.setSpeechRate).toBeDefined();expect(tools.spellingHelp).toBeDefined();
+  const calls=order==='rate_first'?[tools.setSpeechRate.execute({speed:0.7}),tools.spellingHelp.execute({action:"replay"})]:[tools.spellingHelp.execute({action:"replay"}),tools.setSpeechRate.execute({speed:0.7})];
   const current=fixtures.sockets.at(-1);current.readyState=1;current.emit('open');await Promise.all(calls);
   await vi.waitFor(()=>expect(current.send.mock.calls.map(([m]:[string])=>JSON.parse(m)).some((p:any)=>p.text.trim()==='night.')).toBe(true));
   expect(JSON.parse(current.send.mock.calls[0][0]).voice_settings.speed).toBe(0.7);
@@ -207,4 +207,35 @@ it('uses the activity launch token for non-spelling narration pace',async()=>{
   ws.emit('message',Buffer.from(JSON.stringify({audio:Buffer.from([1,0]).toString('base64'),isFinal:true})));await narration;
   s.playbackDone({audible:true,itemId:'math-1',requestId:s.pendingGameNarrationPlayback.requestId});
  }finally{lab.close();}
+});
+
+// 11/22 (Saori, Ila's rounding game): at 18:20 Elli set 0.85 when Ila needed it slower; four minutes later, on the next
+// problem, the voice was back to normal and Ila asked again ("Can you say slowly again?"). The rate belonged to one item
+// and launch. Why the human caught it: Saori saw Ila lose the explanation. Why the logs missed it: one "[rate]
+// [configured]" line looked like success. Why the lab missed it: no test changed item after choosing a rate.
+it("keeps the pace Elli chose for every next problem in the same game", async () => {
+  vi.stubEnv("ELEVENLABS_API_KEY","fixture");vi.stubEnv("TTS_ENABLED","true");
+  const browser:any={readyState:1,OPEN:1,send:vi.fn()};const bridge=new WsTtsBridge(browser,"voice");
+  bridge.beginPlayback("speech","problem-1",false,false,"rounding-game");
+  const connected=bridge.connect();const first=fixtures.sockets.at(-1);first.readyState=1;first.emit("open");await connected;
+  const rate=bridge.setSpeechRate(0.85);const second=fixtures.sockets.at(-1);second.readyState=1;second.emit("open");await rate;
+  bridge.stop();bridge.beginPlayback("companion:turn-2","problem-2",false,false,"rounding-game");
+  expect(bridge.getSpeechRate({itemId:"problem-2",launchToken:"rounding-game"})).toBe(0.85);
+  const next=bridge.connect();const third=fixtures.sockets.at(-1);third.readyState=1;third.emit("open");await next;
+  expect(JSON.parse(third.send.mock.calls[0][0]).voice_settings.speed).toBe(0.85);
+  bridge.close();
+});
+
+// Reina, 2026-11-25: the pace Matilda chose for her own talking reset at the next game. It now holds across games
+// (and starts at the pace saved for her); a word a game plays keeps its own item's pace.
+it("keeps the companion's chosen pace for her own talking across games, and leaves game words at their own pace",()=>{
+ vi.stubEnv("TTS_ENABLED","true");vi.stubEnv("ELEVENLABS_API_KEY","test-only");
+ const bridge=new WsTtsBridge({readyState:1,OPEN:1,send:vi.fn()} as any,"test-voice");
+ bridge.useCompanionPace(0.85);
+ bridge.beginPlayback("companion:1","item-a",false,false,"launch-1");
+ expect(bridge.getSpeechRate()).toBe(0.85);
+ bridge.beginPlayback("companion:2","item-z",false,false,"launch-2");
+ expect(bridge.getSpeechRate()).toBe(0.85);
+ bridge.beginPlayback("word:1","item-z",false,true,"launch-2");
+ expect(bridge.getSpeechRate()).toBe(1);
 });

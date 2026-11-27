@@ -1,13 +1,16 @@
 import { defineConfig } from "vitest/config";
+import { testSelection, tierFromEnv } from "./src/testTiers";
 
 export default defineConfig({
   test: {
     // Engine/integration tests mutate real paths under src/context/<childId>/; parallel files race.
     fileParallelism: false,
     // Fails the run if any test leaves a change in a real child's src/context folder.
-    globalSetup: ["src/tests/realChildContextGuard.ts"],
+    // Gives the run its own temp dir and fails if suites leave more sunny-* folders in it than the ceiling (I2).
+    globalSetup: ["src/tests/realChildContextGuard.ts", "src/tests/tempLeakGuard.ts"],
+    setupFiles: ["src/tests/tempCleanupPerFile.ts"],
     environment: "node",
-    include: [
+    ...testSelection(tierFromEnv(), [
       "src/tests/test-six-tools.ts",
       "src/tests/test-canvas-latency.ts",
       "src/tests/test-role-separation.ts",
@@ -117,7 +120,9 @@ export default defineConfig({
       "src/tests/test-launch-game-word-radar.ts",
       "src/tests/test-quest-node-routing.ts",
       "src/tests/test-speed-catcher-colors.ts",
+      "src/tests/test-temp-leak-guard.ts",
       ".github/pr-gate/*.test.ts",
-    ],
+      "evals/*.test.ts",
+    ]),
   },
 });

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { renderHarnessReport, scoreRun, wallsFromConversations, wallsFromSavedConversations, type HarnessRun } from "../harness/plannerHarness";
+import { assertShapedForHarnessModel, harnessModelEnv, renderHarnessReport, scoreRun, wallsFromConversations, wallsFromSavedConversations, type HarnessRun } from "../harness/plannerHarness";
 
 // 2026-10-25 owner request: measure the Planner against what matters to Sunny (she wants to come back,
 // then learning), so prompts and models can be compared before the girls see a change. These tests pin the
@@ -77,5 +77,36 @@ describe("the harness page", () => {
     expect(html).toContain("The kiln opens at noon.");
     expect(html).toContain("&lt;id&gt; cannot be re-run");
     expect(html).toContain("measured only in real sessions");
+  });
+});
+
+// I6 (11/12): the paid harness sent { ...request, model: HARNESS_MODEL }, so Sunny shaped each request (streaming,
+// tool_choice, max_tokens: plannerTransportPolicy) for its own default model and another model received it. Why the
+// human caught it: reading the harness, not a run. Why the lab missed it: the recorded Planner ignores the model.
+// Invariant: HARNESS_MODEL becomes every Anthropic SUNNY_*_MODEL Sunny reads, and a request shaped for any other
+// model is refused instead of rewritten.
+describe("the harness model is the model Sunny shapes the request for", () => {
+  const nonText = new Set(["SUNNY_VIDEO_CALL_TTS_MODEL", "SUNNY_QUEST_BOSS_IMAGE_MODEL", "SUNNY_QUEST_VISUAL_IMAGE_MODEL"]);
+  const readBySunny = () => {
+    const names = new Set<string>();
+    const visit = (dir: string): void => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) { if (!["context", "harness"].includes(entry.name)) visit(full); }
+      else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) for (const match of fs.readFileSync(full, "utf8").matchAll(/\bSUNNY_[A-Z_]*_MODEL\b/g)) names.add(match[0]);
+    } };
+    visit(path.join(process.cwd(), "src"));
+    return [...names].filter(name => !nonText.has(name)).sort();
+  };
+
+  it("sets every Anthropic SUNNY_*_MODEL Sunny reads to HARNESS_MODEL, and nothing without it", () => {
+    expect(Object.keys(harnessModelEnv("claude-test-model")).sort()).toEqual(readBySunny());
+    expect(new Set(Object.values(harnessModelEnv("claude-test-model")))).toEqual(new Set(["claude-test-model"]));
+    expect(harnessModelEnv(undefined)).toEqual({});
+  });
+
+  it("refuses a request shaped for another model instead of swapping it", () => {
+    expect(() => assertShapedForHarnessModel({ model: "claude-sonnet-5" }, "claude-opus-5")).toThrow("harness_model_mismatch: request=claude-sonnet-5 harness=claude-opus-5");
+    expect(() => assertShapedForHarnessModel({ model: "claude-opus-5" }, "claude-opus-5")).not.toThrow();
+    expect(fs.readFileSync(path.join(process.cwd(), "src/harness/plannerHarness.harness.ts"), "utf8")).not.toMatch(/\.\.\.request,\s*model/);
   });
 });

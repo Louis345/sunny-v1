@@ -32,7 +32,16 @@ export type CompanionVideoCallTraceEventName =
   | "handsfree_rearm_skipped"
   | "activity_context_changed"
   | "conversation_mode_changed"
-  | "activity_phase_changed";
+  | "activity_phase_changed"
+  | "wardrobe_store_mounted"
+  | "wardrobe_item_reviewed"
+  | "wardrobe_try_on_started"
+  | "wardrobe_voice_requested"
+  | "wardrobe_store_exited"
+  | "companion_tool_rejected"
+  | "shopping_speech_retry"
+  | "shopping_speech_guard_failed"
+  | "speech_dropped_while_busy";
 
 export type CompanionVideoCallTraceInput = {
   traceId: string;
@@ -276,4 +285,17 @@ export async function emitCompanionVideoCallTrace(input: CompanionVideoCallTrace
       body: JSON.stringify(event),
     },
   );
+}
+
+/** Her words that arrived while the companion was thinking or speaking, as a trace event, so they are never lost silently. */
+export function speechDroppedWhileBusy(phase: string, text: string): { eventName: "speech_dropped_while_busy"; payload: { phase: string; transcript: string; chars: number } } | null {
+  const transcript = text.trim();
+  if (!transcript || (phase !== "thinking" && phase !== "speaking")) return null;
+  return { eventName: "speech_dropped_while_busy", payload: { phase, transcript, chars: transcript.length } };
+}
+
+/** Why a call ended and how long it lasted; an end in the first 10 seconds is early (BUGS.md S42). */
+export function callEndPayload(cause: string, startedAt: number | null, now: number): { cause: string; secondsIn: number | null; early: boolean } {
+  const secondsIn = startedAt === null ? null : Math.round((now - startedAt) / 1000);
+  return { cause, secondsIn, early: secondsIn !== null && secondsIn < 10 };
 }
