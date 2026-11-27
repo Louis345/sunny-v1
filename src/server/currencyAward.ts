@@ -170,6 +170,22 @@ export function setWearingForChild(
   return { ok: true };
 }
 
+/** Saves the pace her companion chose for its own talking (Reina, 2026-11-25), so later games and sessions start there. */
+export function setCompanionPaceForChild(childId: string, speed: number, opts: { rootDir?: string } = {}): void {
+  if (!Number.isFinite(speed) || speed < 0.7 || speed > 1.2) {
+    console.warn(` 🎮 [companion-speech] [pace] [refused] child=${childId} speed=${speed} reason=out_of_range`);
+    return;
+  }
+  const chart = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {});
+  saveCompanionCarePlan(chart, { ...chart.companionCare.plan, speechPace: speed });
+  console.log(` 🎮 [companion-speech] [pace] [saved] child=${childId} speed=${speed}`);
+}
+
+/** The pace her companion last chose for her, or normal pace (1). */
+export function companionPaceFor(childId: string, opts: { rootDir?: string } = {}): number {
+  return getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {}).companionCare.plan.speechPace ?? 1;
+}
+
 /** When the child last chose this companion's look, so the companion can say so from fact (S10); undefined if never. */
 export function lookChosenAt(childId: string, companionId: string, opts: { rootDir?: string } = {}): string | undefined {
   try {

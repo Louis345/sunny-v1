@@ -1,3 +1,4 @@
+import { answerInWording } from "./answerInWording";
 import { familyClock } from "../utils/familyCalendar";
 import fs from "node:fs";
 import path from "node:path";
@@ -408,8 +409,12 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         state.written = { ...(state.written ?? {}), [id]: { id, prompt: input.prompt.trim(), lineage: { sourceEvidenceIds: [...base.lineage.sourceEvidenceIds, `planner-written:${id}`], exposure: "unseen", measurementRole: "practice" },
           response: { mode: "numeric", expected: answer, ...(input.unit?.trim() ? { unit: input.unit.trim() } : {}) } } as LearningCycleMathItem };
         state.result = undefined;
-        console.log(` 🎮 [planner-tools] [problem-written] id=${id} based_on=${source.id}${source.id !== input.based_on ? ` from_step=${input.based_on}` : ""} answer=${answer}`);
-        return { ok: true, result: { problem_id: id, answer, based_on: source.id } };
+        // The answer in her problem's words is on her screen (Reina, 2026-11-25): written anyway, never blocked; the
+        // Planner is told and decides, and her answer to it is recorded as helped (learningCycleRuntime).
+        const shown = answerInWording(input.prompt, answer);
+        console.log(` 🎮 [planner-tools] [problem-written] id=${id} based_on=${source.id}${source.id !== input.based_on ? ` from_step=${input.based_on}` : ""} answer=${answer}${shown ? ` answer_in_wording="${shown}"` : ""}`);
+        return { ok: true, result: { problem_id: id, answer, based_on: source.id,
+          ...(shown ? { answer_in_wording: `Her answer ${answer} is in your wording ("${shown}"), so she can read it off the screen and her answer will count as helped, not as a check. Rewrite it with add_problem if you want it to measure her; keep it if showing it is the point.` } : {}) } };
       } })] : []),
     tool({ name: "remove_step", description: "Remove a step you added, and take it off the order and the choice.",
       schema: z.object({ step_id: text("A step_id you were given.") }).strict(),

@@ -4,7 +4,6 @@ import { dateTime } from "./dateTime";
 import { createCompanionActTool } from "../../tools/companionAct";
 import { createSixTools } from "../../tools/six-tools";
 import { SixToolsMemoryHarness } from "../../tools/six-tools-apply";
-import { TAKE_GAME_SCREENSHOT_TOOL_DESCRIPTION } from "./takeGameScreenshotDescription";
 
 /** Default host for docs + rare CLI paths (single-session). */
 const _defaultSixHost = new SixToolsMemoryHarness();
@@ -42,10 +41,6 @@ export function generateToolNamesLine(): string {
 
 const ADVENTURE_MAP_VOICE_TOOL_KEYS = [
   "companionAct",
-  "dateTime",
-  "sessionEnd",
-  "sessionStatus",
-  "spinWheel",
   "recordChildSignal",
   "recordProductIssue",
 ] as const satisfies ReadonlyArray<keyof typeof ALL_TOOLS>;
@@ -56,8 +51,5 @@ export function generateAdventureMapVoiceToolDocs(): string {
     const tool = ALL_TOOLS[name];
     return `### ${name}\n${getDescription(tool as Tool)}`;
   });
-  return [
-    ...blocks,
-    `### takeGameScreenshot\n${TAKE_GAME_SCREENSHOT_TOOL_DESCRIPTION}`,
-  ].join("\n\n");
+  return blocks.join("\n\n");
 }

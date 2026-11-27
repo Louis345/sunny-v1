@@ -4,7 +4,7 @@ import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { z } from "zod";
 
 const model = vi.hoisted(() => ({ current: null as unknown }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => model.current) }));
+vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => model.current), createAnthropic: vi.fn(() => vi.fn(() => model.current)) }));
 vi.mock("../agents/elli/tools/generateToolDocs", () => ({ ALL_TOOLS: {} }));
 
 import { runAgent } from "../agents/elli/run";

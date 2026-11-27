@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { stepCountIs, streamText, type ModelMessage, type StopCondition } from "ai";
 import { z } from "zod";
-import { anthropic } from "@ai-sdk/anthropic";
+import { anthropic, createAnthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
 import { ALL_TOOLS } from "./tools/generateToolDocs";
 
@@ -56,6 +56,31 @@ function voiceEffort(): VoiceEffort {
 /** Claude models that accept `effort` (Opus 4.5+, Sonnet 4.6, and the 5.x family). */
 function supportsEffort(model: string): boolean {
   return /^claude-(?:(?:fable|mythos|opus|sonnet|haiku)-[5-9]|opus-4-[5-9]|sonnet-4-6)/.test(model);
+}
+
+type VoiceThinkingOff = { type: "disabled" | "between_tools" };
+
+/**
+ * The off switch each voice model accepts (each verified live, 2026-11-26). Reasoning before a spoken
+ * reply is silence she sits through: on Saori 22% of turns spent 30+ output tokens that were never spoken
+ * and took 1.5-2.1 s to the first word, against 0.76 s. A model not listed here would answer an off switch
+ * with a 400 and mute her, so it keeps its own thinking. SUNNY_VOICE_THINKING=on puts Claude's thinking
+ * back without a deploy.
+ */
+function voiceThinkingOff(model: string): VoiceThinkingOff | undefined {
+  if (process.env.SUNNY_VOICE_THINKING?.trim().toLowerCase() === "on") return undefined;
+  if (/^claude-sonnet-5-5\b/.test(model)) return { type: "between_tools" };
+  if (/^claude-(?:sonnet-5|haiku-5-5)(?:-\d{8})?$/.test(model)) return { type: "disabled" };
+  console.log(` 🎮 [voice-thinking] [skipped] model=${model} reason=unsupported`);
+  return undefined;
+}
+
+/** @ai-sdk/anthropic 3.0.58 sends `thinking` only when it is enabled or adaptive, so the off switch goes on the request body itself. */
+function voiceModel(modelId: string, thinking: VoiceThinkingOff | undefined) {
+  if (!thinking) return anthropic(modelId);
+  return createAnthropic({
+    fetch: (url, init) => fetch(url, { ...init, body: JSON.stringify({ ...JSON.parse(String(init?.body)), thinking }) }),
+  })(modelId);
 }
 
 let capturedRequests = 0;
@@ -119,6 +144,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   const modelId = process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5";
   const effort = supportsEffort(modelId) ? voiceEffort() : undefined;
   if (!effort) console.log(` 🎮 [voice-effort] [skipped] model=${modelId} reason=unsupported`);
+  const thinking = voiceThinkingOff(modelId);
 
   const conversation: ModelMessage[] = [
     ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
@@ -130,13 +156,14 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   const tools = opts.tools ?? buildAgentTools({ allowTransitionToWork });
   captureCompanionRequest({ model: modelId, system: profile.systemPrompt, messages: conversation, tools });
   const result = streamText({
-    model: anthropic(modelId),
+    model: voiceModel(modelId, thinking),
     messages: [
-      // Cache breakpoint: tools + Elli's long system prompt are reused across turns.
+      // Cache breakpoint: tools + Elli's long system prompt are reused across turns, and kept for an
+      // hour so her first reply after a quiet stretch of play is not a cache miss.
       {
         role: "system",
         content: profile.systemPrompt,
-        providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+        providerOptions: { anthropic: { cacheControl: { type: "ephemeral", ttl: "1h" } } },
       },
       ...conversation,
     ],
@@ -185,6 +212,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       ` 🎮 [companion] [prompt-cache] read=${cache.cacheReadTokens ?? 0} created=${cache.cacheWriteTokens ?? 0}`,
     );
   }
+  const thinkingTokens = ((await result.steps) ?? []).reduce(
+    (sum, step) => sum + ((step.usage as { raw?: { output_tokens_details?: { thinking_tokens?: number } } })?.raw?.output_tokens_details?.thinking_tokens ?? 0),
+    0,
+  );
+  console.log(` 🎮 [companion] [thinking] [${thinking ? "off" : "on"}] tokens=${thinkingTokens}`);
   if (finishReason !== "stop" && finishReason !== "tool-calls") {
     throw new Error(`companion_response_incomplete:${finishReason ?? "unknown"}`);
   }

@@ -56,6 +56,7 @@ export class WsTtsBridge {
   private audioChunksThisTurn = 0;
   private requiresCompleteAudio = false;
   private speechRate = 1;
+  private companionPace = 1;
   private speechRateScope: SpeechScope = {};
   private activeSpeechRate = 1;
   private audioRatesThisTurn = new Set<number>();
@@ -120,10 +121,16 @@ export class WsTtsBridge {
   // The pace Elli chose holds for her own talking on every next problem in the same game (11/22: Ila asked twice; it reset
   // per problem). A word the game plays is a measured stimulus, so its pace stays with its own item; another game or a
   // check starts at normal pace.
+  // Reina, 2026-11-25: her own talking keeps the chosen pace across games and sessions (saved for the child).
   getSpeechRate(scope: SpeechScope = this.playbackOwner ?? {}): number {
     const selected = this.speechRateScope ?? {};
     const companionTalking = String(this.playbackOwner?.requestId ?? "").startsWith("companion");
-    return scope.launchToken === selected.launchToken && (companionTalking || scope.itemId === selected.itemId) ? this.speechRate ?? 1 : 1;
+    if (companionTalking) return this.companionPace;
+    return scope.launchToken === selected.launchToken && scope.itemId === selected.itemId ? this.speechRate ?? 1 : 1;
+  }
+  /** The pace saved for this child, used for the companion's own talking until she chooses again. */
+  useCompanionPace(speed: number): void {
+    if (Number.isFinite(speed) && speed >= 0.7 && speed <= 1.2) this.companionPace = speed;
   }
   getAudioRatesThisTurn(): number[] { return [...(this.audioRatesThisTurn ?? [])]; }
 
@@ -133,6 +140,7 @@ export class WsTtsBridge {
     if (speed === this.getSpeechRate(scope)) return { speed };
     this.speechRate = speed;
     this.speechRateScope = { itemId: scope.itemId, launchToken: scope.launchToken };
+    this.companionPace = speed;
     if (this.playbackOwner?.itemId !== scope.itemId || this.playbackOwner?.launchToken !== scope.launchToken) return { speed };
     if (this.connectingPromise) { await this.connectingPromise; return { speed: this.getSpeechRate(scope) }; }
     // The live provider forbids changing settings mid-socket. Drain any speech

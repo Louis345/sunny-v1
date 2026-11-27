@@ -15,9 +15,16 @@ Owner, 2026-11-25: every deploy has a list of what it carries. `scripts/deploy-s
 | d890818a | Her outfit follows her companion everywhere (closet, board, FaceTime, 3D Quest/Boss) | `[wardrobe] [wearing] [migrated]` once per companion; `[library-game] [dress] [wearing]` in a Quest. Games already on a board keep starter clothes until that stop is rebuilt. |
 | 68313e5d | The deploy script prints this list before it touches Saori | `[deploy] [list] [going-out]` lines |
 | dfe6046a | The 3D Quest and Boss games are always on the tutor's menu (no parent note needed) | `[library-game] [offered] ... games=` on every board question |
+| 70e3d1b8 | A problem whose wording holds its answer is flagged to the Planner and never counts as a clean check (Reina's 9 x 4 Boss) | `[planner-tools] [problem-written] ... answer_in_wording=` |
+| 241c60fe | The pace her companion picks for its own talking sticks across games and sessions (Reina: Matilda too fast) | `[companion-speech] [pace] [saved]` |
+| cc301a37 | Elli and Matilda keep 5 tools or fewer; spelling replay and teach are one tool (owner: keep tool calls low) | `[companion] [teach-word] [granted]` and no sessionStatus/spinWheel tool calls |
+| 27a03fa4 | Help she could not hear (companion muted) is no longer saved as companion help | `[companion-help] [not-heard] ... reason=muted` after a mute press; no `[companion-help] [noted]` while muted |
+| 5da78f72 | Elli and Matilda are told when the child has them muted, and that the mic hears everyone and cannot tell who spoke | `[companion-context] [voice-muted]` after a mute press; fewer replies while muted and fewer replies to adult talk |
+| 8dd3d480 | After a Boss the tutor can still build boards before the test; the owner's replan works on a waiting record | `[canonical-progression] [actions-offered] ... lifecycle=boss_evaluating` lists generate_support; Reina gets a new board after the replan |
 
 ## On Saori
 
 | Date | Commit | What it carried |
 |---|---|---|
 | 2026-11-25 (morning) | 8d810d6e | Experiment ledger commits (b2757cf7, 8d810d6e) |
+| 2026-11-26 (2:03 pm) | 1f068530 | Elli speaks without thinking first (03f58462). On Saori, three voice calls outside any session logged `[companion] [thinking] [off] tokens=0`, first word 816, 489 and 492 ms. Still to check on the next child sessions: `tokens=0` on every spoken turn and Claude first-word p90 under 1.5 s on `npm run sunny:voice:latency-report` (was 2.4 s). Fails if Elli contradicts the answer key more or coaches worse by ear: add `SUNNY_VOICE_THINKING=on` to Saori's `.env` and restart the kiosk, or `git revert 03f58462` |

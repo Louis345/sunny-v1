@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const streamText = vi.hoisted(() => vi.fn());
 vi.mock("ai", () => ({ streamText, stepCountIs: vi.fn(() => "eight-steps") }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => "claude") }));
+vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => "claude"), createAnthropic: vi.fn(() => vi.fn(() => "claude")) }));
 vi.mock("../agents/elli/tools/generateToolDocs", () => ({ ALL_TOOLS: {} }));
 
 import { runAgent } from "../agents/elli/run";
@@ -36,7 +36,9 @@ describe("Elli prompt caching", () => {
     expect(options.messages[0]).toEqual({
       role: "system",
       content: "You are Elli, Ila's tutor.",
-      providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+      // One hour, not the default five minutes: on Saori (2026-11-18..25) the first reply after a quiet
+      // stretch missed the cache on 21 of 346 turns and took 1,657 ms to the first word, against 937 ms.
+      providerOptions: { anthropic: { cacheControl: { type: "ephemeral", ttl: "1h" } } },
     });
     expect(options.messages.at(-1)).toEqual({ role: "user", content: "Hey, Ellie." });
   });

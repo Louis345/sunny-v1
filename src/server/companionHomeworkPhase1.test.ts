@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { stream, compact } = vi.hoisted(() => ({ stream: vi.fn(), compact: vi.fn() }));
 vi.mock("ai", async original => ({ ...(await original<typeof import("ai")>()), streamText: stream }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: () => "synthetic-model" }));
+vi.mock("@ai-sdk/anthropic", () => ({ anthropic: () => "synthetic-model", createAnthropic: () => () => "synthetic-model" }));
 vi.mock("@anthropic-ai/sdk", () => ({ default: class { messages = { create: compact }; } }));
 vi.mock("../agents/elli/tools/generateToolDocs", async original => ({
   ...(await original<typeof import("../agents/elli/tools/generateToolDocs")>()), ALL_TOOLS: {},
@@ -104,7 +104,7 @@ describe("one factual homework turn path", () => {
     expect(request.messages[0].content).toContain(liveTalk);
     expect(request.messages[0].content).not.toMatch(/one or two short sentences|gets genuinely excited|never re-introduces/i);
     expect(request.tools).toHaveProperty("companionAct");
-    expect(request.tools).toHaveProperty("sessionStatus");
+    expect(request.tools).toHaveProperty("recordProductIssue");
     expect(stream).toHaveBeenCalledTimes(1);
 
   });

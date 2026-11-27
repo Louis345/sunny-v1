@@ -1,3 +1,4 @@
+import { answerInWording } from "./answerInWording";
 import {isDeepStrictEqual} from "node:util";
 import type { SchoolForecast } from "./schoolForecast";
 import { readyOnPaperSection, type PaperReadinessCall } from "./readyOnPaper";
@@ -218,15 +219,14 @@ export function resolveCanonicalProgressionDecisionForLifecycle(
   lifecycle: LearningCycleRecordV2["lifecycle"],
   decision: CanonicalProgressionDecision,
 ): CanonicalProgressionDecision {
-  if (lifecycle !== "boss_evaluating" || decision.status !== "awaiting_calibration" || decision.progressionAction === "await_calibration") {
+  // A "waiting for grades" status with an action but no board is read as waiting. A board the Planner planned
+  // is never dropped this way (Reina 2026-11-26).
+  if (lifecycle !== "boss_evaluating" || decision.status !== "awaiting_calibration" || decision.progressionAction === "await_calibration"
+    || decision.successor?.instruments?.length) {
     return decision;
   }
-  console.log(` 🎮 [canonical-progression] [boss-action-normalized] from=${decision.progressionAction} to=await_calibration`);
-  return {
-    ...decision,
-    progressionAction: "await_calibration",
-    successor: undefined,
-  };
+  console.log(` 🎮 [canonical-progression] [boss-action-normalized] from=${decision.progressionAction} to=await_calibration reason=no_board`);
+  return { ...decision, progressionAction: "await_calibration", successor: undefined };
 }
 
 function slug(value: string): string {
@@ -436,8 +436,10 @@ function observationsForCompletion(input: {
     // An answer already on screen when the item opened is help, whatever the game says (owner, 2026-11-08).
     const answerShowing = item?.response.mode === "numeric" && typeof row.screenAtOpen === "string"
       && new RegExp(`=\\s*${String(item.response.expected).replace(".", "\\.")}(?![\\d.])`).test(row.screenAtOpen);
+    // The answer in the problem's own words is on her screen too (Reina, 2026-11-25: "it says the answer").
+    const answerInWords = item?.response.mode === "numeric" && typeof item.response.expected === "number" && answerInWording(item.prompt, item.response.expected) !== null;
     const helpedOnItem = (input.result.companionHelpItemIds ?? []).includes(row.target) || row.companionHelp === true;
-    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || helpedOnItem || hinted;
+    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || answerInWords || helpedOnItem || hinted;
     const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target) || tryIndex > 0;
     const spellingItem = spellingItems?.[row.target];
     const responseNotCaptured = !assistedInstruction && isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
@@ -470,6 +472,7 @@ function observationsForCompletion(input: {
           ...(Number(row.scaffoldLevel ?? 0) > 0 ? [`scaffold_level_${row.scaffoldLevel}`] : []),
           ...(companionHelp ? ["companion_help"] : []),
           ...(answerShowing ? ["answer_on_screen"] : []),
+          ...(answerInWords ? ["answer_in_wording"] : []),
           ...(helpedOnItem ? ["companion_help_on_item"] : []),
           ...(hinted ? ["hint_shown"] : []),
         ],
@@ -479,7 +482,7 @@ function observationsForCompletion(input: {
       observedAt: input.observedAt,
       confounds: [
         ...(scaffolded ? ["assistance_present"] : []),
-        ...(answerShowing ? ["answer_exposure"] : []),
+        ...(answerShowing || answerInWords ? ["answer_exposure"] : []),
         ...(repeatedAssessmentItem ? ["item_previously_exposed"] : []),
         ...(result.observedErrorType ? [result.observedErrorType] : []),
         // A letter game's own report on the word, labelled as the game's, so the Planner sees the
@@ -1065,7 +1068,9 @@ async function askPlanner(
     // before her test the Boss vanished until a second Quest; full toolbox, the Planner decides).
     const questPassed=cycle.nodes.some(node=>node.role==="quest"&&node.state==="completed");
     const actions:LearningProgressionAction[]=cycle.lifecycle==="quest_evaluating"?["generate_boss","generate_support","await_calibration"]
-      :cycle.lifecycle==="boss_evaluating"?["await_calibration"]
+      // After a Boss the full menu stays (Reina 2026-11-26: offered only "wait", her Planner's board was thrown away
+      // five days before her test). Waiting for the graded test is one choice; the Planner decides.
+      :cycle.lifecycle==="boss_evaluating"?allowedProgressionActions.filter(action=>action!=="generate_boss"||questPassed)
       :allowedProgressionActions.filter(action=>(action!=="generate_boss"||questPassed)&&action!=="await_calibration");
     console.log(` 🎮 [canonical-progression] [actions-offered] homework=${cycle.homeworkId} lifecycle=${cycle.lifecycle} actions=${actions.join(",")}`);
     // A dated owner note (owner, 2026-11-11): a fact in the question while it lasts, never a forced step. The Planner decides.
@@ -1444,9 +1449,6 @@ async function decideOnce(
     if (!hasUnassistedUnseenQuestEvidence) {
       throw new Error("canonical_progression_boss_requires_unseen_quest_evidence");
     }
-  }
-  if (cycle.lifecycle === "boss_evaluating" && decision.progressionAction !== "await_calibration") {
-    throw new Error("canonical_progression_boss_requires_calibration");
   }
   const expectedEncounter = decision.progressionAction === "generate_quest" ? "quest" : decision.progressionAction === "generate_boss" ? "boss" : undefined;
   const encounters = instruments.filter((instrument) => instrument.encounter);

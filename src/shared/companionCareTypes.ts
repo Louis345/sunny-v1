@@ -156,6 +156,9 @@ export interface CompanionCarePlan {
   version: 1;
   childId: string;
   companionId: string;
+  /** The pace this companion chose for her own talking with this child (0.7-1.2; Reina, 2026-11-25: "speaking too
+   * fast"). Starts every later game and session; absent means normal pace. */
+  speechPace?: number;
   state: CompanionCareState;
   memory: CompanionCareMemory;
   inventory: {

@@ -1,7 +1,7 @@
 import { replyOverlap } from "../engine/companionPresenceAudit";
 import { childPaceFacts, itemAttemptFacts } from "./itemAttemptFacts";
 import { sunnyHealthFacts } from "../engine/sunnyHealth";
-import { noteCompanionHelpOnItem } from "./companionItemHelp";
+import { isCompanionSpeechMuted, noteCompanionHelpOnItem } from "./companionItemHelp";
 import { gamePaceFacts, noteGamePace } from "./gamePace";
 import { unnamedPetFacts } from "./creatureCare";
 import { normalizeSpeechText } from "../engine/helpRequest";
@@ -276,7 +276,12 @@ export function buildActivityCompanionContext(input: {
   const recent = recentRepliesFact(input.childId);
   // A pet she caught and has not named yet (Ila 11/22): a fact each turn, gone once she names it.
   const unnamedPets = unnamedPetFacts(input.childId);
-  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, unnamedPets, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; stays for every next problem in this game; another game or a check starts at normal pace).`, memory, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  // What she can hear and who Sunny hears (Saori 11/22–11/25: 60 of 62 replies unheard; adults answered as her). Facts only.
+  const speechMuted = isCompanionSpeechMuted(input.childId);
+  if (speechMuted) console.log(` 🎮 [companion-context] [voice-muted] child=${input.childId} node=${input.snapshot?.nodeId ?? "none"}`);
+  const hearing = ["[Hearing]", ...(speechMuted ? ["She has your voice muted on her screen: she cannot hear what you say."] : []),
+    "Sunny's microphone hears everyone near the kiosk (her, her sister, the adults at the table) and cannot tell who spoke."].join("\n");
+  return redactProtectedSpellingText([health, hearing, board, pace, liveBoard, tutorPlan, problemText, unseenText, recent, unnamedPets, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; stays for every next problem in this game; another game or a check starts at normal pace).`, memory, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;

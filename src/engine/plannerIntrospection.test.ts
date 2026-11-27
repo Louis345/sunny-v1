@@ -333,6 +333,21 @@ it("lets the owner close her current board for one fresh decision, with the reas
   expect(() => transitionLatestLearningCycle(childId, homeworkId, { type: "owner_replan_requested", reason: "again" }, f.opts)).toThrow("owner_replan_not_eligible");
 }, 120000);
 
+// Reina 2026-11-26: Sunny marked her record "waiting for the graded test" five days before the test. The owner may
+// ask for one fresh decision from that wait too; nothing is waiting to be built, and the reason reaches the Planner.
+it("lets the owner ask for a fresh decision while her record waits for the graded test", async () => {
+  const f = liveFixture();
+  const { transitionLatestLearningCycle, getLatestLearningCycle } = await import("./learningCycleRepository");
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  await f.prepare();
+  const file = path.join(f.rootDir, "src/context", childId, "homework/cycles", `${homeworkId}.json`);
+  const waiting = { ...getLatestLearningCycle(childId, f.opts)!, lifecycle: "awaiting_calibration" };
+  fs.writeFileSync(file, JSON.stringify(waiting));
+  const cycle = transitionLatestLearningCycle(childId, homeworkId, { type: "owner_replan_requested", reason: "Her test is Monday; no grades yet." }, f.opts);
+  expect(cycle.lifecycle).toBe("baseline_evaluating");
+}, 120000);
+
 // 2026-11-09 owner ("let's verify, no more surprises"): confirmed school-test results did reach the Planner's raw
 // data, but its readable track record counted them as "help not recorded", the same words as a practice answer
 // whose help was not captured. The real test is the goal; the Planner must see it named as the school test.

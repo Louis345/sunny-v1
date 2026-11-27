@@ -22,6 +22,8 @@ vi.mock("./session-manager", () => ({
     receiveAudio: receiveAudioMock,
     handleGameEvent: handleGameEventMock,
     setCompanionPresence: setCompanionPresenceMock,
+    recordDebugEvent: vi.fn(),
+    chartChildId: "ila",
   })),
 }));
 
@@ -31,6 +33,7 @@ vi.mock("../profiles/childChart", () => ({
 
 import { handleWsConnection } from "./ws-handler";
 import { SessionManager } from "./session-manager";
+import { noteCompanionHelpOnItem, takeCompanionHelpItemIds } from "./companionItemHelp";
 
 class FakeWs extends EventEmitter {
   sent: unknown[] = [];
@@ -255,6 +258,18 @@ describe("ws handler", () => {
     await sendJson(ws, { type: "companion_presence", state: "summoned" });
 
     expect(setCompanionPresenceMock).toHaveBeenCalledWith("summoned", "client");
+  });
+
+  // Saori 11/22–11/25: help she could not hear was saved as help. Her mute button is what the server knows.
+  it("stops counting companion replies as help while her screen has the companion muted", async () => {
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+    await sendJson(ws, { type: "start_session", child: "Ila" });
+    await sendJson(ws, { type: "client_audio_status", event: "companion_speech_mute", muted: true });
+    noteCompanionHelpOnItem("ila", "ws-quest", "p1");
+    await sendJson(ws, { type: "client_audio_status", event: "companion_speech_mute", muted: false });
+    noteCompanionHelpOnItem("ila", "ws-quest", "p2");
+    expect(takeCompanionHelpItemIds("ila", "ws-quest")).toEqual(["p2"]);
   });
 
   // BUGS.md 2026-11-07: any throw inside a message became an unhandled rejection and Node exited the kiosk.

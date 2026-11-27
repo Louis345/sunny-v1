@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const streamText = vi.hoisted(() => vi.fn());
 vi.mock("ai", () => ({ streamText, stepCountIs: vi.fn(() => "eight-steps") }));
-vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => "claude") }));
+vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn(() => "claude"), createAnthropic: vi.fn(() => vi.fn(() => "claude")) }));
 vi.mock("../agents/elli/tools/generateToolDocs", () => ({ ALL_TOOLS: {} }));
 
 import { runAgent } from "../agents/elli/run";
