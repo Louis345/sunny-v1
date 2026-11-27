@@ -1,0 +1,854 @@
+<!doctype html>
+<!--
+  Elli's Classroom: look-and-feel demo (2026-11-26). Not wired to Sunny.
+  Shows a 3D classroom where Elli teaches rounding by pointing at a chalk number road:
+  the number sits between two "houses" (tens or hundreds), we count steps to each, the closer house wins,
+  and the number lands ON the house, so its ones (and tens) become 0.
+  Elli's teaching tools are a small JS API (window.ElliClassroom.tools) that a future AI tutor could call;
+  this page only plays a fixed demo LESSON of those calls. Her lines here are demo stand-ins: in Sunny she
+  would speak in her own words from live context.
+  Open: from the repo root run `python3 -m http.server 8765` then visit
+  http://localhost:8765/experiments/elli-classroom/  (Elli's VRM + Mixamo clips load from web/public/).
+  URL options: ?speed=2 (faster), ?auto=1 (auto-answer questions), ?auto=wrong (first tap wrong), ?standin=1
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Elli's Classroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#3a2340;--cream:#fff8ec;--blue:#4aa8ff;--coral:#ff6f91;--gold:#ffc93c;--mint:#5fd8a8}
+html,body{margin:0;height:100%;overflow:hidden;background:#f6d9b0;font-family:'Fredoka',system-ui,sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none;touch-action:manipulation}
+canvas{display:block}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:5}
+#bubble{position:fixed;left:0;top:0;z-index:6;max-width:min(340px,42vw);padding:14px 22px;border-radius:28px;background:#fff;box-shadow:0 10px 30px #6a3b2a40,0 0 0 5px #ffd6e4;
+  font-size:clamp(22px,2.6vw,32px);font-weight:600;line-height:1.15;text-align:center;opacity:0;transform:translate(-50%,-100%) scale(.6);transform-origin:50% 110%;
+  transition:opacity .2s ease,transform .25s cubic-bezier(.3,1.6,.5,1);pointer-events:none;white-space:normal}
+#bubble.on{opacity:1;transform:translate(-50%,-100%) scale(1)}
+#bubble::after{content:"";position:absolute;left:50%;bottom:-16px;margin-left:-14px;border:14px solid transparent;border-top:18px solid #fff;border-bottom:0}
+#bubble b{color:#e0457b}
+body.portrait #bubble{transform:translate(0,-50%) scale(.6);transform-origin:0 50%}
+body.portrait #bubble.on{transform:translate(0,-50%) scale(1)}
+body.portrait #bubble::after{left:-24px;bottom:auto;top:50%;margin:-14px 0 0;border:14px solid transparent;border-right:20px solid #fff;border-left:0}
+body.portrait #ask{justify-content:flex-end;padding-right:6vw;gap:5vw}
+#ask{position:fixed;left:0;right:0;bottom:4vh;display:flex;justify-content:center;gap:clamp(24px,6vw,90px);z-index:7;pointer-events:none;opacity:0;transform:translateY(40px);transition:opacity .3s,transform .35s cubic-bezier(.3,1.5,.5,1)}
+#ask.on{opacity:1;transform:none;pointer-events:auto}
+.card{width:clamp(170px,19vw,240px);aspect-ratio:1;border:none;border-radius:36px;background:#fffdf7;box-shadow:0 14px 0 #e8c9a6,0 18px 40px #6a3b2a55;cursor:pointer;padding:10px;
+  transition:transform .18s,box-shadow .18s,filter .3s;animation:bob 1.6s ease-in-out infinite}
+.card:nth-child(2){animation-delay:-.8s}
+.card:hover{transform:translateY(-6px) scale(1.04)}
+.card:active{transform:translateY(6px) scale(.97);box-shadow:0 6px 0 #e8c9a6,0 8px 20px #6a3b2a55}
+.card svg{width:100%;height:100%}
+.card.right{box-shadow:0 14px 0 #4cc38a,0 0 0 8px #7af0b8,0 18px 50px #2c9a6a88;animation:win .6s ease}
+.card.wrong{animation:wobble .5s ease;filter:saturate(.4) brightness(.95)}
+@keyframes bob{50%{transform:translateY(-8px)}}
+@keyframes win{40%{transform:scale(1.15) rotate(-3deg)}}
+@keyframes wobble{20%{transform:translateX(-14px) rotate(-4deg)}50%{transform:translateX(12px) rotate(3deg)}80%{transform:translateX(-6px)}}
+#ticker{position:fixed;top:12px;right:12px;z-index:8;font:600 13px/1.2 ui-monospace,Menlo,monospace;color:#5a3d2e;background:#fff8eccc;border-radius:14px;padding:7px 12px;box-shadow:0 2px 10px #6a3b2a30;max-width:46vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ticker:empty{display:none}
+body:not(.debug) #ticker,body:not(.debug) #tag{display:none}
+#tag{position:fixed;top:12px;left:14px;z-index:8;font-weight:700;font-size:15px;color:#7a4b2e;background:#fff8eccc;border-radius:14px;padding:6px 12px}
+#loading{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#ffe9c7,#f2bf86);transition:opacity .6s}
+#loading.done{opacity:0;pointer-events:none}
+#loading .dot{width:90px;height:90px;border-radius:50%;background:conic-gradient(var(--coral),var(--gold),var(--mint),var(--blue),var(--coral));animation:spin 1.2s linear infinite;mask:radial-gradient(circle,transparent 52%,#000 54%);-webkit-mask:radial-gradient(circle,transparent 52%,#000 54%)}
+@keyframes spin{to{transform:rotate(1turn)}}
+#replay{position:fixed;right:20px;bottom:20px;z-index:9;width:84px;height:84px;border-radius:50%;border:none;background:var(--gold);box-shadow:0 8px 0 #d99a12,0 10px 30px #6a3b2a55;font-size:40px;cursor:pointer;display:none}
+#replay.on{display:block;animation:bob 1.4s ease-in-out infinite}
+.card .big{display:grid;place-items:center;width:100%;height:100%;font:700 clamp(40px,6vw,84px)/1 Fredoka,system-ui;color:#3a2340;text-align:center;word-break:break-word}
+.card .big.word{font-size:clamp(26px,3.2vw,44px)}
+#pad{position:fixed;left:50%;transform:translateX(-50%);bottom:2.5vh;z-index:7;display:none;align-items:center;gap:12px;background:#fffdf7;border-radius:28px;padding:12px 14px;box-shadow:0 10px 0 #e8c9a6,0 14px 34px #6a3b2a55}
+#pad.on{display:flex}
+#pad .shown{width:150px;height:72px;border-radius:18px;background:#f3ead8;display:grid;place-items:center;font:700 52px/1 Fredoka,system-ui;color:#3a2340;letter-spacing:3px}
+#pad .keys{display:grid;grid-template-columns:repeat(12,1fr);gap:8px}
+#pad button{width:clamp(44px,5.2vw,68px);height:72px;border:none;border-radius:16px;background:#ffe3b8;font:700 34px/1 Fredoka,system-ui;color:#5a3d2e;box-shadow:0 5px 0 #e3b77a;cursor:pointer}
+#pad button:active{transform:translateY(4px);box-shadow:0 1px 0 #e3b77a}
+#pad button.ok{background:#5fd8a8;box-shadow:0 5px 0 #33a77a;color:#fff}
+#pad.right .shown{background:#c9f5df}#pad.wrong .shown{animation:wobble .5s ease}
+#clip{position:fixed;inset:0;z-index:30;background:#000;display:none}
+#clip.on{display:block}#clip video,#clip img{width:100%;height:100%;object-fit:contain}
+#report{position:fixed;left:14px;bottom:14px;z-index:9;display:none;border:none;border-radius:16px;background:#fff8ec;padding:10px 14px;font:700 15px system-ui;color:#5a3d2e;cursor:pointer;box-shadow:0 2px 10px #6a3b2a30}
+#report.on{display:block}
+#reportBox{position:fixed;inset:6vh 8vw;z-index:40;display:none;background:#fffdf7;border-radius:24px;padding:20px;overflow:auto;font:14px/1.4 system-ui;color:#3a2340;box-shadow:0 20px 60px #0006}
+#reportBox.on{display:block}#reportBox td{padding:4px 8px;border-bottom:1px solid #eee;vertical-align:top}
+</style>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
+  "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.1/lib/three-vrm.module.min.js"}}</script>
+</head>
+<body>
+<div id="loading"><div class="dot"></div></div>
+<div id="tag">Elli's Classroom · demo</div>
+<div id="ticker"></div>
+<canvas id="fx"></canvas>
+<div id="bubble"></div>
+<div id="ask"></div>
+<button id="replay" aria-label="Play again">↻</button>
+<div id="pad"><div class="shown"></div><div class="keys"></div></div>
+<div id="clip"></div>
+<button id="report">📋 her answers</button>
+<div id="reportBox"></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+
+const Q = new URLSearchParams(location.search);
+const SPEED = Math.max(.25, Math.min(8, +Q.get('speed') || 1));
+const AUTO = Q.get('auto');
+if (Q.has('debug')) document.body.classList.add('debug');   // the step ticker and tag are for us, never on her screen                       // '1' = auto-answer right, 'wrong' = first answer wrong
+const VRM_URL = Q.get('vrm') || '../../web/public/companions/sample.vrm';   // Elli's model (companions.generated.ts: elli -> sample.vrm)
+const ANIM_DIR = '../../web/public/animations/';
+const log = (...a) => console.log(' 🎮 [elli-classroom]', ...a);
+const $ = id => document.getElementById(id);
+
+// ============================ tiny tween clock (game time, so ?speed works) ============================
+const tweens = [];
+const ease = {
+  linear: k => k,
+  out: k => 1 - Math.pow(1 - k, 3),
+  inOut: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  back: k => { const c = 1.9; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); },
+};
+function tween(obj, key, to, sec, fn = ease.out) {
+  return new Promise(res => tweens.push({ obj, key, from: obj[key], to, dur: sec / SPEED, t: 0, fn, res }));
+}
+function wait(sec) { return new Promise(res => tweens.push({ dur: sec / SPEED, t: 0, res })); }
+function stepTweens(dt) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i]; tw.t += dt; const k = Math.min(1, tw.dur > 0 ? tw.t / tw.dur : 1);
+    if (tw.obj) tw.obj[tw.key] = tw.from + (tw.to - tw.from) * tw.fn(k);
+    if (k >= 1) { tweens.splice(i, 1); tw.res(); }
+  }
+}
+
+// ============================ renderer / scene / camera ============================
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75)); renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xf3cf9f);
+const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, .1, 100);
+const camBase = { center: new THREE.Vector3(.62, 1.62, -.7), dist: 7, portrait: false };
+const ELLI_SPOT = { land: new THREE.Vector3(-1.6, 0, 1.15), port: new THREE.Vector3(-.4, 0, 2.3) };
+function fitCamera() {
+  const aspect = innerWidth / innerHeight, t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  camBase.portrait = aspect < 1;                             // portrait: tighter on the board, Elli steps in front of it
+  const W = camBase.portrait ? 5.7 : 7.7, H = 3.5;
+  camBase.dist = Math.max(H / 2 / t, W / 2 / (t * aspect)) * 1.04;
+  camBase.center.set(camBase.portrait ? 1.1 : .62, camBase.portrait ? 2.0 : 1.62, -.7);
+  BOARD.y = camBase.portrait ? 2.75 : 1.95; document.body.classList.toggle('portrait', camBase.portrait);
+  camera.aspect = aspect; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); fxCanvas.width = innerWidth * devicePixelRatio; fxCanvas.height = innerHeight * devicePixelRatio;
+}
+const fxCanvas = $('fx'), fx2 = fxCanvas.getContext('2d');
+addEventListener('resize', () => { fitCamera(); placeElli(); });
+
+// ---- lights: warm afternoon sun through the window + soft sky fill ----
+scene.add(new THREE.HemisphereLight(0xfff3dc, 0xc79a6a, 1.5));
+const sun = new THREE.DirectionalLight(0xffe2b0, 2.6); sun.position.set(-5, 7, 5); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 6, bottom: -3, near: 1, far: 25 }); sun.shadow.bias = -.0004; sun.shadow.radius = 4;
+scene.add(sun);
+const fill = new THREE.PointLight(0xffc8e0, 12, 12, 1.6); fill.position.set(3.5, 3.2, 2.5); scene.add(fill);
+
+// ============================ canvas texture helpers ============================
+function canvasTex(w, h, draw, repeat) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat); }
+  return t;
+}
+const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: .78, metalness: 0, ...o });
+function box(w, h, d, m, x, y, z, parent = scene, rounded = 0) {
+  const g = rounded ? new RoundedBoxGeometry(w, h, d, 3, rounded) : new THREE.BoxGeometry(w, h, d);
+  const me = new THREE.Mesh(g, m); me.position.set(x, y, z); me.castShadow = me.receiveShadow = true; parent.add(me); return me;
+}
+
+// ============================ the room ============================
+const WALL_Z = -2.2;
+// floor: warm wood planks
+const floorTex = canvasTex(512, 512, (g, w, h) => {
+  const cols = ['#d99b62', '#cf9058', '#e0a66c', '#c98a52'];
+  for (let r = 0; r < 8; r++) { let x = (r % 2) * -128; while (x < w) { const len = 256; g.fillStyle = cols[(r * 3 + Math.floor(x / 97) + 4) % 4]; g.fillRect(x, r * 64, len, 64); g.fillStyle = '#00000022'; g.fillRect(x, r * 64, 3, 64); x += len; } g.fillStyle = '#00000026'; g.fillRect(0, r * 64 + 62, w, 2); }
+  for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(90,50,20,${Math.random() * .06})`; g.fillRect(Math.random() * w, Math.random() * h, 40 + Math.random() * 80, 1.5); }
+}, [6, 6]);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 18), mat(0xffffff, { map: floorTex, roughness: .55 }));
+floor.rotation.x = -Math.PI / 2; floor.position.z = 3; floor.receiveShadow = true; scene.add(floor);
+// back wall: peach top, mint wainscot, chair rail
+const wallTex = canvasTex(64, 512, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#ffe7c4'); gr.addColorStop(1, '#ffd9ae'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#9fdcc8'; g.fillRect(0, h * .82, w, h * .18); g.fillStyle = '#ffffff'; g.fillRect(0, h * .815, w, 6);
+  for (let x = 0; x < w; x += 32) { g.fillStyle = '#8fcfb9'; g.fillRect(x, h * .825, 3, h * .18); }
+}, [1, 1]);
+const backWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 7), mat(0xffffff, { map: wallTex }));
+backWall.position.set(0, 3.5, WALL_Z); backWall.receiveShadow = true; scene.add(backWall);
+for (const sx of [-1, 1]) { const side = new THREE.Mesh(new THREE.PlaneGeometry(18, 7), mat(0xffe0b8)); side.position.set(sx * 9, 3.5, 6); side.rotation.y = -sx * Math.PI / 2; scene.add(side); }
+const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(24, 18), mat(0xfff1dd, { emissive: 0x9a8670 })); ceiling.rotation.x = Math.PI / 2; ceiling.position.set(0, 5.2, 6); scene.add(ceiling);
+
+// window (left, behind Elli) with a sunny hill outside + sunbeam
+const skyTex = canvasTex(512, 512, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#6ec6ff'); gr.addColorStop(.7, '#bfe9ff'); gr.addColorStop(1, '#e8f8ff'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#fff6b0'; g.beginPath(); g.arc(390, 110, 52, 0, 7); g.fill();
+  g.fillStyle = '#ffffff'; for (const [x, y, s] of [[110, 140, 1], [260, 80, .7], [330, 230, .8]]) { for (const [dx, dy, r] of [[0, 0, 34], [30, -12, 40], [64, 0, 32], [30, 10, 34]]) { g.beginPath(); g.arc(x + dx * s, y + dy * s, r * s, 0, 7); g.fill(); } }
+  g.fillStyle = '#7ccf5f'; g.beginPath(); g.ellipse(150, 560, 320, 190, 0, 0, 7); g.fill(); g.fillStyle = '#5cbb4a'; g.beginPath(); g.ellipse(470, 590, 300, 200, 0, 0, 7); g.fill();
+  g.fillStyle = '#3f9a3a'; for (const x of [70, 200, 420]) { g.fillRect(x, 360, 10, 40); g.beginPath(); g.arc(x + 5, 350, 28, 0, 7); g.fill(); }
+});
+const win = new THREE.Group(); win.position.set(-4.7, 2.75, WALL_Z + .02); scene.add(win);
+win.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2.1), new THREE.MeshBasicMaterial({ map: skyTex, toneMapped: false })));
+const frameM = mat(0xffffff, { roughness: .5 });
+box(2.2, .12, .12, frameM, 0, 1.08, .05, win); box(2.3, .16, .3, frameM, 0, -1.1, .12, win); box(.12, 2.2, .12, frameM, -1.05, 0, .05, win); box(.12, 2.2, .12, frameM, 1.05, 0, .05, win);
+box(.07, 2.1, .08, frameM, 0, 0, .05, win); box(2.1, .07, .08, frameM, 0, .15, .05, win);
+const curtainM = mat(0xff8fb1, { roughness: .9 });
+for (const sx of [-1, 1]) { const c = box(.5, 2.5, .1, curtainM, sx * 1.35, -.05, .14, win, .05); c.scale.z = .6; }
+const beamTex = canvasTex(128, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,240,200,.5)'); gr.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'destination-in'; const gx = g.createLinearGradient(0, 0, w, 0); gx.addColorStop(0, 'rgba(0,0,0,0)'); gx.addColorStop(.5, 'rgba(0,0,0,1)'); gx.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gx; g.fillRect(0, 0, w, h); });
+for (const [x, r] of [[-4.5, .5], [-3.9, .55]]) {
+  const b = new THREE.Mesh(new THREE.PlaneGeometry(.9, 5), new THREE.MeshBasicMaterial({ map: beamTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .3 }));
+  b.position.set(x + 1, 1.5, -.6); b.rotation.set(-.55, 0, r); scene.add(b);
+}
+
+// chalkboard (the teaching surface). Drawn on a 2D canvas each frame it changes.
+const BW = 2048, BH = 1024, BOARD = { w: 5.2, h: 2.6, x: 1.4, y: 1.95 };
+fitCamera();
+const boardCanvas = document.createElement('canvas'); boardCanvas.width = BW; boardCanvas.height = BH; const bg = boardCanvas.getContext('2d');
+const boardBg = document.createElement('canvas'); boardBg.width = BW; boardBg.height = BH;
+(() => { const g = boardBg.getContext('2d'); const gr = g.createRadialGradient(BW / 2, BH / 2, 100, BW / 2, BH / 2, BW * .7); gr.addColorStop(0, '#2f6b55'); gr.addColorStop(1, '#214b3d'); g.fillStyle = gr; g.fillRect(0, 0, BW, BH);
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * .025})`; g.beginPath(); g.ellipse(Math.random() * BW, Math.random() * BH, 80 + Math.random() * 260, 20 + Math.random() * 60, Math.random() * 3, 0, 7); g.fill(); }
+  for (let i = 0; i < 3000; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * .05})`; g.fillRect(Math.random() * BW, Math.random() * BH, 2, 2); } })();
+const boardTex = new THREE.CanvasTexture(boardCanvas); boardTex.colorSpace = THREE.SRGBColorSpace; boardTex.anisotropy = 8;
+const boardG = new THREE.Group(); boardG.position.set(BOARD.x, BOARD.y, WALL_Z + .06); scene.add(boardG);
+const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(BOARD.w, BOARD.h), new THREE.MeshBasicMaterial({ map: boardTex, toneMapped: false }));
+boardMesh.position.z = .06; boardG.add(boardMesh);
+const woodM = mat(0xb9773f, { roughness: .6 });
+box(BOARD.w + .36, .2, .16, woodM, 0, BOARD.h / 2 + .08, .04, boardG, .04); box(BOARD.w + .36, .2, .16, woodM, 0, -BOARD.h / 2 - .08, .04, boardG, .04);
+box(.2, BOARD.h + .36, .16, woodM, -BOARD.w / 2 - .08, 0, .04, boardG, .04); box(.2, BOARD.h + .36, .16, woodM, BOARD.w / 2 + .08, 0, .04, boardG, .04);
+box(BOARD.w, .06, .26, woodM, 0, -BOARD.h / 2 - .2, .16, boardG);   // chalk tray
+['#ffffff', '#ffd84d', '#ff8fb1', '#7cc8ff'].forEach((c, i) => { const ch = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .22, 10), mat(c)); ch.rotation.z = Math.PI / 2; ch.position.set(-1.9 + i * .32, -BOARD.h / 2 - .14, .2); boardG.add(ch); });
+
+// bunting across the top of the wall
+const buntCols = [0xff6f91, 0xffc93c, 0x5fd8a8, 0x4aa8ff, 0xb38bff, 0xff9a52];
+for (let i = 0; i < 26; i++) {
+  const x = -7.6 + i * .6, y = 4.55 - Math.sin(((i % 13) / 13) * Math.PI) * .35;
+  const tri = new THREE.Mesh(new THREE.ConeGeometry(.2, .42, 3), mat(buntCols[i % 6], { side: THREE.DoubleSide }));
+  tri.rotation.set(0, 0, Math.PI); tri.scale.z = .15; tri.position.set(x, y, WALL_Z + .12); scene.add(tri);
+}
+// clock
+const clock = new THREE.Group(); clock.position.set(4.6, 3.7, WALL_Z + .05); scene.add(clock);
+const clockFace = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, .08, 40), mat(0xffffff)); clockFace.rotation.x = Math.PI / 2; clock.add(clockFace);
+const rim = new THREE.Mesh(new THREE.TorusGeometry(.42, .05, 12, 40), mat(0xff6f91)); clock.add(rim);
+const hHand = box(.04, .22, .02, mat(0x3a2340), 0, .1, .06, clock); const mHand = box(.03, .32, .02, mat(0x3a2340), 0, .15, .07, clock);
+hHand.geometry.translate(0, -.0, 0);
+// bookshelf (right)
+const shelf = new THREE.Group(); shelf.position.set(5.2, 0, WALL_Z + .35); scene.add(shelf);
+box(1.6, .08, .5, woodM, 0, .04, 0, shelf); for (const y of [.75, 1.5, 2.2]) box(1.6, .06, .5, woodM, 0, y, 0, shelf);
+box(.08, 2.25, .5, woodM, -.8, 1.12, 0, shelf); box(.08, 2.25, .5, woodM, .8, 1.12, 0, shelf);
+const bookCols = [0xff6f91, 0x4aa8ff, 0xffc93c, 0x5fd8a8, 0xb38bff, 0xff9a52, 0x7ad0ff];
+for (const y of [.08, .81, 1.54]) { let x = -.72; let k = Math.floor(y * 7); while (x < .6) { const w = .1 + Math.random() * .08, hh = .45 + Math.random() * .2; const b = box(w, hh, .36, mat(bookCols[k++ % 7]), x + w / 2, y + hh / 2, 0, shelf); if (Math.random() < .2) b.rotation.z = .12; x += w + .015; } }
+// globe on top of shelf
+const globe = new THREE.Mesh(new THREE.SphereGeometry(.26, 32, 20), mat(0x4aa8ff, { roughness: .4 })); globe.position.set(-.3, 2.62, 0); shelf.add(globe);
+for (let i = 0; i < 6; i++) { const land = new THREE.Mesh(new THREE.SphereGeometry(.08 + Math.random() * .05, 10, 8), mat(0x6ccf5a)); land.position.setFromSphericalCoords(.25, 1 + Math.random() * 1.2, Math.random() * 6.3); land.scale.set(1, .6, .4); land.lookAt(0, 0, 0); globe.add(land); }
+// plants
+function plant(x, z, s = 1) { const p = new THREE.Group(); p.position.set(x, 0, z); p.scale.setScalar(s); scene.add(p);
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(.26, .2, .42, 20), mat(0xff9a52)); pot.position.y = .21; pot.castShadow = true; p.add(pot);
+  for (let i = 0; i < 7; i++) { const l = new THREE.Mesh(new THREE.IcosahedronGeometry(.22 + Math.random() * .12, 0), mat([0x56c271, 0x3fae5e, 0x74d488][i % 3], { flatShading: true })); l.position.set((Math.random() - .5) * .4, .6 + Math.random() * .5, (Math.random() - .5) * .3); l.castShadow = true; p.add(l); }
+  return p; }
+plant(-6.2, -1.4, 1.2); plant(3.9, -1.6, .9);
+// paper art + stars on the wall
+const artCols = ['#ffb3c7', '#bfe3ff', '#fff0a6', '#c9f2dc'];
+[[-6.6, 2.4], [-2.7, 3.7], [6.6, 3.1], [-6.6, 3.6]].forEach(([x, y], i) => {
+  const t = canvasTex(256, 256, (g, w, h) => { g.fillStyle = artCols[i % 4]; g.fillRect(0, 0, w, h); g.lineWidth = 14; g.lineCap = 'round';
+    g.strokeStyle = ['#ff6f91', '#4aa8ff', '#ffb000', '#3fae5e'][i % 4]; g.beginPath(); if (i % 2) { g.arc(128, 128, 70, 0, 7); } else { g.moveTo(40, 200); g.lineTo(128, 50); g.lineTo(216, 200); g.closePath(); } g.stroke();
+    g.fillStyle = '#ffd84d'; g.beginPath(); g.arc(200, 60, 26, 0, 7); g.fill(); });
+  const a = new THREE.Mesh(new THREE.PlaneGeometry(.8, .8), mat(0xffffff, { map: t })); a.position.set(x, y, WALL_Z + .03); a.rotation.z = (i % 2 ? .06 : -.05); scene.add(a);
+});
+const starShape = new THREE.Shape(); for (let i = 0; i < 10; i++) { const r = i % 2 ? .07 : .16, a = i / 10 * Math.PI * 2 + Math.PI / 2; i ? starShape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : starShape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+const starGeo = new THREE.ExtrudeGeometry(starShape, { depth: .03, bevelEnabled: false });
+[[-3.2, 4.1], [3.95, 4.15], [-1.6, 3.85], [5.6, 4.0], [-5.6, 4.25]].forEach(([x, y], i) => { const s = new THREE.Mesh(starGeo, mat([0xffc93c, 0xff6f91, 0x5fd8a8][i % 3], { emissive: 0x332200 })); s.position.set(x, y, WALL_Z + .03); scene.add(s); });
+// rug under Elli
+const rugTex = canvasTex(512, 512, (g, w, h) => { const cols = ['#ff8fb1', '#ffd84d', '#7cc8ff', '#8ee3b8', '#c9a8ff', '#fff3d6']; for (let i = 0; i < 6; i++) { g.fillStyle = cols[i]; g.beginPath(); g.arc(256, 256, 250 - i * 40, 0, 7); g.fill(); } });
+const rug = new THREE.Mesh(new THREE.CircleGeometry(1.5, 48), mat(0xffffff, { map: rugTex, roughness: 1 })); rug.rotation.x = -Math.PI / 2; rug.position.set(-1.6, .01, 1.15); rug.receiveShadow = true; scene.add(rug);
+// kid desks + chairs in the foreground (seen mostly in portrait)
+function desk(x, z, c) { const d = new THREE.Group(); d.position.set(x, 0, z); scene.add(d);
+  box(1.2, .07, .7, mat(0xf2c38a), 0, .72, 0, d, .02); for (const [lx, lz] of [[-.52, -.28], [.52, -.28], [-.52, .28], [.52, .28]]) box(.06, .72, .06, mat(c), lx, .36, lz, d);
+  const ch = new THREE.Group(); ch.position.set(0, 0, .65); d.add(ch); box(.55, .06, .5, mat(c), 0, .45, 0, ch, .02); box(.55, .5, .06, mat(c), 0, .72, .24, ch, .02);
+  for (const [lx, lz] of [[-.23, -.2], [.23, -.2], [-.23, .2], [.23, .2]]) box(.04, .45, .04, mat(0x8a6a50), lx, .22, lz, ch);
+  const paper = new THREE.Mesh(new THREE.PlaneGeometry(.35, .45), mat(0xffffff)); paper.rotation.set(-Math.PI / 2, 0, .2); paper.position.set(-.15, .76, 0); d.add(paper);
+  const pencil = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .3, 6), mat(0xffc93c)); pencil.rotation.set(Math.PI / 2, 0, -.6); pencil.position.set(.25, .77, 0); d.add(pencil);
+  return d; }
+desk(-4.2, 3.4, 0x4aa8ff); desk(4.6, 3.2, 0xff6f91);
+// soft dust motes in the sunlight
+const motesGeo = new THREE.BufferGeometry(); const mp = new Float32Array(120 * 3); for (let i = 0; i < 120; i++) { mp[i * 3] = -6 + Math.random() * 5; mp[i * 3 + 1] = Math.random() * 4; mp[i * 3 + 2] = -1.8 + Math.random() * 3; }
+motesGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
+const motes = new THREE.Points(motesGeo, new THREE.PointsMaterial({ color: 0xfff2c8, size: .035, transparent: true, opacity: .7, depthWrite: false })); scene.add(motes);
+
+// ============================ Elli ============================
+const ELLI_POS = new THREE.Vector3().copy(ELLI_SPOT.land);
+function placeElli() { boardG.position.y = BOARD.y; ELLI_POS.copy(camBase.portrait ? ELLI_SPOT.port : ELLI_SPOT.land); elli.group.position.x = ELLI_POS.x; elli.group.position.z = ELLI_POS.z; rug.position.set(ELLI_POS.x, .01, ELLI_POS.z); }
+const elli = { group: new THREE.Group(), vrm: null, mixer: null, acts: {}, oneShot: null, standIn: null,
+  st: { point: 0, talk: 0, turn: .28, blink: 0, lean: 0, nod: 0 }, mood: { name: 'warm', at: 0 }, gaze: new THREE.Object3D(), pointAt: new THREE.Vector3(), kind: 'loading' };
+elli.group.position.copy(ELLI_POS); elli.group.scale.setScalar(1.1); scene.add(elli.group); placeElli(); scene.add(elli.gaze);
+const MIXAMO = { Hips: 'hips', Spine: 'spine', Spine1: 'chest', Spine2: 'upperChest', Neck: 'neck', Head: 'head', LeftShoulder: 'leftShoulder', LeftArm: 'leftUpperArm', LeftForeArm: 'leftLowerArm', LeftHand: 'leftHand',
+  RightShoulder: 'rightShoulder', RightArm: 'rightUpperArm', RightForeArm: 'rightLowerArm', RightHand: 'rightHand', LeftUpLeg: 'leftUpperLeg', LeftLeg: 'leftLowerLeg', LeftFoot: 'leftFoot', LeftToeBase: 'leftToes',
+  RightUpLeg: 'rightUpperLeg', RightLeg: 'rightLowerLeg', RightFoot: 'rightFoot', RightToeBase: 'rightToes' };
+// Mixamo -> VRM retarget (same approach as web/public/games/cookoff/opus-ila/main.js)
+function retarget(vrm, clip, root) {
+  const legacy = String(vrm.meta?.metaVersion ?? '').startsWith('0'); const tracks = []; const qi = new THREE.Quaternion(), qp = new THREE.Quaternion(), q = new THREE.Quaternion();
+  const srcHips = root.getObjectByName('mixamorigHips') || root.getObjectByName('mixamorig:Hips');
+  const hipsNode = vrm.humanoid.getNormalizedBoneNode('hips'); const restY = vrm.humanoid.normalizedRestPose?.hips?.position?.[1] ?? hipsNode.position.y;
+  const hipScale = srcHips?.position.y ? restY / srcHips.position.y : .01;
+  for (const tr of clip.tracks) {
+    const rig = tr.name.slice(0, tr.name.lastIndexOf('.')), prop = tr.name.slice(tr.name.lastIndexOf('.') + 1);
+    const bone = MIXAMO[rig.replace(/^.*\|/, '').replace(/^mixamorig[:_]?/, '')]; if (!bone) continue;
+    const node = vrm.humanoid.getNormalizedBoneNode(bone); if (!node) continue;
+    if (prop === 'quaternion') {
+      const src = root.getObjectByName(rig.replace(/^.*\|/, ''));
+      if (src) { src.getWorldQuaternion(qi).invert(); src.parent ? src.parent.getWorldQuaternion(qp) : qp.identity(); } else { qi.identity(); qp.identity(); }
+      const v = new Float32Array(tr.values); for (let i = 0; i < v.length; i += 4) { q.fromArray(v, i).premultiply(qp).multiply(qi); if (legacy) { q.x *= -1; q.z *= -1; q.normalize(); } q.toArray(v, i); }
+      tracks.push(new THREE.QuaternionKeyframeTrack(`${node.name}.quaternion`, tr.times, v));
+    } else if (prop === 'position' && bone === 'hips') {
+      const v = new Float32Array(tr.values); const [bx, by, bz] = [v[0], v[1], v[2]];
+      for (let i = 0; i < v.length; i += 3) { const dx = (v[i] - bx) * hipScale, dy = (v[i + 1] - by) * hipScale, dz = (v[i + 2] - bz) * hipScale;
+        v[i] = hipsNode.position.x + (legacy ? -dx : dx); v[i + 1] = hipsNode.position.y + dy; v[i + 2] = hipsNode.position.z + (legacy ? -dz : dz); }
+      tracks.push(new THREE.VectorKeyframeTrack(`${node.name}.position`, tr.times, v));
+    }
+  }
+  return new THREE.AnimationClip(clip.name, clip.duration, tracks);
+}
+const CLIPS = ['idle_stand', 'wave', 'surprise_jump', 'ponder_moment', 'dance_victory', 'silly_dancing'];
+async function loadElli() {
+  if (Q.has('standin')) throw new Error('standin requested');
+  const loader = new GLTFLoader(); loader.register(p => new VRMLoaderPlugin(p));
+  const gltf = await loader.loadAsync(VRM_URL);
+  const vrm = gltf.userData.vrm; if (!vrm) throw new Error('not a VRM');
+  VRMUtils.removeUnnecessaryVertices(gltf.scene); VRMUtils.combineSkeletons?.(gltf.scene); VRMUtils.rotateVRM0(vrm);
+  vrm.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+  elli.group.add(vrm.scene); elli.vrm = vrm; if (vrm.lookAt) vrm.lookAt.target = elli.gaze;
+  const fbx = new FBXLoader(); const mx = new THREE.AnimationMixer(vrm.scene);
+  const results = await Promise.allSettled(CLIPS.map(async n => { const root = await fbx.loadAsync(`${ANIM_DIR}${n}.fbx`); const raw = root.animations.find(c => c.tracks.length > 0); if (!raw) throw new Error('no_tracks:' + n); elli.acts[n] = mx.clipAction(retarget(vrm, raw, root)); }));
+  results.forEach((r, i) => { if (r.status === 'rejected') console.warn(' 🎮 [elli-classroom] [clip] [missing]', CLIPS[i], r.reason?.message); });
+  Object.entries(elli.acts).forEach(([n, a]) => { if (n !== 'idle_stand') { a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; } });
+  elli.acts.idle_stand?.play();
+  mx.addEventListener('finished', e => { if (elli.oneShot && e.action === elli.acts[elli.oneShot]) { e.action.fadeOut(.3); elli.acts.idle_stand?.reset().fadeIn(.3).play(); elli.oneShot = null; } });
+  elli.mixer = mx; elli.kind = 'vrm';
+  log('[elli] [loaded] vrm=' + VRM_URL + ' clips=' + Object.keys(elli.acts).join(','));
+}
+// stylized stand-in when the VRM can't load (e.g. the page is served from its own folder)
+function buildStandIn() {
+  const g = new THREE.Group(); const skin = mat(0xffe0cc), hair = mat(0x6b4a7a), dress = mat(0xff8fb1), white = mat(0xffffff);
+  const body = new THREE.Mesh(new THREE.ConeGeometry(.42, 1.0, 24), dress); body.position.y = .62; g.add(body);
+  const top = new THREE.Mesh(new THREE.CapsuleGeometry(.2, .3, 6, 16), white); top.position.y = 1.12; g.add(top);
+  const head = new THREE.Group(); head.position.y = 1.48; g.add(head);
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(.24, 32, 24), skin));
+  const h = new THREE.Mesh(new THREE.SphereGeometry(.27, 32, 24, 0, Math.PI * 2, 0, Math.PI * .6), hair); h.position.set(0, .03, -.02); head.add(h);
+  for (const sx of [-1, 1]) { const tail = new THREE.Mesh(new THREE.CapsuleGeometry(.08, .45, 6, 12), hair); tail.position.set(sx * .27, -.2, -.05); tail.rotation.z = sx * .2; head.add(tail);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.045, 16, 12), mat(0x3a2340)); eye.position.set(sx * .085, .0, .215); eye.scale.y = 1.4; head.add(eye); }
+  const mouth = new THREE.Mesh(new THREE.SphereGeometry(.03, 12, 8), mat(0xd9506b)); mouth.position.set(0, -.1, .225); head.add(mouth);
+  for (const sx of [-1, 1]) { const legM = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .35, 10), skin); legM.position.set(sx * .14, .17, 0); g.add(legM); }
+  const arms = {}; for (const sx of [-1, 1]) { const pivot = new THREE.Group(); pivot.position.set(sx * .24, 1.28, 0); g.add(pivot); const a = new THREE.Mesh(new THREE.CapsuleGeometry(.05, .5, 4, 10), skin); a.position.y = -.3; pivot.add(a); pivot.rotation.z = sx * .15; arms[sx] = pivot; }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.scale.setScalar(.82); elli.group.add(g); elli.standIn = { g, head, mouth, arms }; elli.kind = 'standin';
+  log('[elli] [stand-in] [active]');
+}
+function gesture(name) {
+  if (elli.kind === 'standin') { const g = elli.standIn.g; tween(g.position, 'y', .35, .2).then(() => tween(g.position, 'y', 0, .3, ease.back)); return; }
+  const a = elli.acts[name]; if (!a || !elli.mixer) return;
+  Object.values(elli.acts).forEach(x => x !== a && x.fadeOut(.25)); a.reset().fadeIn(.25).play(); elli.oneShot = name;
+}
+/** Idle life on top of the animation: breathing, slow weight shifts, small head drift, the wait-time lean and a nod. */
+function presence(dt) {
+  const h = elli.vrm?.humanoid; if (!h) return;
+  // bones the animation drives are rewritten every frame, so offsets just add; any other bone gets last frame's offset taken back first
+  if (!elli.driven) { elli.driven = new Set(); Object.values(elli.acts).forEach(a => a.getClip().tracks.forEach(t => elli.driven.add(t.name))); elli.offsets = []; }
+  for (const [node, prop, axis, v] of elli.offsets) node[prop][axis] -= v; elli.offsets = [];
+  const add = (name, prop, axis, v) => { const node = h.getNormalizedBoneNode(name); if (!node || !v) return; node[prop][axis] += v;
+    if (!elli.driven.has(`${node.name}.${prop === 'rotation' ? 'quaternion' : 'position'}`)) elli.offsets.push([node, prop, axis, v]); };
+  elli.st.nod = Math.max(0, elli.st.nod - dt * 1.6);
+  const mood = elli.mood.name, tilt = mood === 'thinking' || mood === 'curious' ? .08 : 0;
+  add('chest', 'rotation', 'x', Math.sin(T * 1.55) * .018);                                   // breathing
+  add('hips', 'rotation', 'z', Math.sin(T * .37) * .025);                                     // slow weight shift
+  add('spine', 'rotation', 'z', -Math.sin(T * .37) * .02);
+  add('spine', 'rotation', 'x', elli.st.lean * .16); add('neck', 'rotation', 'x', elli.st.lean * .08);   // wait-time lean
+  add('head', 'rotation', 'y', Math.sin(T * .53) * .035 + Math.sin(T * 1.31) * .012);
+  add('head', 'rotation', 'z', Math.sin(T * .41) * .03 + tilt);
+  add('head', 'rotation', 'x', Math.sin(elli.st.nod * Math.PI * 2) * .12 + (mood === 'thinking' ? .04 : 0));   // nod
+}
+function expr(name, v) { try { elli.vrm?.expressionManager?.setValue(name, v); } catch { /* model without that expression */ } }
+// point the arm nearest the board at a board spot: solve the upper-arm rotation in its parent frame, blend by st.point
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _qid = new THREE.Quaternion();
+function applyPoint() {
+  const w = elli.st.point; if (w < .001) return;
+  if (elli.kind === 'standin') { const p = elli.standIn.arms[1]; p.rotation.z = THREE.MathUtils.lerp(.15, 2.2, w); p.rotation.x = THREE.MathUtils.lerp(0, -.4, w); return; }
+  const h = elli.vrm.humanoid, up = h.getNormalizedBoneNode('leftUpperArm'), lo = h.getNormalizedBoneNode('leftLowerArm'); if (!up || !lo) return;
+  elli.group.updateMatrixWorld(true);
+  const axis = _v.copy(lo.position).normalize();                                   // the bone's rest direction in its own frame
+  up.parent.getWorldQuaternion(_q2); const inv = _q2.clone().invert();
+  up.getWorldPosition(_v2); const dir = elli.pointAt.clone().sub(_v2).normalize().applyQuaternion(inv);
+  _q.setFromUnitVectors(axis, dir); up.quaternion.slerp(_q, w); lo.quaternion.slerp(_qid, w * .85);
+}
+
+// ============================ the board's drawing state ============================
+const LINE_Y = 640, LX = 190, RX = BW - 190;
+const COL = { low: '#4aa8ff', lowDeep: '#1f6fd1', high: '#ff6f91', highDeep: '#d63a66', tail: '#f07800', chalk: '#fdfaf0' };
+const B = { line: null, houses: [], token: null, arcs: [], tallies: [], flag: null, link: null, caption: null, sparks: [], live: 0, alpha: 1 };
+let boardDirty = true;
+const xOf = n => { const L = B.line; return LX + (n - L.from) / (L.to - L.from) * (RX - LX); };
+const toBoardWorld = (bx, by) => new THREE.Vector3(BOARD.x + (bx / BW - .5) * BOARD.w, BOARD.y + (.5 - by / BH) * BOARD.h, WALL_Z + .12);
+function lowHouse() { return Math.min(...B.houses.map(h => h.n)); }
+function chalk(g, color, width) { g.strokeStyle = color; g.lineWidth = width; g.lineCap = 'round'; g.lineJoin = 'round'; g.shadowColor = color; g.shadowBlur = 10; }
+function noShadow(g) { g.shadowBlur = 0; g.shadowColor = 'transparent'; }
+function sparkle(bx, by, n = 18, colors = ['#ffd84d', '#ffffff', '#ff8fb1', '#7cc8ff']) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, s = 180 + Math.random() * 420; B.sparks.push({ x: bx, y: by, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 150, life: 1, c: colors[i % colors.length], r: 8 + Math.random() * 12 }); }
+}
+function star(g, x, y, r) { g.beginPath(); for (let i = 0; i < 10; i++) { const rr = i % 2 ? r * .45 : r, a = i / 10 * Math.PI * 2 - Math.PI / 2; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); g.fill(); }
+function houseColors(n) { return n === lowHouse() ? [COL.low, COL.lowDeep] : [COL.high, COL.highDeep]; }
+function drawHouse(g, h, t) {
+  const x = xOf(h.n), [c, deep] = houseColors(h.n);
+  g.save(); g.translate(x, LINE_Y - 4); g.scale(h.s * 1.15, h.s * 1.15);
+  if (h.glow > .01) { const pulse = .75 + .25 * Math.sin(t * 6), rg = g.createRadialGradient(0, -150, 20, 0, -150, 230); rg.addColorStop(0, `rgba(255,240,150,${.55 * h.glow * pulse})`); rg.addColorStop(1, 'rgba(255,240,150,0)'); g.fillStyle = rg; g.beginPath(); g.arc(0, -150, 230, 0, 7); g.fill(); }
+  if (h.hint > .01) { g.strokeStyle = `rgba(255,255,255,${.55 * h.hint * (.6 + .4 * Math.sin(t * 5))})`; g.lineWidth = 8; g.setLineDash([18, 16]); g.beginPath(); g.roundRect(-135, -300, 270, 310, 30); g.stroke(); g.setLineDash([]); }
+  g.fillStyle = c; g.beginPath(); g.roundRect(-100, -175, 200, 175, 14); g.fill();
+  g.fillStyle = deep; g.beginPath(); g.moveTo(-128, -165); g.lineTo(0, -290); g.lineTo(128, -165); g.closePath(); g.fill();
+  g.fillStyle = '#fff6d8'; g.beginPath(); g.arc(0, -205, 26, 0, 7); g.fill();                       // round attic window
+  g.fillStyle = '#7a4b2e'; g.beginPath(); g.roundRect(56, -78, 34, 78, [17, 17, 0, 0]); g.fill();    // door
+  g.fillStyle = '#ffffff'; g.font = '700 78px Fredoka, system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 10; g.strokeStyle = deep; const label = String(h.n); g.strokeText(label, -14, -92); g.fillText(label, -14, -92);
+  g.restore();
+}
+function drawToken(g, tk, t) {
+  const x = xOf(tk.v), y = LINE_Y - 94 - tk.hop;
+  g.save(); g.translate(x, y); g.scale(1.15 * tk.s * (1 + tk.squash * .15), 1.15 * tk.s * (1 - tk.squash * .15));
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(0, 78 + tk.hop, Math.max(1, 60 * (1 - tk.hop / 400)), 12, 0, 0, 7); g.fill();
+  const gr = g.createRadialGradient(-22, -26, 10, 0, 0, 80); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#ffe7a3'); g.fillStyle = gr;
+  g.shadowColor = tk.glow > .01 ? '#ffe066' : 'transparent'; g.shadowBlur = 50 * tk.glow; g.beginPath(); g.arc(0, 0, 76, 0, 7); g.fill(); noShadow(g);
+  g.lineWidth = 7; g.strokeStyle = '#ffffff'; g.stroke();
+  // digits: house part in the low-house colour, the rest (the "steps" part) in orange; flipping digits squash through 0
+  const s = tk.label, to = tk.to, n = s.length, lead = n - B.line.tens;
+  g.font = `700 ${n > 2 ? 62 : 78}px Fredoka, system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const wch = n > 2 ? 38 : 46;
+  for (let i = 0; i < n; i++) {
+    const dx = (i - (n - 1) / 2) * wch; const changes = to && to[i] !== s[i]; const k = changes ? tk.flip : 0;
+    const showTo = k > .5; const ch = showTo ? to[i] : s[i]; const sy = Math.abs(Math.cos(Math.PI * k)) || .02;
+    g.save(); g.translate(dx, 4); if (i < lead && tk.lead > 0) g.scale(1 + tk.lead * .35, 1 + tk.lead * .35); g.scale(1, sy);
+    g.fillStyle = showTo ? (i < lead ? COL.highDeep : '#22a06b') : (i < lead ? COL.lowDeep : COL.tail);
+    g.fillText(ch, 0, 0); g.restore();
+  }
+  g.restore();
+}
+/** Place-value board: one column per digit (100s, 10s, 1s), the digit, and base-ten blocks that build up with pv.p. */
+const PV_COL = { 100: ['#b38bff', '#7d55d6'], 10: ['#4aa8ff', '#1f6fd1'], 1: ['#ff9f43', '#e07000'] };
+function pvColumns(pv) { const places = pv.digits.length === 3 ? [100, 10, 1] : pv.digits.length === 2 ? [10, 1] : [1]; const w = BW / (places.length + .4);
+  return places.map((place, i) => ({ place, digit: +pv.digits[i], x: BW / 2 + (i - (places.length - 1) / 2) * w, w })); }
+function drawPlaceValue(g, pv, t) {
+  g.globalAlpha = B.alpha * Math.min(1, pv.p * 3);
+  for (const col of pvColumns(pv)) {
+    const [c, deep] = PV_COL[col.place], lit = pv.focus === col.place, pulse = lit ? .6 + .4 * Math.sin(t * 6) : 0;
+    if (lit) { g.fillStyle = `rgba(255,236,140,${.18 + .12 * pulse})`; g.beginPath(); g.roundRect(col.x - col.w / 2 + 30, 40, col.w - 60, BH - 80, 40); g.fill(); }
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = COL.chalk; g.font = '700 64px Fredoka, system-ui'; g.fillText(col.place + 's', col.x, 105);
+    g.font = '700 190px Fredoka, system-ui'; g.lineWidth = 14; g.strokeStyle = deep; g.fillStyle = c; g.strokeText(String(col.digit), col.x, 270); g.fillText(String(col.digit), col.x, 270);
+    const k = Math.max(0, Math.min(1, pv.p * 1.15 - .15)), shown = Math.round(col.digit * k);
+    for (let i = 0; i < shown; i++) {
+      g.fillStyle = c; g.strokeStyle = deep; g.lineWidth = 3;
+      if (col.place === 100) { const s = 168, x = col.x - 1.5 * (s + 14) + (i % 3) * (s + 14), y = 400 + Math.floor(i / 3) * (s + 14);
+        g.fillRect(x, y, s, s); for (let j = 1; j < 10; j++) { g.beginPath(); g.moveTo(x + j * s / 10, y); g.lineTo(x + j * s / 10, y + s); g.moveTo(x, y + j * s / 10); g.lineTo(x + s, y + j * s / 10); g.stroke(); } }
+      else if (col.place === 10) { const w = 46, h = 500, x = col.x - (Math.min(col.digit, 9) * (w + 14)) / 2 + i * (w + 14), y = 410;
+        g.fillRect(x, y, w, h); for (let j = 1; j < 10; j++) { g.beginPath(); g.moveTo(x, y + j * h / 10); g.lineTo(x + w, y + j * h / 10); g.stroke(); } }
+      else { const s = 92, x = col.x - 1.5 * (s + 20) + (i % 3) * (s + 20), y = 430 + Math.floor(i / 3) * (s + 20); g.fillRect(x, y, s, s); g.strokeRect(x, y, s, s); }
+    }
+  }
+  g.globalAlpha = 1;
+}
+function arcPoint(a, k) { const x0 = xOf(a.a), x1 = xOf(a.b), y0 = LINE_Y + 18, cx = (x0 + x1) / 2, cy = y0 + a.depth; const u = 1 - k; return [u * u * x0 + 2 * u * k * cx + k * k * x1, u * u * y0 + 2 * u * k * cy + k * k * y0]; }
+function drawBoard(t) {
+  const g = bg; g.globalAlpha = 1; g.drawImage(boardBg, 0, 0); noShadow(g);
+  if (B.pv) drawPlaceValue(g, B.pv, t);
+  if (B.piece && !B.piece.broken) { g.save(); g.globalAlpha = B.alpha * B.piece.alpha; try { B.piece.fn(g, BW, BH, t - B.piece.since, B.piece.st, t); }
+    catch (e) { B.piece.broken = true; console.error(' 🎮 [elli-classroom] [piece] [draw-failed]', B.piece.id, e?.message); } g.restore(); noShadow(g); g.globalAlpha = 1; }
+  if (!B.line) { for (const s of B.sparks) { g.globalAlpha = Math.max(0, s.life) * B.alpha; g.fillStyle = s.c; star(g, s.x, s.y, s.r); } g.globalAlpha = 1; return; }
+  g.globalAlpha = B.alpha;
+  const L = B.line, lineEnd = LX - 60 + (RX - LX + 120) * L.p;
+  // the number road
+  chalk(g, COL.chalk, 12); g.beginPath(); g.moveTo(LX - 60, LINE_Y); g.lineTo(lineEnd, LINE_Y); g.stroke();
+  if (L.p > .98) { for (const [x, d] of [[LX - 60, -1], [RX + 60, 1]]) { g.beginPath(); g.moveTo(x - d * 28, LINE_Y - 22); g.lineTo(x, LINE_Y); g.lineTo(x - d * 28, LINE_Y + 22); g.stroke(); } }
+  for (let v = L.from; v <= L.to + 1e-6; v += L.tick) {
+    const x = xOf(v); if (x > lineEnd) break; const end = v === L.from || v === L.to, mid = Math.abs(v - (L.from + L.to) / 2) < 1e-6 && L.tick > 1;
+    chalk(g, COL.chalk, end ? 10 : 6); const hh = end ? 34 : mid ? 26 : 18; g.beginPath(); g.moveTo(x, LINE_Y - hh); g.lineTo(x, LINE_Y + hh); g.stroke();
+  }
+  noShadow(g);
+  // halfway flag
+  if (B.flag) { const f = B.flag, x = xOf(f.n); g.save(); g.translate(x, LINE_Y); g.scale(1, f.s);
+    chalk(g, '#ffd84d', 6); g.setLineDash([14, 12]); g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -250); g.stroke(); g.setLineDash([]); noShadow(g);
+    g.fillStyle = '#ffd84d'; g.beginPath(); g.moveTo(0, -260); g.lineTo(190, -212); g.lineTo(0, -164); g.closePath(); g.fill();
+    g.fillStyle = '#3a2340'; g.font = '700 60px Fredoka, system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(f.n), 74, -210); g.restore(); }
+  for (const h of B.houses) drawHouse(g, h, t);
+  // tens link: dotted chalk from the token's lead digit to the low house
+  if (B.link && B.token) { const lk = B.link, x0 = xOf(B.token.v) - 20, y0 = LINE_Y - 160, x1 = xOf(lowHouse()) + 20, y1 = LINE_Y - 300;
+    g.globalAlpha = B.alpha * (1 - lk.fade); chalk(g, '#9fd3ff', 8); g.setLineDash([4, 22]); g.beginPath(); const steps = 40; for (let i = 0; i <= steps * lk.p; i++) { const k = i / steps, u = 1 - k, cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - 170; g.lineTo(u * u * x0 + 2 * u * k * cx + k * k * x1, u * u * y0 + 2 * u * k * cy + k * k * y1); } g.stroke(); g.setLineDash([]); noShadow(g); g.globalAlpha = B.alpha; }
+  // step arcs + counts
+  for (const a of B.arcs) {
+    chalk(g, a.color, a.unit ? 7 : 9); g.beginPath(); const steps = 24; for (let i = 0; i <= steps * a.p; i++) { const [x, y] = arcPoint(a, i / steps); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); noShadow(g);
+    if (a.p > .97) { const [x, y] = arcPoint(a, 1), [px, py] = arcPoint(a, .9), ang = Math.atan2(y - py, x - px); g.fillStyle = a.color; g.save(); g.translate(x, y); g.rotate(ang); g.beginPath(); g.moveTo(4, 0); g.lineTo(-20, -11); g.lineTo(-20, 11); g.closePath(); g.fill(); g.restore(); }
+    if (a.label && a.lab > .01) { const [x] = arcPoint(a, .5); g.save(); g.translate(x, LINE_Y + 18 + a.depth / 2 + 44); g.scale(a.lab, a.lab); g.fillStyle = a.color; g.font = '700 54px Fredoka, system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(a.label, 0, 0); g.restore(); }
+  }
+  // running totals (the "how many steps" bubble)
+  for (const tl of B.tallies) { g.save(); g.translate(tl.x, LINE_Y + 250); g.scale(tl.s * (1 + tl.win * .18 * (.8 + .2 * Math.sin(t * 6))), tl.s * (1 + tl.win * .18 * (.8 + .2 * Math.sin(t * 6))));
+    if (tl.win > .01) { const rg = g.createRadialGradient(0, 0, 60, 0, 0, 115); rg.addColorStop(0, `rgba(255,236,140,${.7 * tl.win})`); rg.addColorStop(1, 'rgba(255,236,140,0)'); g.fillStyle = rg; g.beginPath(); g.arc(0, 0, 115, 0, 7); g.fill(); }
+    g.fillStyle = tl.color; g.beginPath(); g.arc(0, 0, 70, 0, 7); g.fill(); g.lineWidth = 6; g.strokeStyle = '#ffffff'; g.stroke();
+    g.fillStyle = '#ffffff'; g.font = `700 ${tl.val > 9 ? 66 : 80}px Fredoka, system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(tl.val), 0, 4);
+    if (tl.win > .5) { g.fillStyle = '#ffd84d'; star(g, 70, -58, 34); }
+    g.restore(); }
+  if (B.token) drawToken(g, B.token, t);
+  // caption: "87 -> 90"
+  if (B.caption && B.caption.s > .01) { const c = B.caption; g.save(); g.translate(BW / 2, 120); g.scale(c.s, c.s);
+    g.fillStyle = 'rgba(255,255,255,.1)'; g.beginPath(); g.roundRect(-330, -80, 660, 160, 80); g.fill();
+    g.font = '700 110px Fredoka, system-ui'; g.textBaseline = 'middle'; g.textAlign = 'right'; g.fillStyle = COL.chalk; g.fillText(c.from, -90, 6);
+    g.textAlign = 'left'; g.fillStyle = '#ffd84d'; g.fillText(c.to, 90, 6);
+    chalk(g, '#ffd84d', 12); g.beginPath(); g.moveTo(-60, 4); g.lineTo(50, 4); g.moveTo(22, -24); g.lineTo(54, 4); g.lineTo(22, 32); g.stroke(); noShadow(g); g.restore(); }
+  // sparkles
+  for (const s of B.sparks) { g.globalAlpha = Math.max(0, s.life) * B.alpha; g.fillStyle = s.c; star(g, s.x, s.y, s.r); }
+  g.globalAlpha = 1;
+}
+
+// ============================ the teaching tools (the API a tutor model would call) ============================
+const ticker = $('ticker');
+const tools = {
+  /** Chalk a number road from `from` to `to`. Tick spacing is 1 for small spans, 10 for hundreds. */
+  async drawNumberLine(from, to) {
+    B.pv = null; B.piece = null; const span = to - from; B.line = { from, to, tick: span <= 20 ? 1 : 10, p: 0, tens: span <= 20 ? 1 : 2 };
+    elliFocus(BW / 2, LINE_Y); await tween(B.line, 'p', 1, 1.3, ease.inOut);
+  },
+  /** Put a house on the road at `n` (a round number: a "tens house" or "hundreds house"). */
+  async placeHouse(n) {
+    const h = { n, s: 0, glow: 0, hint: 0 }; B.houses.push(h); elliFocus(xOf(n), LINE_Y - 150);
+    await tween(h, 's', 1, .6, ease.back); sparkle(xOf(n), LINE_Y - 150, 10);
+  },
+  /** Drop the number buddy for `n` onto the road. Its house digit is blue, its step digits are orange. */
+  async placeNumber(n) {
+    B.token = { n, v: n, s: 0, hop: 420, squash: 0, label: String(n), to: null, flip: 0, glow: 0, lead: 0 };
+    elliFocus(xOf(n), LINE_Y - 100);
+    tween(B.token, 's', 1, .3); await tween(B.token, 'hop', 0, .55, k => 1 - Math.abs(Math.cos(k * Math.PI * 1.5)) * (1 - k));
+    B.token.squash = 1; await tween(B.token, 'squash', 0, .3);
+  },
+  /** Show "where's the tens": the lead digit grows and a dotted chalk line ties it to the low house. */
+  async showTens(n) {
+    if (!B.token) return; B.link = { p: 0, fade: 0 }; elliFocus(xOf(lowHouse()), LINE_Y - 200);
+    await tween(B.token, 'lead', 1, .35, ease.back); await tween(B.link, 'p', 1, .9, ease.inOut);
+    const h = B.houses.find(x => x.n === lowHouse()); if (h) { h.glow = 1; await wait(.5); tween(h, 'glow', 0, .6); }
+    await tween(B.token, 'lead', 0, .4); tween(B.link, 'fade', 1, .8).then(() => { B.link = null; });
+  },
+  /** Plant a yellow flag at the middle of the two houses. */
+  async markHalfway(a, b) { B.flag = { n: (a + b) / 2, s: 0 }; elliFocus(xOf(B.flag.n), LINE_Y - 200); await tween(B.flag, 's', 1, .6, ease.back); },
+  /** Count steps from `n` to `target` with chalk hops (single steps up to 12, then hops of ten). Returns the count. */
+  async countSteps(n, target) {
+    const dir = Math.sign(target - n), dist = Math.abs(target - n), color = target === lowHouse() ? '#8fd0ff' : '#ffa3bd';
+    const tally = { x: xOf((n + target) / 2), val: 0, color: target === lowHouse() ? COL.low : COL.high, s: 0, win: 0, target };
+    B.tallies.push(tally); tween(tally, 's', 1, .35, ease.back);
+    const hops = []; let v = n;
+    if (dist <= 12) { for (let i = 0; i < dist; i++) hops.push([v, v += dir]); }
+    else { const firstTen = dir > 0 ? Math.ceil((v + 1e-9) / 10) * 10 : Math.floor((v - 1e-9) / 10) * 10; if (firstTen !== v) hops.push([v, v = firstTen]); while (v !== target) hops.push([v, v += dir * 10]); }
+    for (const [a, b] of hops) {
+      const unit = Math.abs(b - a), arc = { a, b, p: 0, color, unit: dist <= 12, depth: dist <= 12 ? 120 : 70 + unit * 5, label: dist <= 12 ? String(tally.val + 1) : '', lab: 0 };
+      B.arcs.push(arc); elliFocus(xOf(b), LINE_Y + 40);
+      await tween(arc, 'p', 1, dist <= 12 ? .32 : .26 + unit * .015, ease.inOut);
+      tally.val += unit; tween(arc, 'lab', 1, .25, ease.back);
+    }
+    tally.s = 1.15; tween(tally, 's', 1, .3); return dist;
+  },
+  /** Light up the house that is fewer steps away (compares the two step tallies). */
+  async showCloser(n) {
+    const [a, b] = B.tallies.slice(-2); if (!a || !b) return; const win = a.val <= b.val ? a : b;
+    tween(win, 'win', 1, .4, ease.back); const h = B.houses.find(x => x.n === win.target); if (h) tween(h, 'glow', 1, .4);
+    sparkle(win.x, LINE_Y + 250, 16); elliFocus(win.x, LINE_Y + 200); await wait(.6);
+  },
+  /** The number buddy hops to `target`, lands ON the house, and its digits flip to the house's number (ones -> 0). */
+  async walkTo(n, target) {
+    const tk = B.token; if (!tk) return; const dist = Math.abs(target - n), dir = Math.sign(target - n);
+    const stops = []; let v = n;
+    if (dist <= 12) { while (v !== target) stops.push(v += dir); } else { const first = dir > 0 ? Math.ceil(v / 10) * 10 : Math.floor(v / 10) * 10; if (first !== v) stops.push(v = first); while (v !== target) stops.push(v += dir * 10); }
+    for (const s of stops) { elliFocus(xOf(s), LINE_Y - 100); const from = tk.v; const hop = { k: 0 };
+      await new Promise(res => { tween(hop, 'k', 1, .3, ease.linear).then(res); const upd = () => { tk.v = from + (s - from) * hop.k; tk.hop = Math.sin(hop.k * Math.PI) * 70; if (hop.k < 1) requestAnimationFrame(upd); }; upd(); });
+      tk.hop = 0; tk.squash = .8; tween(tk, 'squash', 0, .18); }
+    const h = B.houses.find(x => x.n === target); if (h) tween(h, 'glow', 1, .3);
+    sparkle(xOf(target), LINE_Y - 120, 26); await wait(.3);
+    tk.to = String(target).padStart(tk.label.length, '0'); tk.glow = 1; await tween(tk, 'flip', 1, .7, ease.inOut);
+    sparkle(xOf(target), LINE_Y - 90, 20, ['#7af0b8', '#ffffff', '#ffd84d']);
+    B.caption = { from: String(n), to: String(target), s: 0 }; await tween(B.caption, 's', 1, .5, ease.back);
+  },
+  /** Wipe the board clean. */
+  async clearBoard() { await tween(B, 'alpha', 0, .5); Object.assign(B, { line: null, pv: null, piece: null, houses: [], token: null, arcs: [], tallies: [], flag: null, link: null, caption: null, sparks: [] }); B.alpha = 1; },
+  /** Place-value board (takes the whole board): a column per digit (100s, 10s, 1s) with base-ten blocks. `focus` (100, 10 or 1) makes one column glow. */
+  async showPlaceValue(n, focus) {
+    const digits = String(Math.abs(Math.round(n))).slice(-3);
+    if (B.pv && B.pv.digits === digits) { B.pv.focus = focus || null; boardDirty = true; await wait(.6); return; }
+    if (B.line || B.pv || B.piece) await tools.clearBoard();
+    B.pv = { digits, p: 0, focus: focus || null }; elliFocus(BW / 2, BH / 2); await tween(B.pv, 'p', 1, 1.6, ease.inOut);
+    sparkle(BW / 2, 270, 14);
+  },
+  /** A board piece the tutor drew itself (lesson.pieces[id]); takes the whole board. `st` is the state its code draws from. */
+  async showPiece(id, st = {}) {
+    const piece = PIECES[id]; if (!piece) { console.warn(' 🎮 [elli-classroom] [piece] [missing]', id); return; }
+    if (B.line || B.pv || (B.piece && B.piece.id !== id)) await tools.clearBoard();
+    B.piece = { id, fn: piece, st, since: T, alpha: B.piece?.id === id ? 1 : 0 }; log('[piece] [show]', id, JSON.stringify(st));
+    const pt = Array.isArray(st.point) ? st.point : [BW / 2, BH / 2]; elliFocus(pt[0], pt[1]);
+    if (B.piece.alpha < 1) await tween(B.piece, 'alpha', 1, .5); else await wait(.4);
+  },
+  /** A video clip plays full screen (a story moment or the reward). Resolves when it ends. */
+  async playClip(id) {
+    const file = VIDEOS[id]; if (!file) { console.warn(' 🎮 [elli-classroom] [clip] [missing]', id); return; }
+    const box = $('clip'); const isVideo = /\.mp4$/.test(file);
+    box.innerHTML = isVideo ? `<video src="${voiceBase + file}" playsinline autoplay></video>` : `<img src="${voiceBase + file}">`; box.classList.add('on'); log('[clip] [play]', id);
+    await new Promise(res => { const guard = setTimeout(res, isVideo ? 15000 : 4000); const v = box.querySelector('video');
+      if (v) { v.onended = v.onerror = () => { clearTimeout(guard); res(); }; v.play?.().catch(e => { console.warn(' 🎮 [elli-classroom] [clip] [blocked]', e?.message); }); } });
+    box.classList.remove('on'); box.innerHTML = '';
+  },
+  /** Confetti and a victory dance. */
+  async celebrate() { confetti(); gesture('dance_victory'); await wait(1.6); },
+  /** Elli asks; Ila types a number on a big number pad. `answer` null = no right answer (she says what she thinks). Resolves with { choice, correct }. */
+  async askNumber(text, answer) {
+    const heard = askAloud(text); B.live++;
+    const pad = $('pad'), shown = pad.querySelector('.shown'), keys = pad.querySelector('.keys'); let typed = '', done; const t0 = performance.now();
+    const result = new Promise(res => { done = res; });
+    shown.textContent = ''; keys.innerHTML = ''; pad.classList.remove('right', 'wrong');
+    for (const k of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '⌫', '✓']) { const b = document.createElement('button'); b.textContent = k; b.dataset.key = k; if (k === '✓') b.className = 'ok';
+      b.addEventListener('click', () => { if (k === '⌫') typed = typed.slice(0, -1); else if (k === '✓') { if (typed) done(typed); return; } else if (typed.length < 4) typed += k; shown.textContent = typed; }); keys.append(b); }
+    await heard; await wait(beat() + .2); pad.classList.add('on'); state.waiting = true; const stopWait = waitTime();
+    if (AUTO) { const wrongFirst = AUTO === 'wrong' && !state.autoWrongUsed; state.autoWrongUsed = true; const v = String(answer == null ? 5 : wrongFirst ? +answer + 10 : answer);
+      setTimeout(() => { for (const ch of v) pad.querySelector(`[data-key="${ch}"]`)?.click(); pad.querySelector('[data-key="✓"]')?.click(); }, 2600); }
+    const given = await result; stopWait(); const correct = answer == null ? null : +given === +answer; state.waiting = false;
+    record('number', text, null, answer, given, correct, t0); bubble.classList.remove('on');
+    if (QUIET) { setMood('warm'); elli.st.nod = 1; }
+    else if (correct) { pad.classList.add('right'); setMood('surprised'); gesture('surprise_jump'); confetti(); setTimeout(() => setMood('happy'), 350 / SPEED); }
+    else if (correct === false) { pad.classList.add('wrong'); setMood('gentle'); elli.st.nod = 1; } else setMood('happy');
+    await wait(.55); pad.classList.remove('on'); B.live--; await wait(.3);
+    return { choice: given, correct: correct !== false };
+  },
+  /** Elli says a short line in a speech bubble. */
+  async say(text, emotion) {
+    setMood(emotion || 'warm'); const words = text.split(/\s+/).length; bubble.innerHTML = text.replace(/(\d+)/g, '<b>$1</b>'); bubble.classList.add('on');
+    tween(elli.st, 'talk', 1, .15); await Promise.all([wait(.6 + words * .22), speak(text)]);
+    await tween(elli.st, 'talk', 0, .15); bubble.classList.remove('on'); await wait(beat());
+  },
+  /** Elli asks a question with big picture answers (houses). Resolves with { choice, correct }. */
+  async ask(text, choices, answer) {
+    const heard = askAloud(text); B.houses.forEach(h => tween(h, 'hint', 1, .4)); B.live++;
+    askEl.innerHTML = ''; let done;
+    const result = new Promise(res => { done = res; });
+    const t0 = performance.now();
+    for (const c of choices.slice(0, 4)) { const b = document.createElement('button'); b.className = 'card'; b.innerHTML = cardHTML(c); b.setAttribute('aria-label', String(c)); b.dataset.choice = c;
+      b.addEventListener('click', () => { if (b.classList.contains('right')) return; const correct = answer == null ? true : String(c) === String(answer); b.classList.remove('wrong'); void b.offsetWidth; if (QUIET) b.style.outline = '6px solid #9fd3ff'; else b.classList.add(correct ? 'right' : 'wrong'); done({ choice: c, correct }); }); askEl.append(b); }
+    await heard; await wait(beat() + .2); askEl.classList.add('on');
+    const words = [...askEl.querySelectorAll('.card')].filter(b => !/^[0-9]+$/.test(b.dataset.choice));
+    for (const b of words) { if (!VOICE[b.dataset.choice]) continue; b.style.outline = '6px solid #ffd84d'; await speak(b.dataset.choice); b.style.outline = ''; await wait(.15); }
+    if (words.length) log('[ask] [cards-read-aloud] n=' + words.length);
+    state.waiting = true; const stopWait = waitTime();
+    if (AUTO) { const wrongFirst = AUTO === 'wrong' && !state.autoWrongUsed; state.autoWrongUsed = true; setTimeout(() => askEl.querySelector(`[data-choice="${wrongFirst && answer != null ? choices.find(c => String(c) !== String(answer)) : answer ?? choices[0]}"]`)?.click(), 2600); }
+    const r = await result; stopWait(); state.waiting = false; log('[ask] [answered] choice=' + r.choice + ' correct=' + r.correct); record('cards', text, choices, answer, r.choice, answer == null ? null : r.correct, t0);
+    bubble.classList.remove('on');
+    if (QUIET) { setMood('warm'); elli.st.nod = 1; await wait(.45); askEl.classList.remove('on'); }
+    else if (r.correct) { setMood('surprised'); gesture('surprise_jump'); confetti(); setTimeout(() => setMood('happy'), 350 / SPEED); await wait(.45); askEl.classList.remove('on'); }
+    else { setMood('gentle'); elli.st.nod = 1; await wait(.45); askEl.classList.remove('on'); }
+    B.houses.forEach(h => tween(h, 'hint', 0, .3)); B.live--; await wait(.35);
+    return r;
+  },
+  /** Elli plays a body animation: wave, surprise_jump, ponder_moment, dance_victory, silly_dancing. */
+  async gesture(name) { gesture(name); await wait(.2); },
+};
+function cardHTML(c) {
+  if (typeof c === 'number' && B.houses.some(h => h.n === c)) return houseSVG(c);
+  const s = String(c); return `<div class="big${/^[0-9]+$/.test(s) ? '' : ' word'}">${s.replace(/[<>&]/g, '')}</div>`;
+}
+/** Every answer she gives, for the parent's report and for the tutor to read back. */
+function saveAnswers() {
+  const name = (new URLSearchParams(location.search).get('lesson') || 'demo').replace(/\/lesson\.json$/, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '');
+  const blob = new Blob([JSON.stringify({ lesson: name, savedAt: new Date().toISOString(), answers: state.answers }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `answers-${name}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`; a.click();
+  log('[answers] [saved]', a.download, 'n=' + state.answers.length);
+}
+function record(kind, question, choices, answer, given, correct, t0) {
+  const row = { kind, question, choices, answer, given, correct, seconds: Math.round((performance.now() - t0) / 100) / 10 }; state.answers.push(row);
+  log('[answer] [recorded]', JSON.stringify(row)); try { localStorage.setItem('elli-classroom-answers', JSON.stringify(state.answers)); } catch { /* private window */ }
+}
+function houseSVG(n) {
+  const [c, deep] = n === lowHouse() ? [COL.low, COL.lowDeep] : [COL.high, COL.highDeep];
+  return `<svg viewBox="0 0 200 200"><ellipse cx="100" cy="186" rx="80" ry="9" fill="#00000018"/><path d="M28 96 L100 26 L172 96 Z" fill="${deep}"/><rect x="42" y="90" width="116" height="92" rx="10" fill="${c}"/>
+    <circle cx="100" cy="68" r="14" fill="#fff6d8"/><rect x="128" y="136" width="22" height="46" rx="11" fill="#7a4b2e"/>
+    <text x="90" y="142" font-family="Fredoka,system-ui" font-weight="700" font-size="${String(n).length > 2 ? 40 : 48}" text-anchor="middle" fill="#fff" stroke="${deep}" stroke-width="6" paint-order="stroke">${n}</text></svg>`;
+}
+const bubble = $('bubble'), askEl = $('ask');
+const VOICE = {}, VIDEOS = {}, PIECES = {}; let QUIET = false; let voiceBase = '';
+let audioCtx = null, analyser = null, levelBuf = null; const voice = { level: 0, playing: false };
+function hookLipSync(a) {
+  try { audioCtx ||= new AudioContext(); if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    if (!analyser) { analyser = audioCtx.createAnalyser(); analyser.fftSize = 512; levelBuf = new Uint8Array(analyser.fftSize); analyser.connect(audioCtx.destination); }
+    audioCtx.createMediaElementSource(a).connect(analyser); }
+  catch (e) { console.warn(' 🎮 [elli-classroom] [lipsync] [unavailable]', e?.message); }
+}
+function voiceLevel() { if (!analyser || !voice.playing) return 0; analyser.getByteTimeDomainData(levelBuf); let sum = 0; for (const v of levelBuf) { const x = (v - 128) / 128; sum += x * x; } return Math.min(1, Math.sqrt(sum / levelBuf.length) * 5); }
+/** A short, slightly uneven pause between beats so she never ticks like a metronome. */
+function beat() { return .18 + Math.random() * .32; }
+/** Faces: the tutor names the feeling per line; these are the VRM expressions that make it. */
+const MOODS = { warm: { happy: .35 }, happy: { happy: .85 }, excited: { happy: 1, surprised: .25 }, proud: { happy: .9, relaxed: .2 }, surprised: { surprised: .8, happy: .2 },
+  thinking: { relaxed: .45 }, curious: { happy: .25, surprised: .15 }, gentle: { relaxed: .5, happy: .2 }, sad: { sad: .55 }, neutral: {} };
+const MOOD_KEYS = ['happy', 'surprised', 'relaxed', 'sad'];
+function setMood(name) { elli.mood = { name: MOODS[name] ? name : 'warm', at: T }; }
+/** Elli asks: she looks at the kid, a curious face, and the answers appear only after she has finished asking. */
+function askAloud(text) {
+  setMood('curious'); bubble.innerHTML = text; bubble.classList.add('on'); tween(elli.st, 'talk', 1, .15);
+  return Promise.race([speak(text), wait(1.2 + text.split(/\s+/).length * .25)]).then(() => tween(elli.st, 'talk', 0, .2));
+}
+/** Wait time: if she is still thinking after 10 s, Elli leans in with a warm face, no words (and again at 25 s). */
+function waitTime() {
+  const timers = [10, 25].map(sec => setTimeout(() => { if (!state.waiting) return; log('[wait] [lean-in] after=' + sec + 's'); setMood('gentle');
+    tween(elli.st, 'lean', 1, .6, ease.inOut).then(() => wait(2.2)).then(() => tween(elli.st, 'lean', 0, .8, ease.inOut)); elli.st.nod = 1; }, sec * 1000 / SPEED));
+  return () => { timers.forEach(clearTimeout); tween(elli.st, 'lean', 0, .4); };
+}
+function speak(text) {
+  const file = VOICE[text]; if (!file) return Promise.resolve();
+  return new Promise(res => { const a = new Audio(voiceBase + file); hookLipSync(a); a.onplay = () => { voice.playing = true; }; const guard = setTimeout(() => { voice.playing = false; res(); }, 15000);
+    a.onended = a.onerror = () => { voice.playing = false; clearTimeout(guard); res(); }; a.play().catch(e => { console.warn(' 🎮 [elli-classroom] [voice] [blocked]', e?.message); clearTimeout(guard); res(); }); });
+}
+function elliFocus(bx, by) { const p = toBoardWorld(bx, by); elli.pointAt.copy(p); focusTarget.copy(p); }
+const focusTarget = new THREE.Vector3();
+
+// ============================ the demo lesson (a fixed script of tool calls) ============================
+// In Sunny, an AI tutor would choose these calls and Elli's words from live context; this is one hand-written run.
+const LESSON = [
+  ['gesture', 'wave'], ['say', 'Hi Ila!'], ['say', "Let's find a home for 87."],
+  ['drawNumberLine', 80, 90], ['say', 'Here is the number road.'],
+  ['placeHouse', 80], ['placeHouse', 90], ['say', 'Two houses. 80 and 90.'],
+  ['placeNumber', 87], ['say', '87 lives here.'],
+  ['showTens', 87], ['say', 'See the 8? That is the 80 house.'],
+  ['ask', 'Which house is closer?', [80, 90], 90],
+  ['countSteps', 87, 80], ['say', '7 steps back.'],
+  ['countSteps', 87, 90], ['say', 'Only 3 steps!'],
+  ['showCloser', 90], ['say', '3 is less. 90 wins!'],
+  ['walkTo', 87, 90], ['say', 'We land ON the house.'], ['say', 'No steps left. So 7 turns to 0!'],
+  ['gesture', 'silly_dancing'], ['clearBoard'], ['say', 'Now big houses!'],
+  ['drawNumberLine', 200, 300], ['placeHouse', 200], ['placeHouse', 300],
+  ['placeNumber', 278], ['showTens', 278], ['say', 'The 2 means the 200 house.'],
+  ['markHalfway', 200, 300], ['say', 'The middle is 250.'],
+  ['ask', 'Which house is closer?', [200, 300], 300],
+  ['countSteps', 278, 200], ['say', '78 steps back. Far!'],
+  ['countSteps', 278, 300], ['say', 'Just 22 steps!'],
+  ['showCloser', 300], ['walkTo', 278, 300], ['say', '278 goes to 300!'],
+  ['gesture', 'dance_victory'], ['say', 'You did it, Ila!'],
+];
+const state = { step: -1, tool: '', waiting: false, done: false, autoWrongUsed: false, events: [], answers: [] };
+async function run(script, depth = 0) {
+  state.done = false;
+  for (let i = 0; i < script.length; i++) {
+    const [name, ...args] = script[i]; state.step = i; state.tool = name;
+    ticker.textContent = `${name}(${args.map(a => JSON.stringify(a)).join(', ')})`;
+    state.events.push(name + ':' + args.join(',')); log('[tool] [call]', ticker.textContent);
+    const fn = tools[name]; if (!fn) { console.warn(' 🎮 [elli-classroom] [tool] [unknown]', name); continue; }
+    const pointy = /^(showPiece|showPlaceValue|drawNumberLine|placeHouse|placeNumber|showTens|markHalfway|countSteps|walkTo|showCloser)$/.test(name);
+    if (pointy) { tween(elli.st, 'point', 1, .35); tween(elli.st, 'turn', .62, .5, ease.inOut); }
+    const nArgs = name === 'ask' ? 3 : name === 'askNumber' ? 2 : -1;
+    const branches = nArgs > 0 && args[nArgs] && typeof args[nArgs] === 'object' && !Array.isArray(args[nArgs]) ? args[nArgs] : null;
+    const result = await fn(...(nArgs > 0 ? args.slice(0, nArgs) : args));
+    if (branches) { const next = result?.correct ? branches.right : branches.wrong; if (Array.isArray(next) && depth < 3) await run(next, depth + 1); }
+    if (pointy && !/^(drawNumberLine|placeHouse|placeNumber|showTens|markHalfway|countSteps|walkTo|showCloser)$/.test(script[i + 1]?.[0] || '')) { tween(elli.st, 'point', 0, .4); tween(elli.st, 'turn', .28, .6, ease.inOut); }
+  }
+  if (depth) return;
+  ticker.textContent = ''; state.done = true; state.tool = 'done'; $('replay').classList.add('on'); $('report').classList.add('on'); log('[lesson] [done] answers=' + state.answers.length); if (!AUTO && state.answers.length) saveAnswers();
+}
+$('report').addEventListener('click', () => { const box = $('reportBox'); box.classList.toggle('on');
+  box.innerHTML = '<b>Her answers</b> (tap to close) <button id="saveAns" style="margin-left:12px;font-size:15px">💾 Save</button><table>' + state.answers.map((a, i) => `<tr><td>${i + 1}</td><td>${a.question}</td><td>${a.choices ? a.choices.join(' / ') : 'number pad'}</td><td>said <b>${a.given}</b></td><td>${a.correct == null ? 'her view' : a.correct ? '✅' : '❌ (' + a.answer + ')'}</td><td>${a.seconds}s</td></tr>`).join('') + '</table>'; });
+$('reportBox').addEventListener('click', e => { if (e.target.id === 'saveAns') { e.stopPropagation(); saveAnswers(); return; } $('reportBox').classList.remove('on'); });
+$('replay').addEventListener('click', () => { $('replay').classList.remove('on'); state.autoWrongUsed = false; state.answers = []; tools.clearBoard().then(() => run(currentScript)).catch(e => console.error(' 🎮 [elli-classroom] [lesson] [failed]', e)); });
+let currentScript = LESSON;
+window.ElliClassroom = { tools, run, LESSON, state, voice, mood: () => elli.mood.name, lean: () => elli.st.lean };
+
+// ============================ confetti (screen space) ============================
+const conf = [];
+function confetti() { const W = innerWidth, cols = ['#ff6f91', '#ffc93c', '#5fd8a8', '#4aa8ff', '#b38bff'];
+  for (let i = 0; i < 120; i++) conf.push({ x: W / 2 + (Math.random() - .5) * W * .4, y: innerHeight * .75, vx: (Math.random() - .5) * 900, vy: -500 - Math.random() * 700, r: Math.random() * 6, vr: (Math.random() - .5) * 12, c: cols[i % 5], life: 1.8 }); }
+function drawConfetti(dt) {
+  const d = devicePixelRatio; fx2.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+  for (let i = conf.length - 1; i >= 0; i--) { const p = conf[i]; p.vy += 1100 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt; p.life -= dt; if (p.life <= 0) { conf.splice(i, 1); continue; }
+    fx2.save(); fx2.translate(p.x * d, p.y * d); fx2.rotate(p.r); fx2.fillStyle = p.c; fx2.globalAlpha = Math.min(1, p.life * 2); fx2.fillRect(-6 * d, -4 * d, 12 * d, 8 * d); fx2.restore(); }
+}
+
+// ============================ main loop ============================
+const clockR = new THREE.Timer(); let T = 0, nextBlink = 2;
+const cardsPoint = new THREE.Vector3(), headPos = new THREE.Vector3(), camTarget = new THREE.Vector3().copy(camBase.center), gazeCam = new THREE.Vector3();
+function frame() {
+  // One bad frame must never stop the lesson (11/26: a negative shadow radius froze it at placeNumber).
+  try { frameBody(); } catch (error) { console.error(' 🎮 [elli-classroom] [frame] [failed]', error); }
+  requestAnimationFrame(frame);
+}
+function frameBody() {
+  clockR.update(); const rawDt = Math.min(.05, clockR.getDelta()), dt = rawDt * SPEED; T += dt;
+  stepTweens(dt);
+  // board sparks
+  for (let i = B.sparks.length - 1; i >= 0; i--) { const s = B.sparks[i]; s.vy += 900 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt * 1.4; if (s.life <= 0) B.sparks.splice(i, 1); }
+  if (tweens.length || B.sparks.length || B.live || B.houses.some(h => h.glow > .01) || B.tallies.some(t => t.win > .01) || B.pv?.focus || B.piece || boardDirty) { drawBoard(T); boardTex.needsUpdate = true; boardDirty = false; }
+  // Elli: turn toward the board while teaching, look at the spot (or at Ila when talking/asking)
+  elli.group.rotation.y = elli.st.turn;
+  const lookingAtIla = elli.st.talk > .5 && elli.st.point < .5;
+  gazeCam.copy(camera.position);
+  // while she waits for an answer, Elli mostly watches the kid and now and then glances down at the answers
+  if (state.waiting && T > (elli.glanceAt || 0)) { elli.glance = !elli.glance && Math.random() < .5; elli.glanceAt = T + (elli.glance ? .9 : 2 + Math.random() * 2.5); }
+  const gazeTo = state.waiting ? (elli.glance ? cardsPoint.set(camera.position.x, .55, camera.position.z - 1.2) : gazeCam) : lookingAtIla ? gazeCam : focusTarget;
+  elli.gaze.position.lerp(gazeTo, 1 - Math.pow(.002, rawDt));
+  if (elli.kind === 'vrm') {
+    elli.mixer?.update(dt); applyPoint(); presence(dt);
+    const lvl = voiceLevel(); voice.smooth = THREE.MathUtils.lerp(voice.smooth || 0, lvl, 1 - Math.pow(.0001, rawDt));
+    const flap = voice.playing && analyser ? voice.smooth : elli.st.talk * (.25 + .55 * Math.abs(Math.sin(T * 13) * Math.sin(T * 7.3)));
+    expr('aa', Math.min(1, flap)); expr('oh', Math.min(.6, flap * .5 * (.5 + .5 * Math.sin(T * 9))));
+    const want = MOODS[elli.mood.name] || MOODS.warm; elli.face ||= {};
+    for (const k of MOOD_KEYS) { elli.face[k] = THREE.MathUtils.lerp(elli.face[k] || 0, (want[k] || 0) * (k === 'happy' ? 1 - Math.min(.5, flap) : 1), 1 - Math.pow(.02, rawDt)); expr(k, elli.face[k]); }
+    if (T > nextBlink) { elli.st.blink = 1; nextBlink = T + (Math.random() < .2 ? .28 : 2.2 + Math.random() * 3.8); } elli.st.blink = Math.max(0, elli.st.blink - dt * 7); expr('blink', Math.sin(elli.st.blink * Math.PI));
+    elli.vrm.update(dt);
+    elli.vrm.humanoid.getNormalizedBoneNode('head')?.getWorldPosition(headPos);
+  } else if (elli.kind === 'standin') {
+    const s = elli.standIn; s.g.position.y = Math.max(s.g.position.y, 0) + 0; s.head.rotation.z = Math.sin(T * 1.6) * .05; s.mouth.scale.set(1, 1 + elli.st.talk * 2.5 * Math.abs(Math.sin(T * 13)), 1);
+    applyPoint(); if (elli.st.point < .001) { s.arms[1].rotation.z = .15; s.arms[1].rotation.x = 0; } s.head.getWorldPosition(headPos);
+  } else headPos.set(ELLI_POS.x, 1.5, ELLI_POS.z);
+  // camera: gentle breathing drift, leaning a touch toward the action
+  const lean = THREE.MathUtils.clamp((focusTarget.x - camBase.center.x) * .03, -.1, .1);
+  camTarget.set(camBase.center.x + lean, camBase.center.y, camBase.center.z);
+  camera.position.set(camTarget.x + Math.sin(T * .23) * .12, camTarget.y + .35 + Math.sin(T * .31) * .05, camTarget.z + camBase.dist);
+  camera.lookAt(camTarget);
+  mHand.parent.rotation.z = 0; mHand.rotation.z = -T * .2; hHand.rotation.z = -T * .02;
+  motes.rotation.y = Math.sin(T * .05) * .05; motes.position.y = Math.sin(T * .3) * .05;
+  // speech bubble follows Elli's head
+  const sp = headPos.clone().add(new THREE.Vector3(.05, .32, 0)).project(camera);
+  if (camBase.portrait) { const hp = headPos.clone().project(camera); bubble.style.left = Math.min(innerWidth - bubble.offsetWidth - 12, (hp.x + 1) / 2 * innerWidth + 70) + 'px'; bubble.style.top = ((1 - hp.y) / 2 * innerHeight) + 'px'; }
+  else { const bw = bubble.offsetWidth / 2 + 12; const bx = THREE.MathUtils.clamp((sp.x + 1) / 2 * innerWidth, bw, innerWidth - bw), by = Math.max(bubble.offsetHeight + 60, (1 - sp.y) / 2 * innerHeight);
+  bubble.style.left = bx + 'px'; bubble.style.top = by + 'px'; }
+  drawConfetti(rawDt);
+  renderer.render(scene, camera);
+}
+
+// ============================ boot ============================
+(async () => {
+  try { await Promise.race([document.fonts.load('700 80px Fredoka'), new Promise(r => setTimeout(r, 2500))]); } catch (e) { console.warn(' 🎮 [elli-classroom] [font] [fallback]', e?.message); }
+  drawBoard(0); boardTex.needsUpdate = true;
+  try { await loadElli(); } catch (e) { console.warn(' 🎮 [elli-classroom] [elli] [vrm-unavailable] using stand-in:', e?.message); buildStandIn(); }
+  elliFocus(BW / 2, BH / 2); elli.gaze.position.copy(camera.position);
+  requestAnimationFrame(frame);
+  $('loading').classList.add('done');
+  const lessonUrl = new URLSearchParams(location.search).get('lesson');
+  let script = LESSON;
+  if (lessonUrl) {
+    const lesson = await (await fetch(lessonUrl)).json(); script = lesson.steps; Object.assign(VOICE, lesson.voice || {}); Object.assign(VIDEOS, lesson.clips || {}); QUIET = lesson.quiet === true; if (QUIET) log('[lesson] [quiet] no right/wrong reactions');
+    for (const [id, code] of Object.entries(lesson.pieces || {})) { try { PIECES[id] = new Function('g', 'W', 'H', 'k', 's', 't', code); log('[piece] [compiled]', id); } catch (e) { console.error(' 🎮 [elli-classroom] [piece] [compile-failed]', id, e?.message); } }
+    const from = Q.get('from');   // for us: jump ahead. A step number, or 'reward' = just before the last clip
+    if (from) { const lastClip = script.map(st => st[0]).lastIndexOf('playClip'); const at = from === 'reward' ? Math.max(0, lastClip - 2) : +from || 0; script = script.slice(at); log('[lesson] [jump] from=' + at); }
+    voiceBase = lessonUrl.replace(/[^/]*$/, ''); log('[lesson] [loaded]', lessonUrl, 'steps=' + script.length);
+    if (!AUTO) { const go = document.createElement('button'); go.textContent = '▶'; go.setAttribute('aria-label', 'start');
+      go.style.cssText = 'position:fixed;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:180px;height:180px;border-radius:50%;border:8px solid #fff;background:#f6a83b;color:#fff;font-size:80px;z-index:50;cursor:pointer';
+      document.body.append(go); await new Promise(r => go.addEventListener('click', r, { once: true })); go.remove(); }
+  }
+  await wait(.8);
+  currentScript = script;
+  await run(script);
+})().catch(e => console.error(' 🎮 [elli-classroom] [boot] [failed]', e));
+</script>
+</body>
+</html>
