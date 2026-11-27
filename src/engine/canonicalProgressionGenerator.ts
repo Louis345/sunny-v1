@@ -436,7 +436,15 @@ function bindLibraryGame(cycle: LearningCycleRecordV2, node: LearningCycleNodeCo
   const items = cycle.domain === "spelling"
     ? Object.values(node.evidenceContract.spellingItems ?? {}).map(item => ({ itemId: item.id, prompt: item.word, answer: item.word }))
     : Object.values(node.evidenceContract.itemContracts ?? {}).flatMap(item => { const answer = answerOf(item); return answer === undefined ? [] : [{ itemId: item.id, prompt: item.prompt, answer }]; });
-  const { html, matchedItemIds, unmatchedTargets } = libraryGameHtml({ id, childId: cycle.childId, nodeId: node.nodeId, items, rootDir: opts.rootDir });
+  const { html, matchedItemIds, unmatchedTargets, assets } = libraryGameHtml({ id, childId: cycle.childId, nodeId: node.nodeId, homeworkId: cycle.homeworkId, items, rootDir: opts.rootDir });
+  // Elli's Classroom (owner, 2026-11-27): the lesson's voice and clips sit beside the stop's page, where her homework's
+  // file route serves them; they are copies of her own lesson folder, so they stay in her context like the page.
+  if (assets.length) {
+    const dir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "games", cycle.homeworkId);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const asset of assets) fs.copyFileSync(asset.from, path.join(dir, asset.name));
+    console.log(` 🎮 [classroom] [assets] [copied] node=${node.nodeId} files=${assets.length}`);
+  }
   const problems = gameProblems(html, cycle.domain);
   console.log(` 🎮 [library-game] [filled] node=${node.nodeId} game=${id} items=${items.length} matched=${matchedItemIds.length} unmatched=${unmatchedTargets.length} checks=${problems.length ? problems.join("|") : "clean"}`);
   // A game none of her items reach would record nothing: that stop degrades to Not ready instead.

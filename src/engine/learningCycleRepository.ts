@@ -22,7 +22,7 @@ import {
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { validateVisualLearnerArtifactConfig } from "../shared/visualLearnerArtifactConfig";
 import { validateActivityEngineConfig, validateLetterRushConfig } from "./activityEngineConfig";
-import type { LibraryGameId } from "./libraryGames";
+import { libraryGameForStep, type LibraryGameId } from "./libraryGames";
 import {
   assertPublishedBoardsImmutable,
   boardOwningNode,
@@ -1446,7 +1446,9 @@ function prepareSuccessorBoard(
     // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
     // A game and mode from the menu is set up fresh for this step's words, the way the Teaching board sets it up.
     // A library game is served as it is: no menu setup and no built-in re-run behind it (owner, 2026-11-11).
-    const libraryGame = prescription.libraryGame && (role === "quest" || role === "boss") ? prescription.libraryGame : undefined;
+    // Where a library game may stand is one rule (libraryGameForStep): a Quest or Boss game on its encounter, Elli's
+    // Classroom (owner, 2026-11-27) on an ordinary step.
+    const libraryGame = libraryGameForStep(prescription.libraryGame, role);
     const fresh = libraryGame ? undefined : spelling?.activity;
     let freshSetup: Record<string, unknown> | undefined, freshReady = Boolean(fresh);
     if (fresh) {
@@ -1478,7 +1480,7 @@ function prepareSuccessorBoard(
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
       ...(prescription.reward ? { implementationType: "mystery" as LearningCycleNodeContract["implementationType"] }
-        // No implementationType: the stop launches as its Quest/Boss role, served from where bindGeneratedHtml writes it.
+        // No implementationType: the stop launches as its role (Quest/Boss, or an ordinary step for the Classroom), served from where bindGeneratedHtml writes it.
         : libraryGame ? { libraryGame }
         : source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] }
         : builtForHer ? { implementationType: "generated-game" as LearningCycleNodeContract["implementationType"] } : {}),

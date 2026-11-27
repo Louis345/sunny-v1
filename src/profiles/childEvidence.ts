@@ -45,6 +45,8 @@ export const CHILD_EVIDENCE_SOURCES: Record<string, EvidenceSource> = {
   "probe_targets.md": { where: "probe_targets.md", read: ["read_record: about_her"] },
   "tutoring": { where: "tutoring/processed/* (tutor notes)", read: ["read_record: about_her"] },
   "teaching_notes.md": { where: "teaching_notes.md (a parent or tutor, dated)", read: ["question: teaching notes, read first", "read_record: teaching_notes"] },
+  "classroom": { where: "classroom/<lessonId>/{meta,lesson}.json + voice/clips: Elli's Classroom lessons made for her outside Sunny (owner, 2026-11-27)",
+    read: ["question: library games on the menu (the lesson's title, concept and date)"], excluded: "the lesson itself is teaching content, not an observation of her; her answers in it reach her record through the game bridge" },
   "engagement_theory.json": { where: "engagement_theory.json", read: ["question: child chart context (engagement evidence)"] },
   "care_plan": { where: "care_plan/current.json", read: ["read_record: prior_plan"] },
   "plans": { where: "plans/active_session_plan.json", read: ["read_record: prior_plan"] },

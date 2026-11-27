@@ -1077,8 +1077,8 @@ async function askPlanner(
     const ownerNote=activeOwnerNote({childId:cycle.childId,subject:cycle.domain});
     const encounterOffered=actions.some(action=>action==="generate_quest"||action==="generate_boss");
     // The 3D games are always on the menu (owner, 2026-11-25); an owner note is only a dated fact beside them.
-    const library=libraryGameOffer({subject:cycle.domain,encounterOffered});
-    console.log(` 🎮 [library-game] [offered] homework=${cycle.homeworkId} subject=${cycle.domain} games=${library.games.map(game=>game.id).join(",")||"none"} placeable=${encounterOffered}`);
+    const library=libraryGameOffer({subject:cycle.domain,encounterOffered,childId:cycle.childId,rootDir:opts.rootDir});
+    console.log(` 🎮 [library-game] [offered] homework=${cycle.homeworkId} subject=${cycle.domain} games=${library.games.map(game=>`${game.id}:${game.role}`).join(",")||"none"} placeable=${encounterOffered}`);
     const libraryFacts={libraryGames:{games:library.games,...(ownerNote?{note:ownerNote.note}:{})}};
     const ownerNoteLine=`${ownerNote?`A note from her parent for this week: ${ownerNote.note}\n`:""}${library.line}`;
     // The school test as facts beside the goal (owner, 2026-11-08): how practice approaches test conditions is the Planner's call.

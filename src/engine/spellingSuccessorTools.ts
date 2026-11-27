@@ -66,7 +66,7 @@ export type SuccessorFacts = {
   pastWeeks?: PastWeeksArchive;
   /** Owner note with hand-built library games (owner, 2026-11-11), present only while a dated note is active.
    * The Planner may put one on its Quest or Boss step; nothing is inserted for it. Older frozen questions have none. */
-  libraryGames?: { note?: string; games: Array<{ id: string; title: string; role: "quest" | "boss" }> };
+  libraryGames?: { note?: string; games: Array<{ id: string; title: string; role: "quest" | "boss" | "teach" }> };
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
@@ -143,17 +143,19 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   };
   const problemOf = (state: SuccessorState, id: string) => problems?.get(id) ?? state.written?.[id];
   const missing = problems ? "problems" : "words";
-  // The 3D library games (always offered since 2026-11-25), placeable only on an encounter this question can authorize.
-  const library = (facts.libraryGames?.games ?? []).filter(game => (encounters as readonly string[]).includes(game.role));
+  // The 3D library games (always offered since 2026-11-25): a Quest or Boss game only on an encounter this question can
+  // authorize; Elli's Classroom (owner, 2026-11-27) on an ordinary step, never one that checks her on her own.
+  const library = (facts.libraryGames?.games ?? []).filter(game => game.role === "teach" || (encounters as readonly string[]).includes(game.role));
   const libraryField = library.length ? { library_game: enumOf(["none", ...library.map(game => game.id)], "none").optional()
-    .describe(`Only on your quest or boss step, and only a game whose role matches it: ${library.map(game => `${game.id} = ${game.title} (${game.role})`).join("; ")}. Sunny serves that hand-built game with this step's ${problems ? "problems" : "words"} instead of building one. none or leave out otherwise.`) } : {};
-  /** The library game the Planner put on this step, checked against its encounter. */
-  const libraryOf = (input: { library_game?: string }, encounter: Encounter | undefined): { ok: true; value: { libraryGame?: string } } | { ok: false; error: string } => {
+    .describe(`A hand-built game Sunny serves with this step's ${problems ? "problems" : "words"} instead of building one: ${library.map(game => `${game.id} = ${game.title} (${game.role === "teach" ? "teach: an ordinary step without check_first" : `${game.role}: only on the step with encounter ${game.role}`})`).join("; ")}. none or leave out otherwise.`) } : {};
+  /** The library game the Planner put on this step, checked against its encounter (one rule: libraryGameForStep). */
+  const libraryOf = (input: { library_game?: string; check_first?: boolean }, encounter: Encounter | undefined): { ok: true; value: { libraryGame?: string } } | { ok: false; error: string } => {
     const id = typeof input.library_game === "string" && input.library_game !== "none" ? input.library_game : "";
     if (!id) return { ok: true, value: {} };
     const game = library.find(row => row.id === id);
     if (!game) return { ok: false, error: `${id} is not an offered library game` };
-    if (encounter !== game.role) return { ok: false, error: `${game.title} is the ${game.role} game: put it only on the step with encounter ${game.role}` };
+    if (game.role === "teach" && (encounter || input.check_first)) return { ok: false, error: `${game.title} teaches: put it on an ordinary step without an encounter and without check_first, never on one that checks her on her own` };
+    if (game.role !== "teach" && encounter !== game.role) return { ok: false, error: `${game.title} is the ${game.role} game: put it only on the step with encounter ${game.role}` };
     return { ok: true, value: { libraryGame: id } };
   };
   const tools: PlannerTool<SuccessorState>[] = [
@@ -277,7 +279,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         const focus = typeof input.focus === "string" ? input.focus.trim() : "";
         const from = buildFromOf(input as { built_in: string; build_from?: string });
         if (!from.ok) return from;
-        const libraryGame = libraryOf(input as { library_game?: string }, encounter);
+        const libraryGame = libraryOf(input as { library_game?: string; check_first?: boolean }, encounter);
         if (!libraryGame.ok) return libraryGame;
         state.next += 1;
         const id = `${facts.idPrefix}-${state.next}`;
@@ -307,7 +309,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (!from.ok) return from;
         if (focus && fresh.get(input.built_in)?.setup.type !== "generated-game") return { ok: false, error: `focus aims a generated-game; ${input.built_in} plays as it is` };
         const encounter = input.encounter && input.encounter !== "none" ? input.encounter as Encounter : undefined;
-        const libraryGame = libraryOf(input as { library_game?: string }, encounter);
+        const libraryGame = libraryOf(input as { library_game?: string; check_first?: boolean }, encounter);
         if (!libraryGame.ok) return libraryGame;
         if (encounter) {
           if (!state.decision || encounterFor(state.decision.progressionAction) !== encounter) return { ok: false, error: `a ${encounter} step needs progression_action generate_${encounter}: decide first` };
